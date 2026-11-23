@@ -1,4 +1,4 @@
-import { CircleAlert, FolderOpen, FolderPlus, FolderX } from "lucide-react";
+import { CircleAlert, FolderOpen, FolderPlus, FolderSearch, FolderX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Constellation } from "@/components/ui/constellation";
 import { motionTokens } from "@/lib/motion";
@@ -78,17 +78,23 @@ function WorkspaceSetup({
         </motion.div>
 
         {missingPath ? (
-          <motion.p
+          <motion.div
             variants={item}
             role="status"
-            className="flex max-w-full items-start gap-2 text-left text-caption text-secondary"
+            className="grid max-w-full justify-items-center gap-1 text-caption text-secondary"
           >
-            <FolderX strokeWidth={1.5} aria-hidden className="mt-0.5 size-4 shrink-0" />
-            <span className="min-w-0">
-              지난번에 쓰던 폴더를 찾을 수 없어요.{" "}
-              <span className="font-mono break-all text-tertiary">{missingPath}</span>
-            </span>
-          </motion.p>
+            <p className="flex items-start gap-2 text-left">
+              <FolderX strokeWidth={1.5} aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">
+                지난번에 쓰던 폴더를 찾을 수 없어요.{" "}
+                <span className="font-mono break-all text-tertiary">{missingPath}</span>
+              </span>
+            </p>
+            <Button variant="ghost" size="sm" disabled={!!busy} onClick={onPick}>
+              <FolderSearch strokeWidth={1.5} aria-hidden />
+              폴더 다시 찾기
+            </Button>
+          </motion.div>
         ) : null}
 
         <motion.div variants={item} className="grid w-full gap-2">
