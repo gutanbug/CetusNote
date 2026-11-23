@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { popoverSurface } from "@/components/ui/styles";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { currentTableElement, floatingBounds } from "./floating-bounds";
 import { useEditorDom } from "./use-editor-dom";
 
 const ic = { strokeWidth: 1.5 } as const;
@@ -171,7 +172,9 @@ export function TableMenu({ editor }: { editor: Editor }) {
       pluginKey="tableMenu"
       // 글자를 고르면 서식 바(ED-FloatingToolbar)가 뜨므로 표 편집 바는 비킨다
       shouldShow={({ editor: e }) => tableToolbarActive(e)}
-      options={{ placement: "top", offset: 8 }}
+      // 표 전체 위에 붙이고(셀이 아니라 표 사각형 기준), 뒤집기·밀기는 에디터 영역 안에서만 한다
+      getReferencedVirtualElement={() => currentTableElement(editor)}
+      options={{ placement: "top", offset: 8, ...floatingBounds(editor) }}
       role="toolbar"
       aria-label="표 도구"
       aria-orientation="horizontal"
