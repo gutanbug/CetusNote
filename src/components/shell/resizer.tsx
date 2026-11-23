@@ -81,7 +81,7 @@ function Resizer({
         onWidthChange(clamp(next));
       }}
       className={cn(
-        "absolute inset-y-0 z-5 w-1.25 cursor-col-resize touch-none outline-none",
+        "absolute inset-y-0 z-5 w-1.25 cursor-col-resize touch-none outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent focus-visible:outline-solid",
         edge === "left" ? "left-0 after:left-0" : "right-0 after:right-0",
         "after:absolute after:inset-y-0 after:w-0.5 after:bg-accent after:opacity-0 after:transition-opacity after:duration-(--dur-fast)",
         "hover:after:opacity-100 focus-visible:after:opacity-100 data-dragging:after:opacity-100 force-hover:after:opacity-100",
