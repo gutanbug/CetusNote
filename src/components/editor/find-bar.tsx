@@ -34,7 +34,8 @@ export type FindBarProps = {
 
 /** UI-Input 모양 그대로 (검색 칸이라 자동 완성·맞춤법 밑줄은 끈다) */
 const fieldProps = {
-  className: cn(inputClass, "flex-1"),
+  // 격자 가운데 열을 채우고, 버튼과 같은 28px(h-7) 높이로 맞춘다
+  className: cn(inputClass, "col-start-2 h-7 min-h-7"),
   autoComplete: "off",
   spellCheck: false,
   enterKeyHint: "search",
@@ -120,37 +121,43 @@ export function FindBar({
       : `${index + 1}/${count}${count >= MAX_MATCHES ? "+" : ""}`;
 
   return (
+    // 찾기·바꾸기 두 줄을 한 격자에 올려 입력 칸 폭과 줄 맞춤을 같게 한다 (입력 칸 = 가운데 열)
     <div
       role="search"
       aria-label="페이지에서 찾기"
       data-slot="find-bar"
       onKeyDown={onKeyDown}
-      className={cn(popoverSurface, "flex w-88 flex-col gap-1 p-1.5", className)}
+      className={cn(
+        popoverSurface,
+        "grid w-88 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 p-1.5",
+        className,
+      )}
     >
-      <div className="flex items-center gap-1">
-        {editable ? (
-          <IconButton
-            label={replacing ? "바꾸기 닫기" : "바꾸기 열기"}
-            shortcut={replacing ? undefined : "⌥⌘F"}
-            aria-expanded={replacing}
-            onClick={() => setToggled({ signal: focusSignal, open: !replacing })}
-          >
-            {replacing ? <ChevronDown strokeWidth={1.5} /> : <ChevronRight strokeWidth={1.5} />}
-          </IconButton>
-        ) : null}
-        <input
-          ref={findRef}
-          aria-label="찾을 글자"
-          placeholder="찾기"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
-            e.preventDefault();
-            moveFind(editor, e.shiftKey ? -1 : 1);
-          }}
-          {...fieldProps}
-        />
+      {editable ? (
+        <IconButton
+          label={replacing ? "바꾸기 닫기" : "바꾸기 열기"}
+          shortcut={replacing ? undefined : "⌥⌘F"}
+          aria-expanded={replacing}
+          onClick={() => setToggled({ signal: focusSignal, open: !replacing })}
+          className="size-7"
+        >
+          {replacing ? <ChevronDown strokeWidth={1.5} /> : <ChevronRight strokeWidth={1.5} />}
+        </IconButton>
+      ) : null}
+      <input
+        ref={findRef}
+        aria-label="찾을 글자"
+        placeholder="찾기"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          moveFind(editor, e.shiftKey ? -1 : 1);
+        }}
+        {...fieldProps}
+      />
+      <div className="col-start-3 flex items-center gap-1">
         <span
           aria-live="polite"
           className="w-16 shrink-0 text-center text-caption text-tertiary tabular-nums"
@@ -162,6 +169,7 @@ export function FindBar({
           shortcut="⇧Enter"
           disabled={count === 0}
           onClick={() => moveFind(editor, -1)}
+          className="size-7"
         >
           <ChevronUp strokeWidth={1.5} />
         </IconButton>
@@ -170,16 +178,21 @@ export function FindBar({
           shortcut="Enter"
           disabled={count === 0}
           onClick={() => moveFind(editor, 1)}
+          className="size-7"
         >
           <ChevronDown strokeWidth={1.5} />
         </IconButton>
-        <IconButton label="찾기 닫기" shortcut="Esc" onClick={() => close(false)}>
+        <IconButton
+          label="찾기 닫기"
+          shortcut="Esc"
+          onClick={() => close(false)}
+          className="size-7"
+        >
           <X strokeWidth={1.5} />
         </IconButton>
       </div>
       {replacing && editable ? (
-        // 펼침 버튼(size-6.5) + 간격(gap-1) 만큼 들여 찾기 칸과 줄을 맞춘다
-        <div className="flex items-center gap-1 pl-7.5">
+        <>
           <input
             ref={replaceRef}
             aria-label="바꿀 글자"
@@ -194,23 +207,25 @@ export function FindBar({
             {...fieldProps}
             enterKeyHint="done"
           />
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={count === 0}
-            onClick={() => replaceCurrent(editor, replacement)}
-          >
-            바꾸기
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={count === 0}
-            onClick={() => onReplacedAll?.(replaceAll(editor, replacement))}
-          >
-            모두 바꾸기
-          </Button>
-        </div>
+          <div className="col-start-3 flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={count === 0}
+              onClick={() => replaceCurrent(editor, replacement)}
+            >
+              바꾸기
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={count === 0}
+              onClick={() => onReplacedAll?.(replaceAll(editor, replacement))}
+            >
+              모두 바꾸기
+            </Button>
+          </div>
+        </>
       ) : null}
     </div>
   );
