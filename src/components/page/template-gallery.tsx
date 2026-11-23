@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus } from "lucide-react";
+import { FileText, LayoutTemplate, Plus } from "lucide-react";
 import * as React from "react";
 import { rovingKey } from "./roving";
 import type { PreviewNode } from "./doc-preview";
@@ -157,10 +157,16 @@ function TemplateGallery({
               ))}
             </div>
             {items.length ? null : (
-              <p className="py-12 text-center text-caption text-tertiary">
-                이 분류에는 템플릿이 없어요.
-                {onCreate ? " 새 템플릿을 만들어 보세요." : ""}
-              </p>
+              // 빈 분류: 가운데 정렬한 안내(20px 아이콘 · 글 · 새 템플릿 버튼)
+              <div className="grid justify-items-center gap-3 py-12 text-center">
+                <LayoutTemplate strokeWidth={1.5} aria-hidden className="size-5 text-tertiary" />
+                <p className="text-caption text-tertiary">이 분류에는 템플릿이 없어요.</p>
+                {onCreate ? (
+                  <Button variant="secondary" size="sm" onClick={onCreate}>
+                    <Plus strokeWidth={1.5} aria-hidden />새 템플릿
+                  </Button>
+                ) : null}
+              </div>
             )}
           </div>
         </div>
