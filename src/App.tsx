@@ -11,6 +11,7 @@ import {
 } from "@/features/app/lifecycle";
 import { metaStore } from "@/features/meta";
 import { sessionStore } from "@/features/session";
+import { useAutoUpdateChecks } from "@/features/updater";
 import { useWorkspace, workspaceStore } from "@/features/workspace";
 import { MainScreen } from "@/screens/main/main-screen";
 import { SetupScreen } from "@/screens/setup/setup-screen";
@@ -77,6 +78,7 @@ export default function App() {
   useLoadPagesOnOpen();
   useSaveOnClose();
   useAutoBackupOnOpen();
+  useAutoUpdateChecks();
   useExternalChanges();
   useSessionLoad();
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));

@@ -1,0 +1,150 @@
+import { createStore } from "zustand/vanilla";
+import type { UpdateInfo, Updater } from "@/lib/updater/types";
+import { isNewerVersion } from "./version";
+
+/** 업데이트 상태 (SYS-07). idle = 아직 확인 안 함 */
+export type UpdateStatus = "idle" | "checking" | "latest" | "available" | "downloading" | "error";
+
+export type CheckResult =
+  | { kind: "available"; update: UpdateInfo }
+  | { kind: "latest" }
+  | { kind: "error"; message: string };
+
+export type UpdaterState = {
+  currentVersion: string | null;
+  status: UpdateStatus;
+  /** 새 버전 정보 (available·downloading·설치 실패일 때) */
+  update: UpdateInfo | null;
+  /** 내려받기 진행률 0–100, 모르면 null */
+  progress: number | null;
+  /** 오류가 난 단계 — 다시 시도할 동작을 고른다 */
+  errorStep: "check" | "install" | null;
+  error: string | null;
+  /** 마지막 확인을 시도한 시각(ms). 하루 간격 확인에 쓴다 */
+  checkedAt: number | null;
+  /** 알림(토스트)을 이미 보여 준 버전 */
+  notifiedVersion: string | null;
+};
+
+export type UpdaterStore = UpdaterState & {
+  /** 새 버전이 있는지 확인한다. silent면 오류를 화면에 남기지 않는다 */
+  check(options?: { silent?: boolean }): Promise<CheckResult>;
+  /** 찾은 업데이트를 내려받아 설치하고, 저장을 마친 뒤 앱을 다시 연다 */
+  install(): Promise<void>;
+  /** 설치된 버전을 읽어 currentVersion에 넣는다(설정 화면을 열 때 쓴다) */
+  loadVersion(): Promise<void>;
+  markNotified(version: string): void;
+};
+
+export const CHECK_ERROR_MESSAGE = "업데이트를 확인하지 못했어요. 인터넷 연결을 확인해 주세요.";
+export const INSTALL_ERROR_MESSAGE = "업데이트를 내려받지 못했어요. 다시 시도해 주세요.";
+export const SAVE_BEFORE_RESTART_MESSAGE =
+  "저장하지 못한 변경이 있어 업데이트를 미뤘어요. 저장을 마친 뒤 다시 시도해 주세요.";
+
+export type UpdaterDeps = {
+  updater: Updater;
+  /** 다시 열기 전에 남은 저장을 끝낸다. 모두 저장했으면 true */
+  flush: () => Promise<boolean>;
+  now?: () => number;
+};
+
+export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDeps) {
+  let inflight: Promise<CheckResult> | null = null;
+
+  return createStore<UpdaterStore>()((set, get) => {
+    const currentOf = async () => {
+      const known = get().currentVersion;
+      if (known) return known;
+      const v = await updater.currentVersion();
+      set({ currentVersion: v });
+      return v;
+    };
+
+    const runCheck = async (silent: boolean): Promise<CheckResult> => {
+      const before = get().status;
+      set({ status: "checking", checkedAt: now(), errorStep: null, error: null });
+      try {
+        const current = await currentOf();
+        const info = await updater.check();
+        if (info && isNewerVersion(info.version, current)) {
+          set({ status: "available", update: info });
+          return { kind: "available", update: info };
+        }
+        set({ status: "latest", update: null, progress: null });
+        return { kind: "latest" };
+      } catch {
+        if (silent) {
+          // 자동 확인의 실패는 조용히 넘긴다. 이전 상태(찾은 업데이트 등)는 그대로 둔다
+          set({ status: before === "checking" ? "idle" : before });
+        } else {
+          set({ status: "error", errorStep: "check", error: CHECK_ERROR_MESSAGE });
+        }
+        return { kind: "error", message: CHECK_ERROR_MESSAGE };
+      }
+    };
+
+    return {
+      currentVersion: null,
+      status: "idle",
+      update: null,
+      progress: null,
+      errorStep: null,
+      error: null,
+      checkedAt: null,
+      notifiedVersion: null,
+      check({ silent = false } = {}) {
+        // 이미 확인 중이면 같은 결과를 기다린다(자동 확인과 버튼이 겹쳐도 한 번만 요청)
+        if (get().status === "checking" && inflight) return inflight;
+        inflight = runCheck(silent).finally(() => {
+          inflight = null;
+        });
+        return inflight;
+      },
+      async install() {
+        const info = get().update;
+        if (!info || get().status === "downloading") return;
+        set({ status: "downloading", progress: null, errorStep: null, error: null });
+        try {
+          await updater.downloadAndInstall((progress) => set({ progress }));
+        } catch {
+          set({
+            status: "error",
+            errorStep: "install",
+            progress: null,
+            error: INSTALL_ERROR_MESSAGE,
+          });
+          return;
+        }
+        // 설치는 끝났다. 남은 저장을 끝낸 뒤에만 다시 연다
+        const saved = await flush().catch(() => false);
+        if (!saved) {
+          set({
+            status: "error",
+            errorStep: "install",
+            progress: null,
+            error: SAVE_BEFORE_RESTART_MESSAGE,
+          });
+          return;
+        }
+        try {
+          await updater.relaunch();
+        } catch {
+          set({
+            status: "error",
+            errorStep: "install",
+            progress: null,
+            error: "업데이트는 설치됐어요. 앱을 직접 다시 열어 주세요.",
+          });
+        }
+      },
+      async loadVersion() {
+        await currentOf();
+      },
+      markNotified(version) {
+        set({ notifiedVersion: version });
+      },
+    };
+  });
+}
+
+export type UpdaterStoreApi = ReturnType<typeof createUpdaterStore>;

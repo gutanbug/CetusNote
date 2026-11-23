@@ -43,8 +43,8 @@ export default defineConfig([
     },
   },
   {
-    // 래퍼 계층에서만 Tauri API 허용
-    files: ["src/lib/storage/**", "src/app/**"],
+    // 래퍼 계층에서만 Tauri API 허용 (업데이트는 lib/updater가 감싼다 — SYS-07)
+    files: ["src/lib/storage/**", "src/lib/updater/**", "src/app/**"],
     rules: { "no-restricted-imports": "off" },
   },
   {

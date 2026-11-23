@@ -136,6 +136,8 @@ export type SessionState = {
   startScreen: StartScreen;
   /** 하루 한 번 워크스페이스 .backups/에 자동 백업 (DATA-05). 기본 켬 */
   autoBackup: boolean;
+  /** 앱 실행 때와 하루 한 번 새 버전이 있는지 확인 (SYS-07). 기본 켬 */
+  autoUpdateCheck: boolean;
   /** 컬렉션 레코드를 여는 기본 방식 (COLL-07). 컬렉션마다 바꿀 수 있다 */
   recordOpen: RecordOpenMode;
   /** 최근에 연 문서(새 것이 앞, 최대 10개) — 워크스페이스마다 (SHELL-03) */
@@ -165,6 +167,7 @@ export type SessionState = {
   setEditor(patch: Partial<EditorPrefs>): void;
   setStartScreen(screen: StartScreen): void;
   setAutoBackup(on: boolean): void;
+  setAutoUpdateCheck(on: boolean): void;
   setRecordOpen(mode: RecordOpenMode): void;
   open(id: string | null): void;
   /** 지금 보는 문서는 그대로 두고 최근 목록 맨 앞에만 올린다 (레코드 상세로 연 보드 카드) */
@@ -194,6 +197,7 @@ type Settings = Record<string, unknown> & {
   editor?: unknown;
   startScreen?: unknown;
   autoBackup?: unknown;
+  autoUpdateCheck?: unknown;
   recordOpen?: unknown;
   sidebarWidth?: number | null;
   recordPanelWidth?: number | null;
@@ -236,6 +240,7 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
         editor: s.editor,
         startScreen: s.startScreen,
         autoBackup: s.autoBackup,
+        autoUpdateCheck: s.autoUpdateCheck,
         recordOpen: s.recordOpen,
         workspaces,
       };
@@ -266,6 +271,7 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
       editor: DEFAULT_EDITOR,
       startScreen: "home",
       autoBackup: true,
+      autoUpdateCheck: true,
       recordOpen: "modal",
       recent: [],
       tabs: [],
@@ -298,6 +304,7 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
           editor: readEditor(settings.editor),
           startScreen: settings.startScreen === "last" ? "last" : "home",
           autoBackup: settings.autoBackup !== false,
+          autoUpdateCheck: settings.autoUpdateCheck !== false,
           recordOpen:
             settings.recordOpen === "side" || settings.recordOpen === "tab"
               ? settings.recordOpen
@@ -374,6 +381,9 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
       },
       setRecordOpen(recordOpen) {
         change({ recordOpen });
+      },
+      setAutoUpdateCheck(autoUpdateCheck) {
+        change({ autoUpdateCheck });
       },
       setAutoBackup(autoBackup) {
         change({ autoBackup });
