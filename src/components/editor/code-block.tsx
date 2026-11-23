@@ -5,7 +5,7 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from "@tiptap/react";
-import { Check, Copy } from "lucide-react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import * as React from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { focusRing } from "@/components/ui/styles";
@@ -37,6 +37,8 @@ function CodeBlockView({ node, updateAttributes, editor }: ReactNodeViewProps) {
   const text = React.useDeferredValue(node.textContent);
   const detected = React.useMemo(() => (auto ? detectLanguage(text) : undefined), [auto, text]);
   const selectId = React.useId();
+  const autoLabel = detected ? `자동 감지 · ${languageLabel(detected)}` : "자동 감지";
+  const selectedLabel = auto ? autoLabel : languageLabel(language);
 
   React.useEffect(() => {
     if (!copied) return;
@@ -59,27 +61,41 @@ function CodeBlockView({ node, updateAttributes, editor }: ReactNodeViewProps) {
         <label htmlFor={selectId} className="sr-only">
           코드 언어
         </label>
-        <select
-          id={selectId}
-          value={language}
-          disabled={!editor.isEditable}
-          onChange={(e) =>
-            updateAttributes({ language: e.target.value === AUTO_LANGUAGE ? null : e.target.value })
-          }
-          className={cn(
-            "h-6 rounded-pill bg-transparent px-2 text-label text-secondary hover:bg-hover disabled:opacity-100 force-hover:bg-hover",
-            focusRing,
-          )}
-        >
-          <option value={AUTO_LANGUAGE}>
-            {detected ? `자동 감지 · ${languageLabel(detected)}` : "자동 감지"}
-          </option>
-          {CODE_LANGUAGES.map((l) => (
-            <option key={l.value} value={l.value}>
-              {l.label}
-            </option>
-          ))}
-        </select>
+        {/* 너비는 현재 선택된 이름에 맞춘다 (숨은 복제 글자가 크기를 정하고, select는 그 칸을 채운다) */}
+        <span className="relative inline-grid">
+          <span
+            aria-hidden="true"
+            className="invisible col-start-1 row-start-1 h-6 px-2 pr-6 text-label leading-6 whitespace-pre"
+          >
+            {selectedLabel}
+          </span>
+          <select
+            id={selectId}
+            value={language}
+            disabled={!editor.isEditable}
+            onChange={(e) =>
+              updateAttributes({
+                language: e.target.value === AUTO_LANGUAGE ? null : e.target.value,
+              })
+            }
+            className={cn(
+              "col-start-1 row-start-1 h-6 w-full appearance-none rounded-pill bg-transparent pr-6 pl-2 text-label text-secondary hover:bg-hover disabled:opacity-100 force-hover:bg-hover",
+              focusRing,
+            )}
+          >
+            <option value={AUTO_LANGUAGE}>{autoLabel}</option>
+            {CODE_LANGUAGES.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            aria-hidden="true"
+            strokeWidth={1.5}
+            className="pointer-events-none absolute top-1/2 right-1.5 size-3.5 -translate-y-1/2 text-tertiary"
+          />
+        </span>
         <span className="flex-1" />
         <span aria-live="polite" className="text-label text-secondary">
           {copied ? "복사됨" : ""}
