@@ -371,19 +371,27 @@ function PageTree({
                   <FolderOpen
                     strokeWidth={1.5}
                     aria-hidden
-                    className="size-4 shrink-0 text-tertiary"
+                    className="size-3.5 shrink-0 text-tertiary"
                   />
                 ) : (
-                  <Folder strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
+                  <Folder
+                    strokeWidth={1.5}
+                    aria-hidden
+                    className="size-3.5 shrink-0 text-tertiary"
+                  />
                 )
               ) : node.kind === "collection" && !node.emoji ? (
-                <Table2 strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
+                <Table2 strokeWidth={1.5} aria-hidden className="size-3.5 shrink-0 text-tertiary" />
               ) : node.emoji ? (
                 <span aria-hidden className="w-4.5 shrink-0 text-center text-ui leading-none">
                   <PageIcon icon={node.emoji} />
                 </span>
               ) : (
-                <FileText strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
+                <FileText
+                  strokeWidth={1.5}
+                  aria-hidden
+                  className="size-3.5 shrink-0 text-tertiary"
+                />
               )}
               <span
                 id={titleId}
