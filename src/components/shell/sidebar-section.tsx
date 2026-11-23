@@ -33,7 +33,7 @@ type SidebarSectionProps = Omit<React.ComponentProps<"section">, "title"> & {
 
 /** 추가 버튼: 평소 숨김, 제목 줄에 마우스·포커스가 오거나 메뉴가 열려 있으면 보인다 */
 const actionClass =
-  "size-5.5 text-tertiary opacity-0 group-hover/head:opacity-100 focus-visible:opacity-100 data-[state=open]:bg-active data-[state=open]:opacity-100 force-hover:opacity-100 [&_svg]:size-3.5";
+  "size-6 text-tertiary opacity-0 group-hover/head:opacity-100 focus-visible:opacity-100 data-[state=open]:bg-active data-[state=open]:opacity-100 force-hover:opacity-100 [&_svg]:size-3.5";
 
 /**
  * SH-SidebarSection — 작은 라벨 제목 + 접기 (프로토타입 `.section`).
