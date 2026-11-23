@@ -2,6 +2,21 @@ import { cn } from "@/lib/utils";
 import type * as React from "react";
 import { toast as sonnerToast, Toaster as SonnerToaster } from "sonner";
 
+const focusRing =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverse-accent focus-visible:outline-solid";
+
+/** 주 버튼(실행 취소 · 다운로드 후 업데이트 · 다시 시도) — 강조 글자 색 */
+const actionButtonClass = cn(
+  "ml-1 shrink-0 rounded-pill px-2 py-1 font-medium text-inverse-accent hover:bg-inverse-fg/8 force-hover:bg-inverse-fg/8",
+  focusRing,
+);
+
+/** 보조 버튼(닫기) — 흐린 글자, 주 버튼보다 조용하다 */
+const cancelButtonClass = cn(
+  "ml-1 shrink-0 rounded-pill px-2 py-1 font-normal text-inverse-fg/70 hover:bg-inverse-fg/8 hover:text-inverse-fg force-hover:bg-inverse-fg/8 force-hover:text-inverse-fg",
+  focusRing,
+);
+
 /**
  * OV-Toast — 아래 가운데 알약 모양, 반전 배경 (프로토타입 .toast).
  * 테마는 CSS 변수로 따라가므로 sonner의 theme 기능은 쓰지 않는다.
@@ -33,10 +48,8 @@ function Toaster(props: React.ComponentProps<typeof SonnerToaster>) {
           description: "text-label text-inverse-fg/70",
           icon: "[&_svg]:size-4",
           error: "[&_[data-icon]]:text-inverse-danger",
-          actionButton: cn(
-            "ml-1 shrink-0 rounded-pill px-2 py-1 font-medium text-inverse-accent hover:bg-inverse-fg/8 force-hover:bg-inverse-fg/8",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverse-accent focus-visible:outline-solid",
-          ),
+          actionButton: actionButtonClass,
+          cancelButton: cancelButtonClass,
         },
       }}
       {...props}
@@ -47,4 +60,22 @@ function Toaster(props: React.ComponentProps<typeof SonnerToaster>) {
 /** 토스트 호출. 실행 취소가 있으면 { action: { label: "실행 취소", onClick } } */
 const toast = sonnerToast;
 
-export { toast, Toaster };
+/**
+ * 토스트 안의 「닫기」 보조 버튼. sonner의 cancel 자리에 이 요소를 넣는다.
+ * dismissible: false인 토스트는 sonner의 cancel 옵션이 동작하지 않으므로(밀어서 닫기와 함께 막힌다) 직접 그린다.
+ */
+function ToastCancelButton({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button type="button" className={cancelButtonClass} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+export { toast, Toaster, ToastCancelButton };

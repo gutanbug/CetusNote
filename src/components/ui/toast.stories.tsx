@@ -3,7 +3,7 @@ import type * as React from "react";
 import { useEffect } from "react";
 import { Row, Sheet } from "@/debug/specimen";
 import { Button } from "./button";
-import { toast, Toaster } from "./toast";
+import { toast, Toaster, ToastCancelButton } from "./toast";
 
 const meta = {
   title: "L2 오버레이/OV-Toast",
@@ -43,6 +43,51 @@ export const Variants: Story = {
       <ToastBox>
         <Toaster id="story-variants" expand />
       </ToastBox>
+    );
+  },
+};
+
+/**
+ * 유지형 토스트 (SYS-07): 자동으로 사라지지 않고, 밀어서 닫지 않는다. 「닫기」나 주 버튼으로만 넘어간다.
+ * 새 버전 알림(주 버튼: 다운로드 후 업데이트)과 내려받기 오류(주 버튼: 다시 시도).
+ */
+export const Persistent: Story = {
+  render: function Render() {
+    useEffect(() => {
+      // 두 토스트는 각자 상자(Toaster)에 두어 서로 가리지 않게 한다
+      const on = { duration: Infinity, dismissible: false } as const;
+      toast("새 버전 0.2.0이 나왔어요", {
+        ...on,
+        toasterId: "story-persistent-update",
+        id: "persistent-update",
+        action: { label: "다운로드 후 업데이트", onClick: (e) => e.preventDefault() },
+        cancel: (
+          <ToastCancelButton onClick={() => toast.dismiss("persistent-update")}>
+            닫기
+          </ToastCancelButton>
+        ),
+      });
+      toast.error("업데이트를 내려받지 못했어요. 다시 시도해 주세요.", {
+        ...on,
+        toasterId: "story-persistent-error",
+        id: "persistent-error",
+        action: { label: "다시 시도", onClick: (e) => e.preventDefault() },
+        cancel: (
+          <ToastCancelButton onClick={() => toast.dismiss("persistent-error")}>
+            닫기
+          </ToastCancelButton>
+        ),
+      });
+    }, []);
+    return (
+      <>
+        <ToastBox>
+          <Toaster id="story-persistent-update" containerAriaLabel="업데이트 알림" />
+        </ToastBox>
+        <ToastBox>
+          <Toaster id="story-persistent-error" containerAriaLabel="오류 알림" />
+        </ToastBox>
+      </>
     );
   },
 };
