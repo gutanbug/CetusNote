@@ -11,6 +11,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::workspace_current,
@@ -55,6 +56,12 @@ pub fn run() {
             commands::workspace_scan,
             commands::pages_read,
         ]);
+
+    // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
 
     // macOS 메뉴: ⌘W = 탭 닫기, ⇧⌘W = 창 닫기 (SHELL-11)
     #[cfg(target_os = "macos")]

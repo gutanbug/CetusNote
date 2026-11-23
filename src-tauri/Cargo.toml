@@ -30,6 +30,8 @@ zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
 ureq = "=3.5.1"
 # 붙여 넣은 웹 이미지 주소 검사(EDIT-24) — tauri가 이미 쓰는 판을 그대로
 url = "=2.5.8"
+tauri-plugin-updater = "=2.14.1"
+tauri-plugin-process = "=2.4.0"
 # PDF 내보내기(DATA-06): 메인 WKWebView의 createPDF로 쪽을 찍고 PDFKit으로 한 파일에 합친다(pdf.rs). objc2는 tauri·wry가 쓰는 판과 같다
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"
