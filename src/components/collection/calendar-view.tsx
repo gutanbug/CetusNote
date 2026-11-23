@@ -62,6 +62,8 @@ function Chip({ item, onOpen }: { item: RecordItem; onOpen: CalendarViewProps["o
     <button
       type="button"
       onClick={(e) => onOpen(item.id, e)}
+      // 칩에서 말줄임된 제목은 마우스를 올리면 전체가 보인다
+      title={item.title || "제목 없음"}
       className={cn(
         "flex min-h-5.5 w-full min-w-0 items-center gap-1 rounded-pill px-1.5 text-left text-label",
         "transition-[filter] duration-(--dur-fast) hover:brightness-96 force-hover:brightness-96",
