@@ -23,6 +23,7 @@ import { CollectionView } from "./collection-view";
 import { PdfExportDialog } from "./pdf-export-dialog";
 import { PrintView } from "./print-view";
 import { TemplateDialog } from "./template-dialog";
+import { ImportDestinationDialog } from "./import-destination-dialog";
 import { TagDialogs } from "./tag-dialogs";
 import { TagMenu } from "./tag-menu";
 import { VersionHistoryDialog } from "./version-history-dialog";
@@ -308,6 +309,7 @@ export function MainScreen() {
       <CommandPalette />
       <SettingsDialog />
       <TemplateDialog />
+      <ImportDestinationDialog />
       <VersionHistoryDialog />
       <PdfExportDialog />
       <PrintView />
