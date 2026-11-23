@@ -1,0 +1,98 @@
+import type { SettingsTab } from "@/components/page/options";
+import { create } from "zustand";
+import type { Side } from "./split-model";
+
+/** 오른쪽에 무엇을 보이나 — 열린 문서(page) · 홈(SHELL-13) · 태그별 문서(tag) */
+export type MainView = { kind: "page" } | { kind: "home" } | { kind: "tag"; tag: string };
+
+/** 메인 화면의 잠깐 열리는 것들(저장하지 않는다) */
+export const useMainUi = create<{
+  view: MainView;
+  setView(view: MainView): void;
+  paletteOpen: boolean;
+  setPaletteOpen(open: boolean): void;
+  settingsOpen: boolean;
+  setSettingsOpen(open: boolean): void;
+  /** 설정 창을 이 탭으로 연다 (팔레트의 "단축키 보기" 등) */
+  settingsTab: SettingsTab | null;
+  openSettings(tab?: SettingsTab): void;
+  /** 집중 모드 (SHELL-10) — 사이드바를 숨기고 상단 바만. 앱을 다시 켜면 꺼진다 */
+  /**
+   * 열린 문서의 본문을 바깥에서 통째로 바꿨을 때 올린다(템플릿 적용).
+   * 에디터는 처음 만들 때만 본문을 읽으므로, 이 값을 key에 넣어 다시 만든다.
+   */
+  contentEpoch: number;
+  bumpContent(): void;
+  /** 버전 기록 대화상자가 보여 줄 페이지 (DATA-09). null이면 닫힘 */
+  historyPageId: string | null;
+  setHistoryPageId(id: string | null): void;
+  /** 템플릿 갤러리 (PAGE-07) */
+  templatesOpen: boolean;
+  setTemplatesOpen(open: boolean): void;
+  focusMode: boolean;
+  setFocusMode(on: boolean): void;
+  /** 빠른 메모 팝오버 (QN-01) */
+  quickNoteOpen: boolean;
+  setQuickNoteOpen(open: boolean): void;
+  /** 컬렉션 화면이 열리면 바로 상세로 띄울 레코드 (최근 항목에서 보드 카드를 눌렀을 때) */
+  recordToOpen: string | null;
+  setRecordToOpen(id: string | null): void;
+  /** PDF 내보내기(DATA-06): 인쇄 전용 화면에 그릴 페이지 */
+  printId: string | null;
+  setPrintId(id: string | null): void;
+  /** 페이지 안 찾기 막대 (EDIT-25). seq는 ⌘F를 다시 눌렀을 때 찾기 칸으로 돌아가게 */
+  find: { mode: "find" | "replace"; seq: number; side: Side } | null;
+  openFind(mode: "find" | "replace", side?: Side): void;
+  closeFind(): void;
+  /** 상단 바 목차 메뉴 (PAGE-12) */
+  outlineOpen: boolean;
+  /** 목차를 연 쪽 (분할 화면에서 두 쪽이 따로 가진다) */
+  outlineSide: Side;
+  setOutlineOpen(open: boolean, side?: Side): void;
+  /** 분할 화면(SHELL-19)에서 포커스가 있는 쪽. 찾기·목차·단축키가 이 쪽에 적용된다 */
+  activeSide: Side;
+  setActiveSide(side: Side): void;
+  /** 분할 화면이 차지하는 영역의 폭 (px, 화면 크기에 따라 잰다. 저장하지 않는다) */
+  splitArea: number;
+  setSplitArea(width: number): void;
+  /** 다음 페이지 고르기를 오른쪽 패널로 할 때(팔레트 "오른쪽에 열기"). 한 번 쓰고 지운다 */
+  palettePane: boolean;
+  setPalettePane(on: boolean): void;
+}>()((set) => ({
+  view: { kind: "page" },
+  setView: (view) => set({ view }),
+  paletteOpen: false,
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  settingsOpen: false,
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  settingsTab: null,
+  openSettings: (tab) => set({ settingsOpen: true, settingsTab: tab ?? null }),
+  contentEpoch: 0,
+  bumpContent: () => set((s) => ({ contentEpoch: s.contentEpoch + 1 })),
+  historyPageId: null,
+  setHistoryPageId: (historyPageId) => set({ historyPageId }),
+  templatesOpen: false,
+  setTemplatesOpen: (templatesOpen) => set({ templatesOpen }),
+  focusMode: false,
+  setFocusMode: (focusMode) => set({ focusMode }),
+  quickNoteOpen: false,
+  setQuickNoteOpen: (quickNoteOpen) => set({ quickNoteOpen }),
+  recordToOpen: null,
+  setRecordToOpen: (recordToOpen) => set({ recordToOpen }),
+  printId: null,
+  setPrintId: (printId) => set({ printId }),
+  find: null,
+  openFind: (mode, side = "main") =>
+    set((s) => ({ find: { mode, side, seq: (s.find?.seq ?? 0) + 1 } })),
+  closeFind: () => set({ find: null }),
+  outlineOpen: false,
+  outlineSide: "main",
+  setOutlineOpen: (outlineOpen, side) =>
+    set((s) => ({ outlineOpen, outlineSide: side ?? s.outlineSide })),
+  activeSide: "main",
+  setActiveSide: (activeSide) => set({ activeSide }),
+  splitArea: 0,
+  setSplitArea: (splitArea) => set({ splitArea }),
+  palettePane: false,
+  setPalettePane: (palettePane) => set({ palettePane }),
+}));

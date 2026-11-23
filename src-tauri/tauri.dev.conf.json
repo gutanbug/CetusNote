@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "debug-screen",
+          "description": "개발 빌드 전용: Debug 화면의 폭 프리셋(창 크기 변경), 자동화 브리지",
+          "windows": ["main"],
+          "permissions": ["core:window:allow-set-size", "mcp-bridge:default"]
+        }
+      ]
+    }
+  }
+}

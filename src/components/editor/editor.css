@@ -1,0 +1,351 @@
+/*
+ * ED-Editor 본문 스타일 — 프로토타입 app.css의 .block / .callout / .codeblock / .tableblock을 옮겼다.
+ * 값은 모두 토큰 유틸리티(@apply)나 토큰 변수다.
+ */
+@reference "../../styles/globals.css";
+
+.sn-prose {
+  @apply font-body text-body text-primary outline-none;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  /* Tab 들여쓰기(ED-TabIndent): 탭 문자가 들여쓰기로 보이게 글자 2개 폭(2em). 공백 처리(pre-wrap)는 ProseMirror 기본 */
+  tab-size: 2em;
+
+  /* ── 텍스트 · 제목 (ED-Paragraph, ED-Heading) ── */
+  & p {
+    @apply px-0.5 py-0.75;
+  }
+  & h1 {
+    @apply mt-6 px-0.5 py-0.75 text-h1 font-bold tracking-(--tracking-title);
+  }
+  & h2 {
+    @apply mt-4 px-0.5 py-0.75 text-h2 font-semibold;
+  }
+  & h3 {
+    @apply mt-3 px-0.5 py-0.75 text-h3 font-semibold;
+  }
+  & > :first-child {
+    @apply mt-0;
+  }
+
+  /* ── 목록 (ED-List) ── */
+  & ul:not([data-type="taskList"]),
+  & ol {
+    @apply pl-6.5;
+  }
+  & ul:not([data-type="taskList"]) {
+    list-style: disc;
+  }
+  & ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) {
+    list-style: circle;
+  }
+  & ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) {
+    list-style: square;
+  }
+  & ol {
+    list-style: decimal;
+  }
+  & ol ol {
+    list-style: lower-alpha;
+  }
+  & ol ol ol {
+    list-style: lower-roman;
+  }
+  & li::marker {
+    @apply text-secondary;
+  }
+  & li > p {
+    @apply py-0.5;
+  }
+
+  /* ── 체크리스트 (ED-TaskItem) — UI-Checkbox와 같은 모양 ── */
+  & ul[data-type="taskList"] {
+    @apply pl-0.5;
+  }
+  & ul[data-type="taskList"] ul[data-type="taskList"] {
+    @apply pl-6;
+  }
+  & ul[data-type="taskList"] > li {
+    @apply flex items-start gap-2;
+  }
+  & ul[data-type="taskList"] > li > label {
+    /* 누름 영역 24px: 보이는 체크박스(16px) 둘레에 투명 영역 4px */
+    @apply relative mt-2 flex shrink-0 select-none before:absolute before:-inset-1 before:content-[''];
+  }
+  & ul[data-type="taskList"] > li > label input {
+    @apply grid size-4 cursor-default appearance-none place-items-center rounded-xs border-(length:--bw-control) border-tertiary bg-transparent transition-colors;
+  }
+  & ul[data-type="taskList"] > li > label input {
+    @apply hover:border-secondary force-hover:border-secondary;
+  }
+  & ul[data-type="taskList"] > li > label input:checked {
+    @apply border-accent-fill bg-accent-fill;
+  }
+  /* 체크 표시: 회전한 테두리 (아이콘 SVG를 붙여 넣지 않는다) */
+  & ul[data-type="taskList"] > li > label input:checked::after {
+    @apply mb-0.5 h-2 w-1 rotate-45 border-r-2 border-b-2 border-accent-fill-on content-[''];
+  }
+  & ul[data-type="taskList"] > li > label input:focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent outline-solid;
+  }
+  & ul[data-type="taskList"] > li > div {
+    @apply min-w-0 flex-1;
+  }
+  /* 두께를 적어 둔다: WebKit(Tauri)은 Pretendard 가변 글꼴에서 auto 두께로 취소선을 그리지 않는 경우가 있다 */
+  /* SET-04 "완료한 체크 항목 흐리게"를 끄면 그대로 둔다 */
+  &:not([data-dim-checked="false"]) ul[data-type="taskList"] > li[data-checked="true"] > div > p {
+    @apply text-tertiary line-through decoration-1;
+  }
+  & s {
+    @apply decoration-1;
+  }
+
+  /* ── 인용 · 구분선 (ED-Quote, ED-Divider) ── */
+  & blockquote {
+    @apply relative my-1 pl-4;
+  }
+  & blockquote::before {
+    @apply absolute top-1 bottom-1 left-0 w-0.75 rounded-pill bg-primary content-[''];
+  }
+  & hr {
+    @apply my-3 h-px border-0 bg-line;
+  }
+  & hr.ProseMirror-selectednode {
+    @apply bg-accent;
+  }
+
+  /* ── 인라인 서식 (ED-InlineMarks) ── */
+  & strong {
+    @apply font-semibold;
+  }
+  & :not(pre) > code {
+    @apply rounded-sm bg-inline-code px-1 py-px font-mono text-[0.88em] text-inline-code-fg;
+  }
+  & a {
+    @apply cursor-pointer text-accent no-underline;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  & a:hover {
+    @apply border-accent;
+  }
+  /* 페이지 멘션 (ED-PageMention, 프로토타입 .mention) — 링크와 달리 포인트 색을 쓰지 않는다 */
+  & .sn-mention {
+    @apply inline-flex cursor-pointer items-baseline gap-1 rounded-pill border-0 border-b border-line px-1 font-medium text-primary transition-colors duration-(--dur-fast) ease-(--ease) hover:bg-hover force-hover:bg-hover;
+  }
+  & .sn-mention-icon {
+    @apply size-[1em] shrink-0 self-center text-tertiary;
+  }
+  & .sn-mention[data-selected] {
+    @apply bg-accent-soft;
+  }
+  & .sn-mention[data-broken] {
+    @apply cursor-default text-tertiary hover:bg-transparent force-hover:bg-transparent;
+  }
+  & .sn-mention[data-broken] .sn-mention-title {
+    @apply line-through;
+  }
+  & mark {
+    @apply rounded-xs bg-yellow-bg px-0.5 text-inherit;
+    box-decoration-break: clone;
+  }
+  /* ── 찾기 결과 (ED-FindBar) — 형광펜(노랑)과 헷갈리지 않게 주황, 지금 결과는 포인트 색 채움
+     (테두리는 서식 경계에서 조각마다 끊겨 보여 쓰지 않는다) ── */
+  & .sn-find-match {
+    @apply rounded-xs bg-orange-bg;
+    box-decoration-break: clone;
+  }
+  & .sn-find-current {
+    /* 코드 블록 문법 색(hljs)이 같은 요소에 붙어도 채움 위 글자 대비를 지킨다 */
+    @apply bg-accent-fill text-accent-fill-on!;
+  }
+  & sup,
+  & sub {
+    @apply text-[0.75em] leading-none;
+  }
+
+  /* ── 이미지 (ED-Image) — 프로토타입 .imgblock: 이미지 r-lg, 캡션 13px secondary, 간격 s2 ── */
+  & .sn-image {
+    @apply my-2;
+  }
+
+  /* ── 콜아웃 (ED-Callout) — 색 클래스는 노드 뷰가 softColor로 붙인다 ── */
+  & .sn-callout {
+    @apply my-1 flex gap-3 rounded-lg px-4 py-3;
+  }
+  & .sn-callout-emoji {
+    @apply grid size-7 shrink-0 place-items-center rounded-pill text-h3 leading-none hover:bg-active disabled:hover:bg-transparent force-hover:bg-active;
+  }
+  & .sn-callout-body {
+    @apply min-w-0 flex-1;
+  }
+  & .sn-callout-body p {
+    @apply px-0;
+  }
+
+  /* ── 토글 (ED-Toggle) ── */
+  & .sn-toggle {
+    @apply my-0.5 flex items-start;
+  }
+  & .sn-toggle-button {
+    /* 누름 영역 24px 이상: ::before는 화살표라 ::after로 넓힌다 */
+    @apply relative after:absolute after:-inset-px after:content-[''];
+    @apply mt-0.75 grid h-7 w-5.5 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover;
+  }
+  /* 화살표: 회전한 테두리. 버튼(배경)이 아니라 화살표만 돌린다 — 버튼째 돌리면 hover 배경이 옆으로 삐져나온다 */
+  & .sn-toggle-button::before {
+    @apply mr-0.5 size-1.5 -rotate-45 border-r-(length:--bw-control) border-b-(length:--bw-control) border-current transition-transform duration-(--dur-fast) content-[''];
+  }
+  & .sn-toggle.is-open > .sn-toggle-button::before {
+    @apply mr-0 mb-0.5 rotate-45;
+  }
+  & .sn-toggle-button:focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent outline-solid;
+  }
+  & .sn-toggle > div {
+    @apply min-w-0 flex-1;
+  }
+  & .sn-toggle summary {
+    @apply list-none px-0.5 py-0.75 font-medium;
+  }
+  & .sn-toggle summary::-webkit-details-marker {
+    display: none;
+  }
+  & [data-type="detailsContent"] {
+    @apply mt-1 mb-1 border-l border-line pl-3;
+  }
+  & [data-type="detailsContent"][hidden] {
+    display: none;
+  }
+
+  /* ── 코드 블록 (ED-CodeBlock) ── */
+  & .sn-codeblock {
+    @apply my-2 overflow-hidden rounded-lg border border-line bg-code;
+  }
+  & .sn-codeblock-bar {
+    @apply flex items-center gap-2 border-b border-line py-1 pr-1 pl-2;
+  }
+  & .sn-codeblock pre {
+    @apply m-0 overflow-x-auto px-4 py-3 font-mono text-code text-primary;
+    white-space: pre;
+    tab-size: 2;
+  }
+  /* 문법 색: 프로토타입 .tok-* 와 같은 토큰 */
+  & .hljs-keyword,
+  & .hljs-selector-tag,
+  & .hljs-meta .hljs-keyword {
+    @apply text-purple-fg;
+  }
+  & .hljs-string,
+  & .hljs-regexp,
+  & .hljs-addition {
+    @apply text-green-fg;
+  }
+  & .hljs-number,
+  & .hljs-literal,
+  & .hljs-symbol,
+  & .hljs-bullet {
+    @apply text-orange-fg;
+  }
+  & .hljs-comment,
+  & .hljs-quote {
+    @apply text-tertiary italic;
+  }
+  & .hljs-title,
+  & .hljs-title.function_,
+  & .hljs-section {
+    @apply text-accent;
+  }
+  & .hljs-attr,
+  & .hljs-attribute,
+  & .hljs-property,
+  & .hljs-selector-class,
+  & .hljs-selector-id {
+    @apply text-blue-fg;
+  }
+  & .hljs-type,
+  & .hljs-title.class_,
+  & .hljs-built_in,
+  & .hljs-tag {
+    @apply text-pink-fg;
+  }
+  & .hljs-variable,
+  & .hljs-template-variable,
+  & .hljs-deletion {
+    @apply text-red-fg;
+  }
+  & .hljs-meta {
+    @apply text-gray-fg;
+  }
+  & .hljs-emphasis {
+    @apply italic;
+  }
+  & .hljs-strong {
+    @apply font-semibold;
+  }
+
+  /* ── 표 (ED-Table) ── */
+  & .tableWrapper {
+    @apply my-2 overflow-x-auto;
+  }
+  /* 바깥 테두리를 둥글게: separate + 셀은 오른쪽·아래 선만 */
+  & table {
+    @apply w-full border-separate border-spacing-0 overflow-hidden rounded-lg border border-line text-ui;
+    table-layout: fixed;
+  }
+  & th,
+  & td {
+    @apply relative border-r border-b border-line px-3 py-2 text-left align-top;
+  }
+  & tr > :last-child {
+    @apply border-r-0;
+  }
+  & tr:last-child > * {
+    @apply border-b-0;
+  }
+  & th {
+    @apply bg-subtle font-medium text-secondary;
+  }
+  & th p,
+  & td p {
+    @apply p-0;
+  }
+  & .selectedCell::after {
+    @apply pointer-events-none absolute inset-0 bg-accent-soft opacity-60 content-[''];
+  }
+  /* 셀마다 하나씩 그려지므로 둥근 끝을 두지 않아야 행을 넘어 한 줄로 이어진다. 칸 경계선 위에 2px로 */
+  & .column-resize-handle {
+    @apply pointer-events-none absolute top-0 -right-px bottom-0 z-1 w-0.5 bg-accent;
+  }
+  &.resize-cursor {
+    cursor: col-resize;
+  }
+
+  /* ── 수식 (ED-Math) ── */
+  & .tiptap-mathematics-render--editable {
+    @apply cursor-pointer rounded-sm transition-colors hover:bg-hover force-hover:bg-hover;
+  }
+  & [data-type="inline-math"] {
+    @apply px-0.5;
+  }
+  & [data-type="block-math"] {
+    @apply my-2 overflow-x-auto px-2 py-3 text-center;
+  }
+  & .inline-math-error,
+  & .block-math-error {
+    @apply font-mono text-code text-danger;
+  }
+  & .ProseMirror-selectednode.tiptap-mathematics-render {
+    @apply bg-accent-soft;
+  }
+
+  /* ── 플레이스홀더 (ED-Placeholder) ── */
+  & .is-empty::before {
+    @apply pointer-events-none float-left h-0 text-tertiary content-[attr(data-placeholder)];
+  }
+
+  /* 노드 선택 (구분선 외) */
+  /* 이미지는 그림에 직접 테두리를 그려 감싸는 틀(캡션까지 본문 폭)은 그리지 않는다 */
+  & .ProseMirror-selectednode:not(hr):not(.tiptap-mathematics-render):not(.sn-image) {
+    @apply rounded-md ring-2 ring-accent-soft;
+  }
+}

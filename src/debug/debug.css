@@ -1,0 +1,35 @@
+@reference "../styles/globals.css";
+
+/* 그리드 오버레이: 4px 격자 + 요소 경계 (docs/dev/debug-screen.md §4) */
+.debug-grid {
+  position: relative;
+}
+.debug-grid::after {
+  @apply pointer-events-none absolute inset-0 content-[''];
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--accent) 10%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--accent) 10%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: var(--s1) var(--s1);
+}
+.debug-grid * {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: -1px;
+}
+
+/* 화면 밖 견본·가려진 창: 무한 애니메이션을 멈춘다 (debug-screen.tsx usePauseOffscreenAnimations) */
+.debug-specimen[data-offscreen] *,
+.debug-specimen[data-offscreen] *::before,
+.debug-specimen[data-offscreen] *::after,
+:root[data-debug-hidden] *,
+:root[data-debug-hidden] *::before,
+:root[data-debug-hidden] *::after {
+  animation-play-state: paused !important;
+}

@@ -1,0 +1,52 @@
+[package]
+name = "cetusnote"
+version = "0.1.0"
+description = "Cetus Note — local-first note app"
+license = "MIT"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "cetusnote_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+# 폴더 선택·저장 대화상자. Rust 커맨드 안에서만 띄운다(프론트엔드 권한 없음).
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 백업 zip(DATA-05). 9.x는 매일 바뀌고 있어 반년 지난 8.6을 고정. 압축은 deflate만
+zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
+# 이미지 링크 내려받기(PAGE-10 asset_fetch). 2주 지난 3.5.1을 고정. rustls(ring)
+ureq = "=3.5.1"
+# 붙여 넣은 웹 이미지 주소 검사(EDIT-24) — tauri가 이미 쓰는 판을 그대로
+url = "=2.5.8"
+# PDF 내보내기(DATA-06): 메인 WKWebView 인쇄 작업을 파일로(pdf.rs). wry·tauri가 이미 쓰는 판과 같다
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "=0.6.5"
+objc2-foundation = "=0.3.2"
+objc2-app-kit = { version = "=0.3.2", features = ["std", "NSPrintInfo", "NSPrintOperation"] }
+objc2-web-kit = { version = "=0.3.2", features = ["std", "WKWebView", "objc2-app-kit"] }
+
+# 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
+tauri-plugin-mcp-bridge = "0.13"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

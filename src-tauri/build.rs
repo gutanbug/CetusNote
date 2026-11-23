@@ -1,0 +1,48 @@
+// 앱 커맨드를 목록으로 묶어 capabilities에서 허용한 창만 부를 수 있게 한다(권한 최소화).
+// 커맨드를 더하면 여기, lib.rs의 invoke_handler, permissions/storage.toml 세 곳을 함께 고친다.
+const COMMANDS: &[&str] = &[
+    "workspace_current",
+    "workspace_pick",
+    "workspace_use_default",
+    "workspace_recent",
+    "workspace_switch",
+    "workspace_forget",
+    "workspace_create",
+    "workspace_read",
+    "workspace_write",
+    "pages_load_all",
+    "page_write",
+    "page_purge",
+    "history_save",
+    "history_list",
+    "history_read",
+    "history_delete",
+    "settings_read",
+    "settings_write",
+    "export_markdown",
+    "workspace_export_markdown",
+    "workspace_export_reveal",
+    "asset_write",
+    "asset_read",
+    "asset_pick",
+    "asset_fetch",
+    "backup_export",
+    "backup_auto",
+    "backup_list",
+    "backup_reveal",
+    "backup_restore",
+    "pdf_render",
+    "pdf_save",
+    "workspace_scan",
+    "pages_read",
+    "markdown_pick",
+    "markdown_image",
+];
+
+fn main() {
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS)),
+    )
+    .expect("tauri build 설정 실패");
+}

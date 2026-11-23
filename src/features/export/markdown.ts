@@ -1,0 +1,353 @@
+import { emojiOf } from "@/lib/page-icon";
+import type { Page } from "@/lib/storage";
+import { detectLanguage } from "@/lib/code-language";
+import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
+
+/**
+ * Tiptap JSON → Markdown (DATA-04). GitHub 호환(2026-11-19 사용자 결정):
+ * - 콜아웃 → 이모지를 붙인 인용, 토글 → <details>, 밑줄·하이라이트·첨자 → <u> <mark> <sup> <sub>
+ * - front matter는 쓰지 않는다(2026-11-23 사용자 결정). 맨 위는 `# 아이콘 제목` 한 번, 그 아래 본문.
+ *   본문 맨 앞이 같은 제목의 H1이면 그 줄을 머리로 써서 제목이 두 번 나오지 않게 한다.
+ * - 글자색은 Markdown에 없어 버린다. 모르는 블록은 안쪽 내용만 살린다.
+ */
+
+type Mark = { type: string; attrs?: Record<string, unknown> };
+export type MdNode = {
+  type?: string;
+  attrs?: Record<string, unknown>;
+  content?: MdNode[];
+  text?: string;
+  marks?: Mark[];
+};
+
+// ── 글자 ───────────────────────────────────────────────
+
+/** 본문 글자의 Markdown 기호를 이스케이프한다 */
+/** 복사(클립보드 글자)에서는 끈다 — 다른 앱에 붙였을 때 \_ \* 같은 역슬래시가 보이지 않게 */
+let escaping = true;
+
+function escapeText(text: string): string {
+  if (!escaping) return text;
+  return text.replace(/[\\`*_[\]~$<]/g, "\\$&");
+}
+
+/** 줄 맨 앞에서 블록 기호로 읽히는 글자(# > - + 1. ---)를 이스케이프한다 */
+function escapeLineStart(line: string): string {
+  return line
+    .replace(/^(\s*)([#>+])/, "$1\\$2")
+    .replace(/^(\s*)-(\s|-|$)/, "$1\\-$2")
+    .replace(/^(\s*)(\d+)([.)])(\s|$)/, "$1$2\\$3$4");
+}
+
+function codeSpan(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((m) => m.length));
+  const fence = "`".repeat(longest + 1);
+  const pad = text.startsWith("`") || text.endsWith("`") ? " " : "";
+  return `${fence}${pad}${text}${pad}${fence}`;
+}
+
+function linkTarget(href: string): string {
+  return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, encodeURIComponent)}>` : href;
+}
+
+/** 바깥 → 안쪽 순서. code는 따로(다른 마크와 겹치지 않는다) */
+const MARK_ORDER = [
+  "link",
+  "bold",
+  "italic",
+  "strike",
+  "underline",
+  "highlight",
+  "superscript",
+  "subscript",
+];
+const OPEN: Record<string, (m: Mark) => string> = {
+  link: () => "[",
+  bold: () => "**",
+  italic: () => "*",
+  strike: () => "~~",
+  underline: () => "<u>",
+  highlight: () => "<mark>",
+  superscript: () => "<sup>",
+  subscript: () => "<sub>",
+};
+const CLOSE: Record<string, (m: Mark) => string> = {
+  link: (m) => `](${linkTarget(String(m.attrs?.href ?? ""))})`,
+  bold: () => "**",
+  italic: () => "*",
+  strike: () => "~~",
+  underline: () => "</u>",
+  highlight: () => "</mark>",
+  superscript: () => "</sup>",
+  subscript: () => "</sub>",
+};
+
+const sameMark = (a: Mark, b: Mark) =>
+  a.type === b.type && (a.type !== "link" || a.attrs?.href === b.attrs?.href);
+
+type InlineMode = "block" | "cell" | "heading";
+
+/** 내보내는 동안 멘션의 지금 제목을 찾는다(없으면 저장된 label) — pageToMarkdown이 잠깐 정한다 */
+let mentionTitle: ((id: string) => string | undefined) | undefined;
+
+/**
+ * 인라인 내용. 마크를 스택으로 열고 닫아, 이어진 굵게 구간을 하나로 묶는다(`**a**` + `**b**` → `**ab**`).
+ * 마크 경계의 공백은 기호 바깥으로 뺀다(`** 굵게**`는 굵게로 읽히지 않으므로).
+ */
+function inline(nodes: MdNode[] = [], mode: InlineMode = "block"): string {
+  let out = "";
+  let pendingSpace = "";
+  const open: Mark[] = [];
+
+  const emit = (s: string) => {
+    out += pendingSpace + s;
+    pendingSpace = "";
+  };
+  const closeAll = () => {
+    while (open.length) {
+      const m = open.pop()!;
+      out += CLOSE[m.type]!(m);
+    }
+  };
+
+  for (const node of nodes) {
+    const marks = (node.marks ?? [])
+      .filter((m) => MARK_ORDER.includes(m.type))
+      .sort((a, b) => MARK_ORDER.indexOf(a.type) - MARK_ORDER.indexOf(b.type));
+    let keep = 0;
+    while (keep < open.length && keep < marks.length && sameMark(open[keep]!, marks[keep]!)) keep++;
+    // 닫을 마크는 공백 앞에서 닫는다
+    while (open.length > keep) {
+      const m = open.pop()!;
+      out += CLOSE[m.type]!(m);
+    }
+
+    let text: string;
+    if (node.type === "text") {
+      const raw = node.text ?? "";
+      const isCode = node.marks?.some((m) => m.type === "code");
+      text = isCode ? codeSpan(raw) : escapeText(raw);
+    } else if (node.type === "hardBreak") {
+      text = mode === "block" ? "\\\n" : mode === "cell" ? "<br>" : " ";
+    } else if (node.type === "inlineMath") {
+      text = `$${String(node.attrs?.latex ?? "")}$`;
+    } else if (node.type === "pageMention") {
+      // 다른 앱에서도 글이 남게 링크로: [제목](cetusnote://page/<id>)
+      const id = String(node.attrs?.id ?? "");
+      const title = mentionTitle?.(id) ?? String(node.attrs?.label ?? "");
+      text = `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
+    } else if (node.type === "emoji") {
+      const name = String(node.attrs?.name ?? "");
+      text = shortcodeToEmoji(name, emojis)?.emoji ?? `:${name}:`;
+    } else {
+      text = inline(node.content, mode);
+    }
+
+    // 새로 여는 마크는 앞 공백 뒤에서 연다
+    const lead = /^\s*/.exec(text)![0];
+    const trail = /\s*$/.exec(text.slice(lead.length))![0];
+    const body = text.slice(lead.length, text.length - trail.length);
+    if (!body) {
+      pendingSpace += text;
+      continue;
+    }
+    emit(lead);
+    for (const m of marks.slice(keep)) {
+      out += OPEN[m.type]!(m);
+      open.push(m);
+    }
+    out += body;
+    pendingSpace = trail;
+  }
+  closeAll();
+  out += pendingSpace;
+  return out;
+}
+
+// ── 블록 ───────────────────────────────────────────────
+
+const indentLines = (text: string, first: string, rest: string) =>
+  text
+    .split("\n")
+    .map((line, i) => (i === 0 ? first : line ? rest : rest.trimEnd()) + line)
+    .join("\n");
+
+function blocks(nodes: MdNode[] = [], sep = "\n\n"): string {
+  return nodes
+    .map(block)
+    .filter((b) => b !== "")
+    .join(sep);
+}
+
+function paragraph(node: MdNode): string {
+  return inline(node.content)
+    .split("\n")
+    .map((line) => escapeLineStart(line))
+    .join("\n");
+}
+
+function listItem(node: MdNode, marker: string): string {
+  const [first, ...rest] = node.content ?? [];
+  const head = first?.type === "paragraph" ? paragraph(first) : first ? block(first) : "";
+  const tail = rest.map(block).filter(Boolean);
+  const body = [head, ...tail].join("\n");
+  return indentLines(body, marker, " ".repeat(marker.length));
+}
+
+function table(node: MdNode): string {
+  const rows = (node.content ?? []).map((row) =>
+    (row.content ?? []).map((cell) =>
+      (cell.content ?? [])
+        .map((p) => inline(p.content, "cell"))
+        .join("<br>")
+        .replace(/\|/g, "\\|")
+        .replace(/\n/g, " ")
+        .trim(),
+    ),
+  );
+  if (!rows.length) return "";
+  const cols = Math.max(...rows.map((r) => r.length));
+  const line = (cells: string[]) =>
+    `| ${Array.from({ length: cols }, (_, i) => cells[i] ?? "").join(" | ")} |`;
+  return [line(rows[0]!), line(Array(cols).fill("---")), ...rows.slice(1).map(line)].join("\n");
+}
+
+function block(node: MdNode): string {
+  switch (node.type) {
+    case "paragraph":
+      return paragraph(node);
+    case "heading": {
+      const level = Math.min(6, Math.max(1, Number(node.attrs?.level ?? 1)));
+      return `${"#".repeat(level)} ${inline(node.content, "heading")}`;
+    }
+    case "bulletList":
+      return (node.content ?? []).map((li) => listItem(li, "- ")).join("\n");
+    case "orderedList": {
+      const start = Number(node.attrs?.start ?? 1);
+      return (node.content ?? []).map((li, i) => listItem(li, `${start + i}. `)).join("\n");
+    }
+    case "taskList":
+      return (node.content ?? [])
+        .map((li) => listItem(li, li.attrs?.checked ? "- [x] " : "- [ ] "))
+        .join("\n");
+    case "blockquote":
+      return indentLines(blocks(node.content), "> ", "> ");
+    case "callout": {
+      const emoji = String(node.attrs?.emoji ?? "💡");
+      return indentLines(blocks(node.content), `> ${emoji} `, "> ");
+    }
+    case "codeBlock": {
+      // 끝의 줄바꿈 하나는 닫는 울타리 앞 빈 줄이 되므로 뺀다
+      const code = (node.content ?? [])
+        .map((t) => t.text ?? "")
+        .join("")
+        .replace(/\n$/, "");
+      const longest = Math.max(2, ...(code.match(/`+/g) ?? []).map((m) => m.length));
+      const fence = "`".repeat(longest + 1);
+      // 자동 감지 블록(null)은 내보낼 때 추측한 언어를 적는다
+      const lang = String(node.attrs?.language ?? detectLanguage(code) ?? "");
+      return `${fence}${lang && lang !== "plaintext" ? lang : ""}\n${code}\n${fence}`;
+    }
+    case "horizontalRule":
+      return "---";
+    case "image": {
+      // 워크스페이스 기준 경로 그대로 (이미지 파일은 함께 내보내지 않는다)
+      const alt = (node.content ?? []).map((t) => t.text ?? "").join("");
+      // 아직 내려받는 중인 웹 이미지(EDIT-24)는 원래 웹 주소로
+      const remote = String(node.attrs?.remote ?? "");
+      const src = node.attrs?.src ?? (/^https?:\/\//i.test(remote) ? remote : "");
+      return `![${escapeText(alt)}](${String(src)})`;
+    }
+    case "blockMath":
+      return `$$\n${String(node.attrs?.latex ?? "")}\n$$`;
+    case "details": {
+      const summary = node.content?.find((n) => n.type === "detailsSummary");
+      const content = node.content?.find((n) => n.type === "detailsContent");
+      const body = blocks(content?.content);
+      return [
+        node.attrs?.open ? "<details open>" : "<details>",
+        `<summary>${inline(summary?.content, "heading")}</summary>`,
+        ...(body ? ["", body, ""] : []),
+        "</details>",
+      ].join("\n");
+    }
+    case "table":
+      return table(node);
+    case "text":
+    case "hardBreak":
+    case "inlineMath":
+    case "emoji":
+    case "pageMention":
+      return inline([node]);
+    default:
+      // 모르는 블록(이후 버전의 블록 등): 안쪽 내용만 살린다
+      return node.content ? blocks(node.content) : "";
+  }
+}
+
+// ── 페이지 ─────────────────────────────────────────────
+
+/**
+ * 문서(Tiptap JSON)만 Markdown으로.
+ * escape: false면 글자 속 마크다운 기호를 이스케이프하지 않는다(복사해 다른 앱에 붙일 글자, EDIT-26).
+ */
+export function docToMarkdown(
+  doc: MdNode,
+  options: { escape?: boolean; titleOf?: (id: string) => string | undefined } = {},
+): string {
+  escaping = options.escape ?? true;
+  mentionTitle = options.titleOf;
+  try {
+    return blocks(doc.content);
+  } finally {
+    escaping = true;
+    mentionTitle = undefined;
+  }
+}
+
+/**
+ * 페이지 전체: `# 아이콘 제목` + 본문. 끝은 줄바꿈 하나.
+ * 본문 맨 앞 H1이 제목과 같으면 그 줄은 머리에 합쳐 한 번만 쓴다.
+ * titleOf를 주면 멘션을 지금 제목으로 적는다(없거나 undefined면 넣을 때의 제목).
+ */
+export function pageToMarkdown(page: Page, titleOf?: (id: string) => string | undefined): string {
+  mentionTitle = titleOf;
+  try {
+    return pageMarkdown(page);
+  } finally {
+    mentionTitle = undefined;
+  }
+}
+
+/** 노드 안의 글자만 이어 붙인다 (제목 비교용) */
+function plainText(node: MdNode): string {
+  return node.text ?? (node.content ?? []).map(plainText).join("");
+}
+
+function pageMarkdown(page: Page): string {
+  const title = page.title.trim() || "제목 없음";
+  const nodes = (page.content as MdNode).content ?? [];
+  const [first, ...rest] = nodes;
+  const sameTitle =
+    first?.type === "heading" &&
+    Number(first.attrs?.level ?? 1) === 1 &&
+    plainText(first).trim() === title;
+  // 아이콘·이미지 아이콘(PAGE-10)은 글로 옮길 수 없어 이모지만 넣는다
+  const emoji = emojiOf(page.icon);
+  const heading = `# ${emoji ? `${emoji} ` : ""}${escapeText(title)}`;
+  const body = blocks(sameTitle ? rest : nodes);
+  return [heading, body].filter(Boolean).join("\n\n") + "\n";
+}
+
+/** 저장 대화상자의 기본 파일 이름. 파일 이름에 못 쓰는 글자를 뺀다 */
+export function markdownFileName(page: Pick<Page, "title">): string {
+  const base = page.title
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+/, "")
+    .slice(0, 80)
+    .trim();
+  return `${base || "제목 없음"}.md`;
+}

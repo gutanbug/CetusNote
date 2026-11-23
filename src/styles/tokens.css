@@ -1,0 +1,277 @@
+/*
+ * 디자인 토큰 — docs/design/tokens.md와 값이 같아야 한다.
+ * 값을 바꿀 때는 OpenDesign → tokens.md → 이 파일 순서로만 바꾼다.
+ * 테마와 포인트 색은 어느 요소에든 data-theme / data-accent로 지정할 수 있다
+ * (Debug 화면의 라이트·다크 나란히 보기에 필요).
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-subtle: #f6f7f9;
+  --bg-hover: #f1f3f5;
+  --bg-active: #e6e9ed;
+  --bg-elevated: #ffffff;
+  --border-subtle: #e4e7ec;
+  --border-strong: #cfd4dc;
+  --border-control: #a8b0bb;
+  --text-primary: #1f2329;
+  --text-secondary: #4b535f;
+  --text-tertiary: #676e7c;
+  --accent: var(--accent-l);
+  --accent-soft: var(--accent-soft-l);
+  --accent-on: #ffffff;
+  --danger: #d23b3b;
+  --danger-soft: #fcebeb;
+  --danger-on: #ffffff;
+  /* 채운 면은 라이트도 다크의 파스텔 값 (tokens.md "채운 면 파스텔") */
+  --accent-fill: var(--accent-d);
+  --accent-fill-on: #1b1c1f;
+  --danger-fill: #f2736b;
+  --danger-fill-on: #1b1c1f;
+  --knob: #ffffff;
+  --inverse-bg: #2e3238;
+  --inverse-fg: #f2f4f7;
+  --inverse-accent: #9bc2f8;
+  --inverse-danger: #f2736b;
+  --sky-star: #4a74c4;
+  --sky-line: #b4c5e3;
+  --sky-mira: #e0884f;
+  --sky-glow: #7fa3e6;
+  --sky-glow-max: 0.35;
+  --sky-core: #cfdcff;
+  --sky-dust: 0.35;
+  --sky-faint: 0.22;
+  --sky-strong: 1;
+  --code-bg: #f6f7f9;
+  --inline-code-fg: #b83e36;
+  --inline-code-bg: #f1f3f5;
+  --scrim: rgba(23, 25, 29, 0.3);
+
+  --c-gray-bg: #f1f1ef;
+  --c-gray-fg: #5a5a55;
+  --c-brown-bg: #f4eeee;
+  --c-brown-fg: #836457;
+  --c-orange-bg: #fbecdd;
+  --c-orange-fg: #a25726;
+  --c-yellow-bg: #fbf3db;
+  --c-yellow-fg: #826b18;
+  --c-green-bg: #edf3ec;
+  --c-green-fg: #2f6b45;
+  --c-blue-bg: #e7f3f8;
+  --c-blue-fg: #1f5b78;
+  --c-purple-bg: #f2eefb;
+  --c-purple-fg: #5f3fa5;
+  --c-pink-bg: #fbeef3;
+  --c-pink-fg: #9b3b65;
+  --c-red-bg: #fdebec;
+  --c-red-fg: #9f2e2e;
+
+  --shadow-popover: 0 2px 10px rgba(23, 25, 29, 0.07), 0 0 0 1px rgba(23, 25, 29, 0.07);
+  --shadow-modal: 0 12px 40px rgba(23, 25, 29, 0.14);
+  --shadow-knob: 0 1px 2px rgba(0, 0, 0, 0.26), 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+
+/* 다크는 화면에서만 — 인쇄(PDF 내보내기, DATA-06)는 늘 라이트 값으로 찍는다 */
+@media screen {
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg-app: #1b1c1f;
+    --bg-sidebar: #1b1c1f;
+    --bg-subtle: #222428;
+    --bg-hover: #2d3035;
+    --bg-active: #3a3e44;
+    --bg-elevated: #26282c;
+    --border-subtle: #34373c;
+    --border-strong: #4b5058;
+    --border-control: #5a6069;
+    --text-primary: #eceef1;
+    --text-secondary: #bcc1c7;
+    --text-tertiary: #a2a7af;
+    --accent: var(--accent-d);
+    --accent-soft: var(--accent-soft-d);
+    --accent-on: #1b1c1f;
+    --danger: #f2736b;
+    --danger-soft: #3a2220;
+    --danger-on: #1b1c1f;
+    --accent-fill: var(--accent-d);
+    --accent-fill-on: #1b1c1f;
+    --danger-fill: #f2736b;
+    --danger-fill-on: #1b1c1f;
+    --knob: #e6e8eb;
+    --inverse-bg: #3a3e44;
+    --inverse-fg: #f2f4f7;
+    --inverse-accent: #9bc2f8;
+    --inverse-danger: #f2736b;
+    --sky-star: #f2f6ff;
+    --sky-line: #56688a;
+    --sky-mira: #ffb68f;
+    --sky-glow: #b9cdff;
+    --sky-glow-max: 0.45;
+    --sky-core: #ffffff;
+    --sky-dust: 0.5;
+    --sky-faint: 0.28;
+    --sky-strong: 1;
+    --code-bg: #222428;
+    --inline-code-fg: #f79a94;
+    --inline-code-bg: #2a2d32;
+    --scrim: rgba(8, 9, 11, 0.52);
+
+    --c-gray-bg: #2c2c2c;
+    --c-gray-fg: #bfbfbb;
+    --c-brown-bg: #332a28;
+    --c-brown-fg: #d2b2a3;
+    --c-orange-bg: #3a2a1d;
+    --c-orange-fg: #f0a878;
+    --c-yellow-bg: #38301c;
+    --c-yellow-fg: #e6c86a;
+    --c-green-bg: #1f2e25;
+    --c-green-fg: #8fd3a8;
+    --c-blue-bg: #1f3346;
+    --c-blue-fg: #93c7e8;
+    --c-purple-bg: #2a2440;
+    --c-purple-fg: #bfa8f0;
+    --c-pink-bg: #3a2430;
+    --c-pink-fg: #efa3c2;
+    --c-red-bg: #3a2220;
+    --c-red-fg: #f3998f;
+
+    --shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/*
+ * 포인트 색 8종 (tokens.md §3). 테마 규칙이 --accent-l 계열과 --accent-d 계열 중 하나를 고른다.
+ * data-accent는 data-theme과 같은 요소나 그 조상에 둔다.
+ */
+
+:root,
+[data-accent="blue"] {
+  --accent-l: #1a62d8;
+  --accent-soft-l: #eaf1fd;
+  --accent-d: #6aa6f5;
+  --accent-soft-d: #1b2e48;
+}
+
+[data-accent="indigo"] {
+  --accent-l: #4147c8;
+  --accent-soft-l: #ecedfc;
+  --accent-d: #8e92f0;
+  --accent-soft-d: #232546;
+}
+
+[data-accent="violet"] {
+  --accent-l: #7a35c9;
+  --accent-soft-l: #f3ebfc;
+  --accent-d: #b183f0;
+  --accent-soft-d: #2b2142;
+}
+
+[data-accent="teal"] {
+  --accent-l: #0c7a80;
+  --accent-soft-l: #e4f3f3;
+  --accent-d: #4fb8be;
+  --accent-soft-d: #14302f;
+}
+
+[data-accent="green"] {
+  --accent-l: #1c7a4e;
+  --accent-soft-l: #e6f3ec;
+  --accent-d: #56c08a;
+  --accent-soft-d: #17301f;
+}
+
+[data-accent="amber"] {
+  --accent-l: #96620f;
+  --accent-soft-l: #fbf0de;
+  --accent-d: #d79b46;
+  --accent-soft-d: #32260f;
+}
+
+[data-accent="rose"] {
+  --accent-l: #bc2e5e;
+  --accent-soft-l: #fceaf0;
+  --accent-d: #ee8aae;
+  --accent-soft-d: #3a1f2b;
+}
+
+[data-accent="graphite"] {
+  --accent-l: #4b5260;
+  --accent-soft-l: #edeff2;
+  --accent-d: #aeb5c0;
+  --accent-soft-d: #2b2f35;
+}
+
+/* 선택 색은 포인트 색을 따른다. 테마·포인트 색을 요소마다 바꿀 수 있게(나란히 보기) 그 요소에서 다시 계산한다 */
+:root,
+[data-theme],
+[data-accent] {
+  --sel-bg: var(--accent-soft);
+  --sel-fg: var(--accent);
+  --selection-bg: var(--accent-soft);
+}
+
+:root {
+  --font-ui:
+    "Pretendard Variable", Pretendard, Inter, -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Nanum Myeongjo", "Apple SD Gothic Neo", Georgia, "Times New Roman", serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo,
+    Consolas, "Noto Sans Mono", monospace;
+  --font-body: var(--font-ui);
+  --font-scale: 1;
+
+  /* 간격: Tailwind 기본 spacing(4px 단위)과 같다. p-1=--s1, p-2=--s2 … */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s6: 24px;
+  --s8: 32px;
+  --s12: 48px;
+  --s16: 64px;
+
+  /* 컨트롤 테두리 두께 — 체크박스, 토글 화살표 (프로토타입 .cbox) */
+  --bw-control: 1.5px;
+
+  --r-hair: 2px;
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  /* 글자 크기 (tokens.md §4). 행간은 Tailwind --text-*--line-height로 함께 준다. */
+  --fs-micro: 11px;
+  --fs-label: 12px;
+  --fs-caption: 13px;
+  --fs-ui: 14px;
+  --fs-body: 16px;
+  --fs-code: 13.5px;
+  --fs-h3: 19px;
+  --fs-h2: 24px;
+  --fs-h1: 30px;
+  --fs-title: 40px;
+  --tracking-label: 0.04em;
+  --tracking-title: -0.01em;
+  --tracking-display: -0.02em;
+  --fs-page-icon: 56px;
+
+  --dur-fast: 120ms;
+  --dur: 160ms;
+  --dur-slow: 180ms;
+  --dur-twinkle: 6s;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --sidebar-w: 240px;
+  --topbar-h: 44px;
+  --tabbar-h: 36px;
+  --content-w: 720px;
+  --palette-top: 12vh;
+  --cover-max-h: 30vh;
+}

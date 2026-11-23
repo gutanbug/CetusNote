@@ -1,0 +1,33 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+/**
+ * Rust 커맨드는 세 곳에 함께 적어야 앱에서 부를 수 있다:
+ * lib.rs의 invoke_handler, build.rs의 COMMANDS, permissions/storage.toml.
+ * 한 곳이라도 빠지면 Tauri가 호출을 거부한다(DATA-08 가져오기, DATA-06 PDF에서 겪음).
+ */
+const root = resolve(__dirname, "../../../src-tauri");
+const read = (p: string) => readFileSync(resolve(root, p), "utf8");
+
+const handler = [...read("src/lib.rs").matchAll(/commands::([a-z0-9_]+),/g)].map((m) => m[1]);
+const listed = [
+  ...(read("build.rs").match(/COMMANDS[^=]*=\s*&\[([\s\S]*?)\];/)?.[1] ?? "").matchAll(
+    /"([a-z0-9_]+)"/g,
+  ),
+].map((m) => m[1]);
+const allowed = [...read("permissions/storage.toml").matchAll(/"allow-([a-z0-9-]+)"/g)].map((m) =>
+  m[1].replace(/-/g, "_"),
+);
+
+describe("Tauri 커맨드 권한", () => {
+  it("세 목록을 읽는다", () => {
+    expect(handler.length).toBeGreaterThan(10);
+  });
+  it("invoke_handler와 build.rs COMMANDS가 같다", () => {
+    expect([...listed].sort()).toEqual([...handler].sort());
+  });
+  it("storage.toml이 모든 커맨드를 허용한다", () => {
+    expect([...allowed].sort()).toEqual([...handler].sort());
+  });
+});

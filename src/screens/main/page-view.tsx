@@ -1,0 +1,444 @@
+import type { Editor } from "@tiptap/core";
+import { usePageIconProps } from "./page-icon-props";
+import { NoteEditor } from "@/components/editor/note-editor";
+import { Backlinks, type BacklinkItem } from "@/components/page/backlinks";
+import { EmptyStart } from "@/components/page/empty-start";
+import { PageHeader } from "@/components/page/page-header";
+import { TemplateBar } from "@/components/page/template-bar";
+import { TEMPLATE_CATEGORIES } from "@/features/templates";
+import { Properties } from "@/components/page/properties";
+import { Breadcrumb } from "@/components/shell/breadcrumb";
+import { TopBar } from "@/components/shell/top-bar";
+import { Constellation } from "@/components/ui/constellation";
+import { useAssetUrl } from "@/features/assets";
+import { useMeta } from "@/features/meta";
+import { findBacklinks, pagesStore, usePages } from "@/features/pages";
+import { sessionStore, useSession } from "@/features/session";
+import { formatAgo, formatDate } from "@/lib/format-date";
+import type { Page } from "@/lib/storage";
+import { cn } from "@/lib/utils";
+import { FindBar } from "@/components/editor/find-bar";
+import {
+  currentHeading,
+  getHeadings,
+  goToHeading,
+  type Heading,
+} from "@/components/editor/outline";
+import { OutlineItems } from "@/components/ui/outline";
+import { docToMarkdown, type MdNode } from "@/features/export";
+import { toast } from "@/components/ui/toast";
+import type { JSONContent } from "@tiptap/core";
+import * as React from "react";
+import {
+  ancestors,
+  displayTitle,
+  isBlankDoc,
+  openPage,
+  toggleFavorite,
+  updateTemplateInfo,
+} from "./actions";
+import { MoveDialog } from "./move-dialog";
+import { PageMenu } from "./page-menu";
+import { TagEditor } from "./tag-editor";
+import { openPageFrom } from "./tabs";
+import { closeSplit, openInRightPane, swapSplit, useInactiveSide } from "./split";
+import { canSplit, type Side } from "./split-model";
+import { PageIcon } from "@/components/ui/page-icon";
+import { FileText } from "lucide-react";
+import { useTopBarTitleBar } from "./use-tab-bar";
+import { useMainUi } from "./ui-store";
+import { recordFields } from "./record-fields";
+import { usePagePosition } from "./page-position";
+import {
+  addTag,
+  openEditorLink,
+  removeTag,
+  usePageImages,
+  usePageMentions,
+  usePageTags,
+} from "./page-editing";
+
+/** 1분마다 다시 그려 "n분 전 편집"을 맞춘다 */
+function useMinuteTick() {
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+}
+
+/**
+ * 백링크 (PAGE-09). 지금 페이지만 바뀐 경우(본문을 치는 중)는 다시 찾지 않는다 —
+ * 자기 글은 자기 백링크에 들어가지 않으므로 결과가 같다.
+ */
+function useBacklinks(id: string, all: Record<string, Page>): BacklinkItem[] {
+  const find = () =>
+    findBacklinks(all, id).map((b) => ({
+      id: b.page.id,
+      title: b.page.title,
+      emoji: b.page.icon,
+      count: b.count,
+      snippets: b.snippets,
+    }));
+  const [seen, setSeen] = React.useState(() => ({ id, all, items: find() }));
+  const onlySelfChanged =
+    seen.all === all ||
+    (Object.keys(seen.all).length === Object.keys(all).length &&
+      Object.entries(all).every(([k, v]) => k === id || seen.all[k] === v));
+  if (seen.id !== id || !onlySelfChanged) {
+    // 렌더 중에 이전 값과 비교해 맞춘다(설정 대화상자와 같은 방식)
+    const next = { id, all, items: find() };
+    setSeen(next);
+    return next.items;
+  }
+  return seen.items;
+}
+
+/**
+ * 본문 — 상단 바(경로·편집 시각) + 페이지 머리 + 속성 + 에디터 (SHELL-09).
+ * side: 주 화면(main)이나 분할 화면 오른쪽 패널(pane). 찾기·목차 상태는 쪽마다 따로 가진다 (SHELL-19).
+ */
+export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
+  const isMain = side === "main";
+  const iconProps = usePageIconProps(page);
+  useMinuteTick();
+  const all = usePages((s) => s.pages);
+  const collapsed = useSession((s) => s.sidebarCollapsed);
+  const focusMode = useMainUi((s) => s.focusMode);
+  const splitId = useSession((s) => s.splitId);
+  const splitArea = useMainUi((s) => s.splitArea);
+  // 패널 쪽은 사이드바·집중 모드·창 끌기 자리를 쓰지 않는다
+  const titleBar = useTopBarTitleBar();
+  // 활성이 아닌 쪽의 머리는 흐리게 (SHELL-19)
+  const dimmed = useInactiveSide(side);
+  const setFocusMode = useMainUi((s) => s.setFocusMode);
+  // 페이지 안 찾기 (EDIT-25): 본문 에디터를 받아 둔다. 페이지를 떠나면 닫는다
+  const find = useMainUi((s) => (s.find?.side === side ? s.find : null));
+  const closeFind = useMainUi((s) => s.closeFind);
+  const [findEditor, setFindEditor] = React.useState<Editor | null>(null);
+  React.useEffect(
+    () => () => {
+      // 이 쪽의 찾기·목차만 닫는다 (다른 쪽이 쓰고 있을 수 있다)
+      const ui = useMainUi.getState();
+      if (ui.find?.side === side) ui.closeFind();
+      if (ui.outlineSide === side) ui.setOutlineOpen(false);
+    },
+    [side],
+  );
+  // 목차 (PAGE-12) — 상단 바 메뉴. ⌥⌘O로도 연다. 연 쪽에서만 보인다
+  const outlineOpen = useMainUi((s) => s.outlineOpen && s.outlineSide === side);
+  const setOutlineOpen = (open: boolean) => useMainUi.getState().setOutlineOpen(open, side);
+  // 고른 제목 — 메뉴가 닫힌 뒤(포커스 가둠이 풀린 뒤)에 그리로 간다
+  const picked = React.useRef<Heading | null>(null);
+  const sky = useSession((s) => s.appearance.constellation);
+  const [scrolled, setScrolled] = React.useState(false);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const { update } = pagesStore.getState();
+
+  const crumbs = [...ancestors(page.id, all).reverse(), page].map((p) => ({
+    id: p.id,
+    title: displayTitle(p),
+    emoji: p.kind !== "folder" ? (p.icon ?? undefined) : undefined,
+  }));
+  // 이미지 (EDIT-14) — 에디터는 경로만 알고, 읽기·저장·고르기는 이 함수들로
+  const editorPrefs = useSession((s) => s.editor);
+  const images = usePageImages(page.id);
+  const coverUrl = useAssetUrl(page.cover);
+  // 커버 (PAGE-03): 고르면 이 페이지 assets에 복사해 경로를 기록한다. 옛 파일은 지우지 않는다(실행 취소·복제가 쓸 수 있게)
+  const chooseCover = () => void images.pick().then((cover) => cover && update(page.id, { cover }));
+
+  // 페이지 멘션 (EDIT-13) — 에디터는 이 함수들로 찾고 제목을 읽고 연다
+  const backlinks = useBacklinks(page.id, all);
+  const mentions = usePageMentions(page.id);
+  const favorite = useMeta((s) => s.meta?.favorites.includes(page.id) ?? false);
+  const [moving, setMoving] = React.useState(false);
+  // "빈 페이지로 시작"을 누른 페이지 — 안내를 닫는다(이 화면을 연 동안만. 다시 열면 비어 있으면 또 보인다)
+  const [blankStarted, setBlankStarted] = React.useState<string | null>(null);
+  const empty = isBlankDoc(page.content) && blankStarted !== page.id;
+  // 제목 → 본문. DOM focus()만 하면 새 빈 문서는 "전체 선택"으로 남아 Tab·입력이 엉킨다 — 글자 칸에 캐럿을 둔다
+  const focusEditor = () => {
+    const dom = bodyRef.current?.querySelector<HTMLElement & { editor?: Editor }>(".ProseMirror");
+    const editor = dom?.editor;
+    if (!editor) return dom?.focus();
+    const sel = editor.state.selection;
+    editor.commands.focus(sel.empty && sel.$from.parent.inlineContent ? null : "start");
+  };
+  const { allTags, tags } = usePageTags(page);
+  // 읽던 위치 (PAGE-15): 스크롤과 캐럿을 기억하고, 열 때 되돌린다(새 페이지·검색 결과 열기는 맨 위)
+  usePagePosition({
+    pageId: page.id,
+    blank: isBlankDoc(page.content),
+    editor: findEditor,
+    scrollerRef: bodyRef,
+  });
+
+  // 새로 만든 빈 페이지면 제목에 바로 쓸 수 있게. 부르는 쪽이 페이지마다 key를 바꿔 다시 마운트한다
+  React.useEffect(() => {
+    const blank = !page.title && !(page.content.content?.length ?? 0);
+    if (!blank) return;
+    // 메뉴에서 만들었으면 메뉴가 닫히며 트리거로 포커스를 돌려준 뒤에 잡는다
+    const t = setTimeout(() =>
+      bodyRef.current?.querySelector<HTMLElement>('[aria-label="페이지 제목"]')?.focus(),
+    );
+    return () => clearTimeout(t);
+    // 처음 열 때만 (제목을 지워도 다시 잡지 않는다)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      data-side={side}
+      className={cn(
+        "grid h-full min-w-0 bg-app",
+        page.template ? "grid-rows-[auto_auto_minmax(0,1fr)]" : "grid-rows-[auto_minmax(0,1fr)]",
+      )}
+    >
+      <TopBar
+        // 오른쪽 패널(SHELL-19)은 한 줄 머리: 제목 · 목차 · 메뉴 · 바꾸기 · 닫기
+        variant={isMain ? "page" : "pane"}
+        pane={
+          isMain
+            ? undefined
+            : {
+                icon: page.icon ? (
+                  <PageIcon icon={page.icon} />
+                ) : (
+                  <FileText strokeWidth={1.5} className="size-4 text-tertiary" />
+                ),
+                title: displayTitle(page),
+                onOpenMain: () => {
+                  // 주 화면에서 연다 — 패널 페이지는 주 화면에 있으면 맞바꿔진다(installSplitSync)
+                  useMainUi.getState().setView({ kind: "page" });
+                  openPage(page.id);
+                },
+                onSwap: swapSplit,
+                onClose: closeSplit,
+              }
+        }
+        // 창이 좁아 패널이 숨었을 때만 보인다 (집중 모드 숨김은 제외). 상태는 그대로 두고 설명만 띄운다
+        paneHidden={
+          isMain && splitId && !focusMode && !canSplit(splitArea)
+            ? {
+                label: "오른쪽 패널 숨김됨 · 창을 넓히면 다시 보여요",
+                onClick: () => toast("창을 넓히면 오른쪽 패널이 다시 보여요", { id: "split" }),
+              }
+            : undefined
+        }
+        breadcrumb={
+          <Breadcrumb
+            items={crumbs}
+            dimmed={dimmed}
+            onNavigate={(id) => {
+              if (all[id]?.kind === "folder") sessionStore.getState().expand(id);
+              else if (id !== page.id) {
+                if (isMain) sessionStore.getState().open(id);
+                else openInRightPane(id);
+              }
+            }}
+          />
+        }
+        editedAt={`${formatAgo(page.updatedAt)} 편집`}
+        scrolled={scrolled}
+        sidebarOpen={!collapsed && !focusMode}
+        onToggleSidebar={
+          isMain
+            ? () =>
+                // 집중 모드에서 누르면 집중 모드를 끈다(사이드바가 돌아온다)
+                focusMode ? setFocusMode(false) : sessionStore.getState().toggleSidebar()
+            : undefined
+        }
+        focusMode={focusMode}
+        titleBar={isMain ? titleBar : undefined}
+        dimmed={dimmed}
+        onFocusMode={isMain ? () => setFocusMode(!focusMode) : undefined}
+        favorite={favorite}
+        onToggleFavorite={() => toggleFavorite(page.id)}
+        pageMenu={<PageMenu page={page} favorite={favorite} onMove={() => setMoving(true)} />}
+        outline={
+          findEditor ? (
+            <PageOutline
+              editor={findEditor}
+              getScroller={() => bodyRef.current}
+              onPick={(h) => (picked.current = h)}
+            />
+          ) : undefined
+        }
+        outlineOpen={outlineOpen}
+        onOutlineOpenChange={setOutlineOpen}
+        onOutlineCloseAutoFocus={(e) => {
+          const h = picked.current;
+          picked.current = null;
+          if (!h || !findEditor) return;
+          e.preventDefault();
+          goToHeading(findEditor, h);
+        }}
+      />
+      {page.template ? (
+        <TemplateBar
+          categories={TEMPLATE_CATEGORIES}
+          category={page.template.category}
+          onCategoryChange={(category) => updateTemplateInfo(page.id, { category })}
+          description={page.template.description}
+          onDescriptionChange={(description) => updateTemplateInfo(page.id, { description })}
+          pageTitle={page.template.pageTitle}
+          onPageTitleChange={(pageTitle) => updateTemplateInfo(page.id, { pageTitle })}
+          onDone={() => {
+            void pagesStore.getState().flushPage(page.id);
+            useMainUi.getState().setView({ kind: "home" });
+            useMainUi.getState().setTemplatesOpen(true);
+          }}
+        />
+      ) : null}
+      <MoveDialog pageId={moving ? page.id : null} onOpenChange={setMoving} />
+      <div className="relative min-h-0">
+        {find && findEditor ? (
+          <FindBar
+            key={findEditor.instanceId}
+            editor={findEditor}
+            replace={find.mode === "replace"}
+            focusSignal={find.seq}
+            initialQuery={selectedText(findEditor)}
+            onClose={closeFind}
+            onReplacedAll={(n) => toast(`${n}곳을 바꿨어요`, { id: "find-replaced" })}
+            className="absolute top-2 right-4 z-20"
+          />
+        ) : null}
+        <div
+          ref={bodyRef}
+          data-slot="page-scroller"
+          className="h-full min-h-0 overflow-y-auto overscroll-contain"
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
+        >
+          {/* 페이지 머리는 커버를 꽉 채우려고 본문 폭·여백을 스스로 잡는다. 에디터만 같은 폭으로 감싼다 */}
+          <article className="@container relative pb-[30vh]">
+            {/* 배경 별자리(concept.md §3): 머리 오른쪽 여백에 옅게. 여백이 모자라거나 전체 폭이면 숨긴다 */}
+            {sky && !page.layout.fullWidth && !page.cover ? (
+              <Constellation
+                size="lg"
+                tone="faint"
+                twinkle={false}
+                aria-hidden
+                className="pointer-events-none absolute top-8 right-6 hidden @6xl:block"
+              />
+            ) : null}
+            <PageHeader
+              title={page.title}
+              onTitleChange={(title) => update(page.id, { title })}
+              onTitleExit={focusEditor}
+              {...iconProps}
+              cover={page.cover ? { src: coverUrl } : undefined}
+              onAddCover={chooseCover}
+              onChangeCover={chooseCover}
+              onRemoveCover={() => update(page.id, { cover: null })}
+              wide={page.layout.fullWidth}
+            >
+              <Properties
+                tags={tags}
+                tagEditor={
+                  <TagEditor
+                    all={allTags}
+                    assigned={page.props.tags}
+                    onAdd={(name) => addTag(page.id, name)}
+                  />
+                }
+                onRemoveTag={(name) => removeTag(page.id, name)}
+                status={page.props.status ?? undefined}
+                onStatusChange={(status) =>
+                  update(page.id, { props: { ...page.props, status: status ?? null } })
+                }
+                {...recordFields(page, all)}
+                created={formatDate(page.createdAt)}
+                updated={formatDate(page.updatedAt)}
+              />
+            </PageHeader>
+            <div
+              className={cn(
+                "mx-auto mt-6 w-full",
+                page.layout.fullWidth ? "px-16" : "max-w-(--content-w) px-12",
+                // 페이지 글꼴(PAGE-05): 본문 글꼴 토큰만 바꾼다
+                page.layout.font === "serif" && "[--font-body:var(--font-serif)]",
+                page.layout.font === "mono" && "[--font-body:var(--font-mono)]",
+              )}
+            >
+              <NoteEditor
+                content={page.content as JSONContent}
+                label={`${page.title || "제목 없음"} 본문`}
+                onChange={(content) => update(page.id, { content: content as Page["content"] })}
+                onOpenLink={openEditorLink}
+                // ⌥⌘↵ (SHELL-19): 캐럿 밑 링크·멘션의 페이지를 오른쪽 패널에 연다. 링크·멘션이 없으면 편집기가 아무것도 하지 않는다
+                onOpenPane={(linkedId) => openInRightPane(linkedId)}
+                mentions={mentions}
+                images={images}
+                spellCheck={editorPrefs.spellcheck}
+                dimChecked={editorPrefs.dimChecked}
+                onEditor={setFindEditor}
+                copyAsText={copyAsMarkdown}
+              />
+              {empty && !page.template ? (
+                <EmptyStart
+                  onStartBlank={() => {
+                    setBlankStarted(page.id);
+                    focusEditor();
+                  }}
+                  onOpenTemplates={() => useMainUi.getState().setTemplatesOpen(true)}
+                />
+              ) : null}
+              {backlinks.length ? (
+                <Backlinks
+                  key={page.id}
+                  className="mt-16"
+                  items={backlinks}
+                  onOpen={(id, o) =>
+                    o.pane
+                      ? openInRightPane(id)
+                      : openPageFrom(id, { metaKey: o.newTab, ctrlKey: false })
+                  }
+                />
+              ) : null}
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 여러 블록을 복사하면 다른 앱용 글자는 마크다운(이스케이프 없이, 멘션은 지금 제목) — EDIT-26 */
+function copyAsMarkdown(doc: JSONContent): string {
+  const pages = pagesStore.getState().pages;
+  return docToMarkdown(doc as MdNode, {
+    escape: false,
+    titleOf: (id) => (pages[id] ? displayTitle(pages[id]) : undefined),
+  });
+}
+
+/** 목차 내용 — 메뉴가 열릴 때 그린다. 그때의 제목과 지금 보고 있는 제목을 읽는다 */
+function PageOutline({
+  editor,
+  getScroller,
+  onPick,
+}: {
+  editor: Editor;
+  getScroller: () => Element | null;
+  onPick: (heading: Heading) => void;
+}) {
+  const [snap] = React.useState(() => {
+    const headings = getHeadings(editor);
+    return { headings, current: currentHeading(editor, headings, getScroller()) };
+  });
+  return (
+    <OutlineItems
+      headings={snap.headings}
+      current={snap.current}
+      onSelect={(i) => onPick(snap.headings[i]!)}
+    />
+  );
+}
+
+/** 찾기 칸에 미리 넣을 글자 — 본문에서 한 줄 안을 골랐을 때만 */
+function selectedText(editor: Editor): string {
+  const { from, to, empty } = editor.state.selection;
+  if (empty) return "";
+  const text = editor.state.doc.textBetween(from, to, "\n");
+  return text.includes("\n") || text.length > 100 ? "" : text;
+}

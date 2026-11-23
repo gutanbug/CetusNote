@@ -1,0 +1,1096 @@
+//! 프론트엔드가 부르는 저장 커맨드. 프론트엔드는 `src/lib/storage`만 이 커맨드를 부른다.
+//! 경로는 받지 않는다: 폴더·저장 위치는 Rust가 띄우는 대화상자에서만 정해진다.
+
+use crate::storage::{self, LoadedPages, Result, StorageError, Workspace};
+use serde::Serialize;
+use serde_json::{Value, json};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::DialogExt;
+
+/// 앱 설정 폴더의 파일: 마지막 워크스페이스 경로(Rust 전용)와 화면 설정(프론트엔드 소유)
+const APP_STATE_FILE: &str = "app-state.json";
+const SETTINGS_FILE: &str = "settings.json";
+
+#[derive(Default)]
+pub struct AppState {
+    workspace: Mutex<Option<Workspace>>,
+    /// Markdown 가져오기(DATA-08)로 사용자가 고른 파일들의 폴더(정규화). 그 안의 이미지만 읽는다
+    import_dirs: Mutex<HashSet<PathBuf>>,
+    /// 마지막으로 만든 워크스페이스 Markdown 내보내기 폴더(폴더 열기용, DATA-10)
+    last_export: Mutex<Option<PathBuf>>,
+    /// 마지막으로 만든 PDF 미리보기 파일(앱 캐시, DATA-06). pdf_save가 이 파일을 복사한다
+    last_pdf: Mutex<Option<PathBuf>>,
+}
+
+#[derive(Serialize)]
+pub struct WorkspaceInfo {
+    /// 화면 표시용 폴더 이름과 전체 경로(설정 화면). 프론트엔드가 이 경로로 파일에 접근하지는 않는다.
+    name: String,
+    path: String,
+}
+
+fn info(ws: &Workspace) -> WorkspaceInfo {
+    WorkspaceInfo {
+        name: ws
+            .root
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        path: ws.root.to_string_lossy().into_owned(),
+    }
+}
+
+fn config_dir(app: &AppHandle) -> Result<PathBuf> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
+fn with_workspace<T>(
+    state: &State<AppState>,
+    f: impl FnOnce(&Workspace) -> Result<T>,
+) -> Result<T> {
+    let guard = state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?;
+    let ws = guard
+        .as_ref()
+        .ok_or_else(|| StorageError::new("no_workspace", "워크스페이스가 열려 있지 않아요"))?;
+    f(ws)
+}
+
+/// 최근 워크스페이스 최대 개수 (SHELL-15)
+const RECENT_MAX: usize = 10;
+
+/// app-state.json의 최근 워크스페이스 경로 목록
+fn recent_paths(saved: Option<&Value>) -> Vec<PathBuf> {
+    saved
+        .and_then(|v| v.get("recent"))
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(PathBuf::from)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 연 폴더를 맨 앞에 두고 같은 경로는 한 번만, 최대 RECENT_MAX개
+fn push_recent(recent: Vec<PathBuf>, root: &std::path::Path) -> Vec<PathBuf> {
+    let mut out = vec![root.to_path_buf()];
+    out.extend(recent.into_iter().filter(|p| p != root));
+    out.truncate(RECENT_MAX);
+    out
+}
+
+/// 새 워크스페이스 이름 검사 — 폴더 이름이 된다. 빈 이름·경로 문자·숨김 이름은 거절
+fn valid_workspace_name(name: &str) -> Option<String> {
+    let name = name.trim();
+    let bad = name.is_empty()
+        || name.chars().count() > 80
+        || name.starts_with('.')
+        || name
+            .chars()
+            .any(|c| matches!(c, '/' | '\\' | ':' | '\0') || c.is_control());
+    (!bad).then(|| name.to_string())
+}
+
+fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Result<WorkspaceInfo> {
+    let ws = Workspace::open(root)?;
+    let state_file = config_dir(app)?.join(APP_STATE_FILE);
+    let saved = storage::read_json_opt(&state_file).ok().flatten();
+    let recent = push_recent(recent_paths(saved.as_ref()), &ws.root);
+    storage::write_json(
+        &state_file,
+        &json!({ "workspace": ws.root, "recent": recent }),
+    )?;
+    let out = info(&ws);
+    *state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))? = Some(ws);
+    Ok(out)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceStatus {
+    /// 열린 워크스페이스. 없으면 첫 실행 화면(DATA-03)
+    workspace: Option<WorkspaceInfo>,
+    /// 지난번에 쓰던 폴더가 없어졌을 때 그 경로 (첫 실행 화면에 알림)
+    missing_path: Option<String>,
+    /// "기본 위치에 만들기"가 쓸 경로: 문서 폴더/CetusNote
+    default_path: Option<String>,
+}
+
+fn default_dir(app: &AppHandle) -> Option<PathBuf> {
+    app.path()
+        .document_dir()
+        .ok()
+        .map(|d| d.join(storage::DEFAULT_FOLDER_NAME))
+}
+
+/// 지금 열린 워크스페이스. 없으면 지난번 경로를 다시 연다. 그 폴더가 사라졌으면 `missing_path`로 알린다.
+#[tauri::command]
+pub fn workspace_current(app: AppHandle, state: State<AppState>) -> Result<WorkspaceStatus> {
+    let default_path = default_dir(&app).map(|p| p.to_string_lossy().into_owned());
+    let status = |workspace, missing_path| WorkspaceStatus {
+        workspace,
+        missing_path,
+        default_path: default_path.clone(),
+    };
+    if let Some(ws) = state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?
+        .as_ref()
+    {
+        return Ok(status(Some(info(ws)), None));
+    }
+    let saved = storage::read_json_opt(&config_dir(&app)?.join(APP_STATE_FILE))
+        .ok()
+        .flatten();
+    let Some(path) = saved
+        .as_ref()
+        .and_then(|v| v.get("workspace"))
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+    else {
+        return Ok(status(None, None));
+    };
+    if !path.is_dir() {
+        return Ok(status(None, Some(path.to_string_lossy().into_owned())));
+    }
+    Ok(status(Some(set_workspace(&app, &state, path)?), None))
+}
+
+/// 기본 위치(문서 폴더/CetusNote)에 워크스페이스를 만들거나 연다(DATA-03).
+#[tauri::command]
+pub fn workspace_use_default(app: AppHandle, state: State<AppState>) -> Result<WorkspaceInfo> {
+    let root = default_dir(&app)
+        .ok_or_else(|| StorageError::new("not_found", "문서 폴더를 찾을 수 없어요"))?;
+    std::fs::create_dir_all(&root)?;
+    set_workspace(&app, &state, root)
+}
+
+/// 폴더 선택 대화상자(DATA-03). 취소하면 None.
+#[tauri::command]
+pub async fn workspace_pick(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<WorkspaceInfo>> {
+    let mut dialog = app.dialog().file().set_title("노트를 저장할 폴더 선택");
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let chosen = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let root = storage::resolve_workspace_dir(&chosen)?;
+    set_workspace(&app, &state, root).map(Some)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentWorkspace {
+    /// workspace.json의 이름(없으면 폴더 이름)
+    name: String,
+    path: String,
+    current: bool,
+}
+
+/// 최근 연 워크스페이스 (SHELL-15). 없어진 폴더는 뺀다.
+#[tauri::command]
+pub fn workspace_recent(app: AppHandle, state: State<AppState>) -> Result<Vec<RecentWorkspace>> {
+    let saved = storage::read_json_opt(&config_dir(&app)?.join(APP_STATE_FILE))
+        .ok()
+        .flatten();
+    let current = state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?
+        .as_ref()
+        .map(|ws| ws.root.clone());
+    Ok(recent_paths(saved.as_ref())
+        .into_iter()
+        .filter(|p| p.is_dir())
+        .map(|p| {
+            let meta_name = storage::read_json_opt(&p.join(storage::WORKSPACE_FILE))
+                .ok()
+                .flatten()
+                .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string))
+                .filter(|n| !n.trim().is_empty());
+            let folder = p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            RecentWorkspace {
+                name: meta_name.unwrap_or(folder),
+                path: p.to_string_lossy().into_owned(),
+                current: current.as_ref() == Some(&p),
+            }
+        })
+        .collect())
+}
+
+/// 최근 목록에 있는 워크스페이스로 바꾼다 (SHELL-15). 목록 밖 경로는 받지 않는다.
+#[tauri::command]
+pub fn workspace_switch(
+    app: AppHandle,
+    state: State<AppState>,
+    path: String,
+) -> Result<WorkspaceInfo> {
+    let saved = storage::read_json_opt(&config_dir(&app)?.join(APP_STATE_FILE))
+        .ok()
+        .flatten();
+    let target = PathBuf::from(&path);
+    if !recent_paths(saved.as_ref()).contains(&target) {
+        return Err(StorageError::new(
+            "invalid_path",
+            "최근 목록에 없는 폴더예요",
+        ));
+    }
+    if !target.is_dir() {
+        return Err(StorageError::new("not_found", "폴더를 찾을 수 없어요"));
+    }
+    set_workspace(&app, &state, target)
+}
+
+/// 최근 목록에서 뺀다 (SHELL-16). 폴더·파일은 건드리지 않는다. 지금 열린 워크스페이스는 뺄 수 없다.
+#[tauri::command]
+pub fn workspace_forget(app: AppHandle, state: State<AppState>, path: String) -> Result<()> {
+    let target = PathBuf::from(&path);
+    let current = state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?
+        .as_ref()
+        .map(|ws| ws.root.clone());
+    if current.as_ref() == Some(&target) {
+        return Err(StorageError::new(
+            "invalid_path",
+            "지금 열린 워크스페이스는 목록에서 뺄 수 없어요",
+        ));
+    }
+    let state_file = config_dir(&app)?.join(APP_STATE_FILE);
+    let mut saved = storage::read_json_opt(&state_file)?.unwrap_or_else(|| json!({}));
+    let recent = forget_recent(recent_paths(Some(&saved)), &target);
+    if let Some(obj) = saved.as_object_mut() {
+        obj.insert("recent".into(), json!(recent));
+    }
+    storage::write_json(&state_file, &saved)
+}
+
+/// 목록에서 그 경로만 뺀다(순서 유지)
+fn forget_recent(recent: Vec<PathBuf>, target: &std::path::Path) -> Vec<PathBuf> {
+    recent.into_iter().filter(|p| p != target).collect()
+}
+
+/// 새 워크스페이스 (SHELL-15): 위치를 고르는 대화상자 → <위치>/<이름> 폴더를 만들어 연다. 취소하면 None.
+#[tauri::command]
+pub async fn workspace_create(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+) -> Result<Option<WorkspaceInfo>> {
+    let name = valid_workspace_name(&name)
+        .ok_or_else(|| StorageError::new("invalid_path", "폴더 이름으로 쓸 수 없는 이름이에요"))?;
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(format!("“{name}” 워크스페이스를 만들 위치 선택"));
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let parent = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let root = parent.join(&name);
+    if root.exists() {
+        return Err(StorageError::new(
+            "already_exists",
+            "같은 이름의 폴더가 이미 있어요",
+        ));
+    }
+    std::fs::create_dir(&root)?;
+    set_workspace(&app, &state, root).map(Some)
+}
+
+#[tauri::command]
+pub fn workspace_read(state: State<AppState>) -> Result<Option<Value>> {
+    with_workspace(&state, Workspace::read_meta)
+}
+
+#[tauri::command]
+pub fn workspace_write(state: State<AppState>, value: Value) -> Result<()> {
+    with_workspace(&state, |ws| ws.write_meta(&value))
+}
+
+#[tauri::command]
+pub fn pages_load_all(state: State<AppState>) -> Result<LoadedPages> {
+    with_workspace(&state, Workspace::load_all)
+}
+
+#[tauri::command]
+pub fn page_write(state: State<AppState>, page: Value) -> Result<()> {
+    with_workspace(&state, |ws| ws.write_page(&page))
+}
+
+#[tauri::command]
+pub fn page_purge(state: State<AppState>, id: String) -> Result<()> {
+    with_workspace(&state, |ws| ws.purge_page(&id))
+}
+
+/// 버전 기록(DATA-09): 페이지 전체를 새 버전으로 남긴다. 오래된 것은 50개까지만 둔다
+#[tauri::command]
+pub fn history_save(state: State<AppState>, page: Value) -> Result<storage::history::VersionInfo> {
+    with_workspace(&state, |ws| ws.save_version(&page))
+}
+
+#[tauri::command]
+pub fn history_list(
+    state: State<AppState>,
+    id: String,
+) -> Result<Vec<storage::history::VersionInfo>> {
+    with_workspace(&state, |ws| ws.list_versions(&id))
+}
+
+#[tauri::command]
+pub fn history_read(state: State<AppState>, id: String, version: String) -> Result<Value> {
+    with_workspace(&state, |ws| ws.read_version(&id, &version))
+}
+
+#[tauri::command]
+pub fn history_delete(state: State<AppState>, id: String) -> Result<()> {
+    with_workspace(&state, |ws| ws.delete_history(&id))
+}
+
+/// 앱 설정(테마, 포인트 색, 사이드바 폭 …). 내용은 프론트엔드가 정한다.
+#[tauri::command]
+pub fn settings_read(app: AppHandle) -> Result<Option<Value>> {
+    storage::read_json_opt(&config_dir(&app)?.join(SETTINGS_FILE))
+}
+
+#[tauri::command]
+pub fn settings_write(app: AppHandle, value: Value) -> Result<()> {
+    if !value.is_object() {
+        return Err(StorageError::new(
+            "invalid_settings",
+            "설정은 객체여야 해요",
+        ));
+    }
+    storage::write_json(&config_dir(&app)?.join(SETTINGS_FILE), &value)
+}
+
+/// Markdown 내보내기(DATA-04): 저장 대화상자 → 원자적 쓰기. 취소하면 None, 저장하면 파일 이름.
+#[tauri::command]
+pub async fn export_markdown(
+    app: AppHandle,
+    file_name: String,
+    text: String,
+) -> Result<Option<String>> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("Markdown으로 내보내기")
+        .add_filter("Markdown", &["md"])
+        .set_file_name(file_name);
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_save_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    storage::atomic_write(&path, text.as_bytes())?;
+    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()))
+}
+
+/// 워크스페이스 전체 Markdown 내보내기(DATA-10): 폴더 고르기 → 새 폴더에 목록대로 쓴다. 취소하면 None.
+/// 목록의 경로는 storage::export가 검사한다. 프론트엔드는 폴더 경로를 받지 않는다.
+#[tauri::command]
+pub async fn workspace_export_markdown(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    manifest: storage::export::ExportManifest,
+) -> Result<Option<storage::export::ExportReport>> {
+    let root = workspace_root(&state)?;
+    let mut dialog = app.dialog().file().set_title("Markdown으로 모두 내보내기");
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let parent = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let report = storage::export::write_export(&root, &parent, &manifest)?;
+    *state
+        .last_export
+        .lock()
+        .map_err(|_| StorageError::new("io", "내보내기 상태를 저장하지 못했어요"))? =
+        Some(report.path.clone());
+    Ok(Some(report))
+}
+
+/// 마지막 워크스페이스 Markdown 내보내기 폴더를 Finder로 연다(DATA-10)
+#[tauri::command]
+pub fn workspace_export_reveal(app: AppHandle, state: State<AppState>) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = state
+        .last_export
+        .lock()
+        .map_err(|_| StorageError::new("io", "내보내기 상태를 읽지 못했어요"))?
+        .clone()
+        .ok_or_else(|| StorageError::new("not_found", "내보낸 폴더가 없어요"))?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|e| StorageError::new("io", e.to_string()))
+}
+
+/// Markdown 가져오기(DATA-08)에서 한 번에 고를 수 있는 파일 수 · 파일 하나의 크기
+const IMPORT_MAX_FILES: usize = 100;
+const IMPORT_MAX_BYTES: u64 = 5 * 1024 * 1024;
+const IMAGE_EXTS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "webp", "avif"];
+
+#[derive(Serialize)]
+pub struct MarkdownFile {
+    /// 확장자를 뺀 파일 이름 (제목이 없을 때 쓴다)
+    name: String,
+    text: String,
+    /// 파일이 있는 폴더 — 상대 경로 이미지를 읽을 때 markdown_image에 돌려준다
+    dir: String,
+}
+
+#[derive(Serialize)]
+pub struct MarkdownPick {
+    files: Vec<MarkdownFile>,
+    /// 너무 크거나 읽지 못해 건너뛴 파일 이름
+    skipped: Vec<String>,
+}
+
+/// Markdown 가져오기(DATA-08): 파일 고르기(여러 개) → 글을 읽어 돌려준다. 취소하면 None.
+/// 고른 파일의 폴더를 기억해 두고, markdown_image는 그 폴더 안의 이미지만 읽는다.
+#[tauri::command]
+pub async fn markdown_pick(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<MarkdownPick>> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("Markdown 가져오기")
+        .add_filter("Markdown", &["md", "markdown"]);
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_pick_files() else {
+        return Ok(None);
+    };
+    let mut files = Vec::new();
+    let mut skipped = Vec::new();
+    let mut dirs = Vec::new();
+    for item in picked.into_iter().take(IMPORT_MAX_FILES) {
+        let Ok(path) = item.into_path() else { continue };
+        let name = path
+            .file_stem()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let read = std::fs::metadata(&path)
+            .ok()
+            .filter(|m| m.is_file() && m.len() <= IMPORT_MAX_BYTES)
+            .and_then(|_| std::fs::read(&path).ok());
+        let (Some(bytes), Some(dir)) = (read, path.parent().and_then(|d| d.canonicalize().ok()))
+        else {
+            skipped.push(name);
+            continue;
+        };
+        files.push(MarkdownFile {
+            name,
+            text: String::from_utf8_lossy(&bytes).into_owned(),
+            dir: dir.to_string_lossy().into_owned(),
+        });
+        dirs.push(dir);
+    }
+    state
+        .import_dirs
+        .lock()
+        .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))?
+        .extend(dirs);
+    Ok(Some(MarkdownPick { files, skipped }))
+}
+
+/// 가져온 Markdown의 상대 경로 이미지 → 이 페이지의 assets로 복사(DATA-08).
+/// `dir`은 markdown_pick이 돌려준 폴더여야 하고, 이미지는 그 폴더 안(하위 폴더 포함)에 있어야 한다.
+#[tauri::command]
+pub fn markdown_image(
+    state: State<AppState>,
+    page_id: String,
+    dir: String,
+    src: String,
+) -> Result<String> {
+    let dir = PathBuf::from(dir);
+    let allowed = state
+        .import_dirs
+        .lock()
+        .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))?
+        .contains(&dir);
+    if !allowed {
+        return Err(StorageError::new(
+            "forbidden",
+            "가져온 파일의 폴더가 아니에요",
+        ));
+    }
+    let path = resolve_import_image(&dir, &src)?;
+    let meta = std::fs::metadata(&path)?;
+    if meta.len() > storage::ASSET_MAX_BYTES as u64 {
+        return Err(StorageError::new("too_large", "이미지가 25MB보다 커요"));
+    }
+    let bytes = std::fs::read(&path)?;
+    with_workspace(&state, |ws| ws.write_asset(&page_id, &bytes))
+}
+
+/// 마크다운 속 상대 주소(`img/a%20b.png`, `./a.png`)를 dir 기준 실제 경로로. 폴더 밖·이미지가 아니면 거절
+fn resolve_import_image(dir: &Path, src: &str) -> Result<PathBuf> {
+    let bad = || StorageError::new("invalid_asset", "가져올 수 없는 이미지 경로예요");
+    let base = url::Url::from_directory_path(dir).map_err(|_| bad())?;
+    let joined = base.join(src.trim()).map_err(|_| bad())?;
+    if joined.scheme() != "file" {
+        return Err(bad());
+    }
+    let path = joined.to_file_path().map_err(|_| bad())?;
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    if !IMAGE_EXTS.contains(&ext.as_str()) {
+        return Err(bad());
+    }
+    let real = path
+        .canonicalize()
+        .map_err(|_| StorageError::new("not_found", "이미지 파일이 없어요"))?;
+    if !real.starts_with(dir) {
+        return Err(bad());
+    }
+    Ok(real)
+}
+
+/// 이미지 저장(EDIT-14, PAGE-03). 본문은 JSON이 아니라 바이트 그대로(`x-page-id` 헤더로 페이지).
+/// 종류는 내용으로 판별하고 `assets/<id>/img-….<확장자>` 상대 경로를 돌려준다.
+#[tauri::command]
+pub fn asset_write(state: State<AppState>, request: tauri::ipc::Request<'_>) -> Result<String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(StorageError::new(
+            "invalid_asset",
+            "이미지 바이트가 필요해요",
+        ));
+    };
+    let page_id = request
+        .headers()
+        .get("x-page-id")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| StorageError::new("invalid_id", "페이지 id가 없어요"))?;
+    with_workspace(&state, |ws| ws.write_asset(page_id, bytes))
+}
+
+/// 이미지 읽기: 바이트 그대로 돌려준다(프론트엔드가 blob URL로 그림)
+#[tauri::command]
+pub fn asset_read(state: State<AppState>, path: String) -> Result<tauri::ipc::Response> {
+    with_workspace(&state, |ws| ws.read_asset(&path)).map(tauri::ipc::Response::new)
+}
+
+/// 이미지 고르기 대화상자 → 그 페이지의 assets에 복사. 취소하면 None.
+#[tauri::command]
+pub async fn asset_pick(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    page_id: String,
+) -> Result<Option<String>> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("이미지 선택")
+        .add_filter("이미지", &["png", "jpg", "jpeg", "gif", "webp", "avif"]);
+    if let Ok(dir) = app.path().picture_dir() {
+        dialog = dialog.set_directory(dir);
+    }
+    let Some(picked) = dialog.blocking_pick_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let meta = std::fs::metadata(&path)?;
+    if meta.len() > storage::ASSET_MAX_BYTES as u64 {
+        return Err(StorageError::new("too_large", "이미지가 25MB보다 커요"));
+    }
+    let bytes = std::fs::read(&path)?;
+    with_workspace(&state, |ws| ws.write_asset(&page_id, &bytes)).map(Some)
+}
+
+/// 이미지 링크 내려받기 (PAGE-10 업로드 탭 · EDIT-24 붙여 넣은 웹 이미지) → 그 페이지의 assets에 저장.
+/// http·https만, 20초·리다이렉트 5번·25MB까지. 종류는 내용으로 판별한다(write_asset).
+/// `public_only`(붙여 넣은 웹 글): 주소가 내부망(루프백·사설·링크 로컬 등)을 가리키면 거절한다.
+/// 리다이렉트도 한 번씩 따라가며 매번 검사한다.
+#[tauri::command]
+pub async fn asset_fetch(
+    state: State<'_, AppState>,
+    page_id: String,
+    url: String,
+    public_only: Option<bool>,
+) -> Result<String> {
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://")) {
+        return Err(StorageError::new(
+            "fetch_failed",
+            "http·https 링크만 가져올 수 있어요",
+        ));
+    }
+    let public_only = public_only.unwrap_or(false);
+    let bytes = tauri::async_runtime::spawn_blocking(move || download(&url, public_only))
+        .await
+        .map_err(|e| StorageError::new("fetch_failed", e.to_string()))??;
+    with_workspace(&state, |ws| ws.write_asset(&page_id, &bytes))
+}
+
+const MAX_REDIRECTS: u32 = 5;
+
+fn fetch_error(e: impl std::fmt::Display) -> StorageError {
+    StorageError::new("fetch_failed", e.to_string())
+}
+
+fn download(url: &str, public_only: bool) -> Result<Vec<u8>> {
+    // 내부망 검사를 할 때는 리다이렉트를 직접 따라간다(건너뛴 주소마다 검사)
+    let config = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(20)))
+        .max_redirects(if public_only { 0 } else { MAX_REDIRECTS })
+        .max_redirects_will_error(!public_only)
+        .build();
+    let agent: ureq::Agent = config.into();
+    let mut current = url::Url::parse(url).map_err(fetch_error)?;
+    for _ in 0..=MAX_REDIRECTS {
+        if public_only {
+            check_public(&current)?;
+        }
+        let mut res = agent
+            .get(current.as_str())
+            .header("User-Agent", "CetusNote")
+            .header("Accept", "image/*")
+            .call()
+            .map_err(fetch_error)?;
+        if public_only && res.status().is_redirection() {
+            let location = res
+                .headers()
+                .get("location")
+                .and_then(|v| v.to_str().ok())
+                .ok_or_else(|| fetch_error("리다이렉트 주소가 없어요"))?;
+            current = current.join(location).map_err(fetch_error)?;
+            continue;
+        }
+        return res
+            .body_mut()
+            .with_config()
+            .limit(storage::ASSET_MAX_BYTES as u64)
+            .read_to_vec()
+            .map_err(|e| match e {
+                ureq::Error::BodyExceedsLimit(_) => {
+                    StorageError::new("too_large", "이미지가 25MB보다 커요")
+                }
+                e => fetch_error(e),
+            });
+    }
+    Err(fetch_error("리다이렉트가 너무 많아요"))
+}
+
+/// 주소의 호스트가 공개 인터넷 주소로만 풀리는지. 이름은 DNS로 풀어 모든 주소를 본다
+fn check_public(url: &url::Url) -> Result<()> {
+    use std::net::ToSocketAddrs;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(fetch_error("http·https 링크만 가져올 수 있어요"));
+    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| fetch_error("주소에 호스트가 없어요"))?;
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    let port = url.port_or_known_default().unwrap_or(80);
+    let addrs: Vec<_> = (host, port)
+        .to_socket_addrs()
+        .map_err(fetch_error)?
+        .collect();
+    if addrs.is_empty() || addrs.iter().any(|a| !is_public_ip(a.ip())) {
+        return Err(fetch_error("내부 네트워크 주소의 이미지는 가져오지 않아요"));
+    }
+    Ok(())
+}
+
+fn is_public_ip(ip: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+    match ip {
+        IpAddr::V4(v) => {
+            let [a, b, ..] = v.octets();
+            !(v.is_private()
+                || v.is_loopback()
+                || v.is_link_local()
+                || v.is_unspecified()
+                || v.is_broadcast()
+                || v.is_documentation()
+                || v.is_multicast()
+                || a == 0
+                || (a == 100 && (b & 0xc0) == 64) // CGNAT 100.64/10
+                || (a == 198 && (b & 0xfe) == 18)) // 벤치마크 198.18/15
+        }
+        IpAddr::V6(v) => {
+            if let Some(m) = v.to_ipv4_mapped() {
+                return is_public_ip(IpAddr::V4(m));
+            }
+            let s = v.segments()[0];
+            !(v.is_loopback()
+                || v.is_unspecified()
+                || v.is_multicast()
+                || (s & 0xfe00) == 0xfc00 // 고유 로컬 fc00::/7
+                || (s & 0xffc0) == 0xfe80) // 링크 로컬 fe80::/10
+        }
+    }
+}
+
+// ── 백업 (DATA-05) ──────────────────────────────────────────
+
+/// 지금 워크스페이스 경로. 오래 걸리는 백업 중에 다른 저장을 막지 않도록 잠금 밖에서 쓴다
+fn workspace_root(state: &State<AppState>) -> Result<PathBuf> {
+    with_workspace(state, |ws| Ok(ws.root.clone()))
+}
+
+/// 백업 내보내기: 저장 대화상자에서 고른 곳에 zip. 취소하면 None, 아니면 파일 이름
+#[tauri::command]
+pub async fn backup_export(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    file_name: String,
+    created_at: String,
+) -> Result<Option<String>> {
+    let root = workspace_root(&state)?;
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("백업 내보내기")
+        .add_filter("Cetus Note 백업", &["zip"])
+        .set_file_name(file_name);
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_save_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    if path.starts_with(&root) && !path.starts_with(root.join(storage::backup::AUTO_DIR)) {
+        // 워크스페이스 안(pages/ 등)에 두면 다음 백업에 섞이거나 폴더를 어지럽힌다
+        return Err(StorageError::new(
+            "invalid_path",
+            "워크스페이스 폴더 밖에 저장해 주세요",
+        ));
+    }
+    storage::backup::create_backup(&root, &path, &created_at)?;
+    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()))
+}
+
+/// 하루 한 번 자동 백업(.backups/). 오늘 것이 이미 있으면 None
+#[tauri::command]
+pub async fn backup_auto(
+    state: State<'_, AppState>,
+    today: String,
+    created_at: String,
+) -> Result<Option<String>> {
+    let root = workspace_root(&state)?;
+    storage::backup::auto_backup(&root, &today, &created_at)
+}
+
+/// 자동 백업 목록(최근 것이 앞)
+#[tauri::command]
+pub fn backup_list(state: State<AppState>) -> Result<Vec<String>> {
+    storage::backup::auto_list(&workspace_root(&state)?)
+}
+
+/// 자동 백업 폴더를 Finder로 연다(없으면 만든다)
+#[tauri::command]
+pub fn backup_reveal(app: AppHandle, state: State<AppState>) -> Result<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = workspace_root(&state)?.join(storage::backup::AUTO_DIR);
+    std::fs::create_dir_all(&dir)?;
+    app.opener()
+        .open_path(dir.to_string_lossy(), None::<&str>)
+        .map_err(|e| StorageError::new("io", e.to_string()))
+}
+
+/// 백업 불러오기: zip을 고르고, 풀 폴더를 고르면 거기에 풀어 그 폴더를 워크스페이스로 연다.
+/// 지금 워크스페이스는 건드리지 않는다. 고른 폴더에 다른 파일이 있으면 그 안에 새 폴더를 만든다
+#[tauri::command]
+pub async fn backup_restore(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<WorkspaceInfo>> {
+    let Some(zip) = app
+        .dialog()
+        .file()
+        .set_title("불러올 백업 선택")
+        .add_filter("Cetus Note 백업", &["zip"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let zip = zip
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let mut dialog = app.dialog().file().set_title("백업을 풀 폴더 선택");
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let chosen = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let dest = storage::backup::restore_dir(&chosen)?;
+    storage::backup::restore_backup(&zip, &dest)?;
+    set_workspace(&app, &state, dest).map(Some)
+}
+
+// ── PDF 내보내기 (DATA-06) ──────────────────────────────────
+
+/// 인쇄 전용 화면(#print-root)을 A4 PDF로 앱 캐시에 쓰고 바이트를 돌려준다(미리보기용). 인쇄 창은 띄우지 않는다.
+/// 마지막 파일은 AppState에 남겨 pdf_save가 쓴다. WKWebView 작업은 메인 스레드에서 한다(pdf.rs).
+#[tauri::command]
+pub async fn pdf_render(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<tauri::ipc::Response> {
+    let dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join("pdf-export.pdf");
+    let (tx, rx) = std::sync::mpsc::channel();
+    let target = path.clone();
+    window
+        .with_webview(move |webview| {
+            let _ = tx.send(crate::pdf::print_to_file(webview.inner(), &target));
+        })
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let received = tauri::async_runtime::spawn_blocking(move || rx.recv())
+        .await
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let printed = received.map_err(|_| StorageError::new("io", "인쇄 엔진이 응답하지 않았어요"))?;
+    printed.map_err(|m| StorageError::new("io", m))?;
+    let bytes = std::fs::read(&path)?;
+    *state
+        .last_pdf
+        .lock()
+        .map_err(|_| StorageError::new("io", "PDF 상태를 저장하지 못했어요"))? = Some(path);
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// PDF 저장: 저장 대화상자에서 고른 곳에 마지막으로 만든 PDF를 쓴다. 취소하면 None, 아니면 파일 이름
+#[tauri::command]
+pub async fn pdf_save(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    file_name: String,
+) -> Result<Option<String>> {
+    let src = state
+        .last_pdf
+        .lock()
+        .map_err(|_| StorageError::new("io", "PDF 상태를 읽지 못했어요"))?
+        .clone()
+        .ok_or_else(|| StorageError::new("not_found", "먼저 PDF 미리보기를 만들어 주세요"))?;
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("PDF로 저장")
+        .add_filter("PDF", &["pdf"])
+        .set_file_name(file_name);
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_save_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let bytes = std::fs::read(&src)?;
+    storage::atomic_write(&path, &bytes)?;
+    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()))
+}
+
+// ── 외부 변경 감지 (DATA-07) ────────────────────────────────
+
+/// 지난번 이후 바깥(다른 앱·동기화 도구)에서 바뀐 페이지·workspace.json
+#[tauri::command]
+pub fn workspace_scan(state: State<AppState>) -> Result<storage::watch::Changes> {
+    with_workspace(&state, Workspace::scan_changes)
+}
+
+/// 페이지 몇 개 다시 읽기. 없어진 파일은 빠지고, 읽지 못한 파일은 errors로
+#[tauri::command]
+pub fn pages_read(state: State<AppState>, ids: Vec<String>) -> Result<LoadedPages> {
+    with_workspace(&state, |ws| {
+        let mut pages = Vec::new();
+        let mut errors = Vec::new();
+        for id in ids.iter().take(10_000) {
+            match ws.read_page(id) {
+                Ok(Some(p)) => pages.push(p),
+                Ok(None) => {}
+                Err(e) => errors.push(storage::LoadError {
+                    file: format!("{id}.json"),
+                    message: e.message,
+                }),
+            }
+        }
+        Ok(LoadedPages { pages, errors })
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn import_image_paths_stay_in_folder() {
+        use super::resolve_import_image;
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("notes");
+        std::fs::create_dir_all(dir.join("img")).unwrap();
+        std::fs::write(dir.join("img/a b.png"), b"x").unwrap();
+        std::fs::write(dir.join("c.png"), b"x").unwrap();
+        std::fs::write(dir.join("note.md"), b"x").unwrap();
+        std::fs::write(root.path().join("outside.png"), b"x").unwrap();
+        let dir = dir.canonicalize().unwrap();
+        // 하위 폴더 · 공백(%20) · ./ 는 된다
+        assert!(resolve_import_image(&dir, "img/a%20b.png").is_ok());
+        assert!(resolve_import_image(&dir, "./c.png").is_ok());
+        // 폴더 밖 · 절대 경로 · 다른 스킴 · 이미지가 아닌 파일 · 없는 파일은 거절
+        for bad in [
+            "../outside.png",
+            "img/../../outside.png",
+            "/etc/hosts",
+            "https://example.com/a.png",
+            "note.md",
+            "missing.png",
+        ] {
+            assert!(resolve_import_image(&dir, bad).is_err(), "{bad}");
+        }
+        let outside = root.path().join("outside.png").canonicalize().unwrap();
+        assert!(resolve_import_image(&dir, &format!("file://{}", outside.display())).is_err());
+    }
+
+    #[test]
+    fn public_ip_rules() {
+        use super::is_public_ip;
+        for ip in ["8.8.8.8", "1.1.1.1", "2606:4700::1111"] {
+            assert!(is_public_ip(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in [
+            "127.0.0.1",
+            "10.0.0.1",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.169.254",
+            "0.0.0.0",
+            "100.64.0.1",
+            "::1",
+            "fd00::1",
+            "fe80::1",
+            "::ffff:127.0.0.1",
+        ] {
+            assert!(!is_public_ip(ip.parse().unwrap()), "{ip}");
+        }
+    }
+
+    #[test]
+    fn check_public_rejects_local_hosts() {
+        for u in [
+            "http://localhost/a.png",
+            "http://127.0.0.1:8080/a.png",
+            "http://[::1]/a.png",
+        ] {
+            assert!(
+                super::check_public(&url::Url::parse(u).unwrap()).is_err(),
+                "{u}"
+            );
+        }
+        assert!(super::check_public(&url::Url::parse("file:///etc/passwd").unwrap()).is_err());
+    }
+
+    use super::*;
+
+    #[test]
+    fn forget_removes_only_that_path() {
+        let (a, b, c) = (
+            PathBuf::from("/a"),
+            PathBuf::from("/b"),
+            PathBuf::from("/c"),
+        );
+        let out = forget_recent(vec![a.clone(), b.clone(), c.clone()], &b);
+        assert_eq!(out, vec![a.clone(), c.clone()]);
+        // 없는 경로면 그대로
+        assert_eq!(forget_recent(out.clone(), &PathBuf::from("/x")), out);
+    }
+
+    #[test]
+    fn recent_keeps_latest_first_without_duplicates() {
+        let a = PathBuf::from("/a");
+        let b = PathBuf::from("/b");
+        assert_eq!(
+            push_recent(vec![a.clone(), b.clone()], &b),
+            vec![b.clone(), a.clone()]
+        );
+        let many: Vec<PathBuf> = (0..12).map(|i| PathBuf::from(format!("/w{i}"))).collect();
+        let out = push_recent(many, &a);
+        assert_eq!(out.len(), RECENT_MAX);
+        assert_eq!(out[0], a);
+        assert_eq!(
+            recent_paths(Some(&json!({ "recent": ["/a", 3, "/b"] }))),
+            vec![a, b]
+        );
+        assert!(recent_paths(Some(&json!({ "workspace": "/a" }))).is_empty());
+    }
+
+    #[test]
+    fn workspace_name_rules() {
+        assert_eq!(
+            valid_workspace_name("  업무 노트 "),
+            Some("업무 노트".into())
+        );
+        for bad in [
+            "",
+            "  ",
+            ".hidden",
+            "a/b",
+            "a\\b",
+            "a:b",
+            "줄\n바꿈",
+            &"가".repeat(81),
+        ] {
+            assert_eq!(valid_workspace_name(bad), None, "{bad:?}");
+        }
+    }
+}

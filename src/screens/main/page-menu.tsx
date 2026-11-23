@@ -1,0 +1,198 @@
+import {
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
+import { pagesStore } from "@/features/pages";
+import { docStats, formatDocStats } from "@/features/pages/stats";
+import type { Page, PageFont } from "@/lib/storage";
+import {
+  Copy,
+  Download,
+  Printer,
+  FolderInput,
+  History,
+  LayoutTemplate,
+  Link,
+  MoveHorizontal,
+  PanelRight,
+  Star,
+  StarOff,
+  SquarePlus,
+  Trash2,
+  Type,
+} from "lucide-react";
+import {
+  copyPageLink,
+  deleteTemplate,
+  duplicatePage,
+  duplicateTemplate,
+  exportMarkdown,
+  exportPdf,
+  moveToTrash,
+  saveAsTemplate,
+  toggleFavorite,
+} from "./actions";
+import { openInNewTab } from "./tabs";
+import { openInRightPane } from "./split";
+import { useMainUi } from "./ui-store";
+
+const ic = { strokeWidth: 1.5 } as const;
+const FONTS: { value: PageFont; label: string }[] = [
+  { value: "default", label: "기본" },
+  { value: "serif", label: "세리프" },
+  { value: "mono", label: "모노" },
+];
+
+/** 상단 바 `···` 페이지 메뉴 (PAGE-05) */
+export function PageMenu({
+  page,
+  favorite,
+  onMove,
+}: {
+  page: Page;
+  favorite: boolean;
+  onMove: () => void;
+}) {
+  const { update } = pagesStore.getState();
+  // 컬렉션(COLL-01)은 본문 모양·복제·내보내기가 없다
+  const doc = page.kind === "page";
+  // 템플릿(PAGE-14)은 즐겨찾기·탭·링크·옮기기·내보내기가 없다
+  if (page.template)
+    return (
+      <>
+        <DropdownMenuItem icon={<Copy {...ic} />} onSelect={() => duplicateTemplate(page.id)}>
+          템플릿 복제
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="danger"
+          icon={<Trash2 {...ic} />}
+          onSelect={() => deleteTemplate(page.id)}
+        >
+          템플릿 삭제
+        </DropdownMenuItem>
+      </>
+    );
+  return (
+    <>
+      <DropdownMenuItem
+        icon={favorite ? <StarOff {...ic} /> : <Star {...ic} />}
+        onSelect={() => toggleFavorite(page.id)}
+      >
+        {favorite ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가"}
+      </DropdownMenuItem>
+      <DropdownMenuItem icon={<SquarePlus {...ic} />} onSelect={() => openInNewTab(page.id)}>
+        새 탭에서 열기
+      </DropdownMenuItem>
+      {doc ? (
+        <DropdownMenuItem icon={<PanelRight {...ic} />} onSelect={() => openInRightPane(page.id)}>
+          오른쪽에 열기
+        </DropdownMenuItem>
+      ) : null}
+      <DropdownMenuItem icon={<Link {...ic} />} onSelect={() => void copyPageLink(page.id)}>
+        링크 복사
+      </DropdownMenuItem>
+      {doc ? (
+        <DropdownMenuItem
+          icon={<Copy {...ic} />}
+          shortcut={<Kbd keys={["⌘", "D"]} />}
+          onSelect={() => duplicatePage(page.id)}
+        >
+          복제
+        </DropdownMenuItem>
+      ) : null}
+      {doc ? (
+        <DropdownMenuItem
+          icon={<LayoutTemplate {...ic} />}
+          onSelect={() => saveAsTemplate(page.id)}
+        >
+          템플릿으로 저장
+        </DropdownMenuItem>
+      ) : null}
+      <DropdownMenuItem icon={<FolderInput {...ic} />} onSelect={onMove}>
+        옮기기…
+      </DropdownMenuItem>
+      {doc ? (
+        <DropdownMenuItem
+          icon={<History {...ic} />}
+          onSelect={() => useMainUi.getState().setHistoryPageId(page.id)}
+        >
+          버전 기록…
+        </DropdownMenuItem>
+      ) : null}
+      {doc ? (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem
+            icon={<MoveHorizontal {...ic} aria-hidden />}
+            checked={page.layout.fullWidth}
+            onCheckedChange={(fullWidth) =>
+              update(page.id, { layout: { ...page.layout, fullWidth: fullWidth === true } })
+            }
+          >
+            전체 폭
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger icon={<Type {...ic} />}>글꼴</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {FONTS.map((f) => (
+                <DropdownMenuCheckboxItem
+                  key={f.value}
+                  checked={page.layout.font === f.value}
+                  onCheckedChange={() =>
+                    update(page.id, { layout: { ...page.layout, font: f.value } })
+                  }
+                >
+                  <span
+                    className={
+                      f.value === "serif"
+                        ? "font-serif"
+                        : f.value === "mono"
+                          ? "font-mono"
+                          : undefined
+                    }
+                  >
+                    {f.label}
+                  </span>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            icon={<Download {...ic} />}
+            onSelect={() => void exportMarkdown(page.id)}
+          >
+            Markdown으로 내보내기
+          </DropdownMenuItem>
+          <DropdownMenuItem icon={<Printer {...ic} />} onSelect={() => void exportPdf(page.id)}>
+            PDF로 내보내기…
+          </DropdownMenuItem>
+        </>
+      ) : null}
+      {doc ? (
+        <>
+          <DropdownMenuSeparator />
+          {/* 글자 수·읽는 시간 (PAGE-11) — 누를 수 없는 정보 줄 */}
+          <DropdownMenuLabel className="font-normal tracking-normal tabular-nums">
+            {formatDocStats(docStats(page.content))}
+          </DropdownMenuLabel>
+        </>
+      ) : null}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        variant="danger"
+        icon={<Trash2 {...ic} />}
+        onSelect={() => moveToTrash(page.id)}
+      >
+        휴지통으로
+      </DropdownMenuItem>
+    </>
+  );
+}

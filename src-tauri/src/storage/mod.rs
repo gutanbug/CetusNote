@@ -1,0 +1,761 @@
+//! 워크스페이스 폴더 읽기·쓰기 (docs/architecture.md §3, ADR-001/002).
+//!
+//! 프론트엔드는 경로를 넘기지 않는다. 페이지는 id(ULID)로만 가리키고,
+//! 워크스페이스 경로는 Rust 쪽 상태에만 있다. 그래서 폴더 밖으로 나가는 요청을 만들 수 없다.
+//! 이 모듈은 Tauri에 의존하지 않는 순수 함수만 둔다(단위 테스트 대상).
+
+pub mod backup;
+pub mod export;
+pub mod history;
+pub mod watch;
+
+use serde::Serialize;
+use serde_json::Value;
+use std::fs::{self, File};
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+pub const PAGES_DIR: &str = "pages";
+pub const ASSETS_DIR: &str = "assets";
+pub const WORKSPACE_FILE: &str = "workspace.json";
+/// 빈 폴더가 아닌 곳을 고르면 그 안에 이 이름으로 워크스페이스를 만든다
+pub const DEFAULT_FOLDER_NAME: &str = "CetusNote";
+
+/// 프론트엔드로 돌려주는 오류. `code`로 분기하고 `message`는 로그·개발용이다.
+#[derive(Debug, Serialize, PartialEq)]
+pub struct StorageError {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl StorageError {
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+impl From<io::Error> for StorageError {
+    fn from(e: io::Error) -> Self {
+        let code = match e.kind() {
+            io::ErrorKind::NotFound => "not_found",
+            io::ErrorKind::PermissionDenied => "permission_denied",
+            io::ErrorKind::StorageFull => "disk_full",
+            _ => "io",
+        };
+        Self::new(code, e.to_string())
+    }
+}
+
+impl From<serde_json::Error> for StorageError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::new("invalid_json", e.to_string())
+    }
+}
+
+pub type Result<T> = std::result::Result<T, StorageError>;
+
+/// 페이지 id 검사: ULID(Crockford base32 대문자 26자). `../` 같은 경로 조각이 들어올 수 없다.
+pub fn is_valid_id(id: &str) -> bool {
+    id.len() == 26
+        && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'A'..=b'H' | b'J' | b'K' | b'M' | b'N' | b'P'..=b'T' | b'V'..=b'Z'))
+}
+
+fn check_id(id: &str) -> Result<()> {
+    if is_valid_id(id) {
+        Ok(())
+    } else {
+        Err(StorageError::new(
+            "invalid_id",
+            format!("잘못된 페이지 id: {id:?}"),
+        ))
+    }
+}
+
+fn unique_suffix() -> String {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!(
+        "{}-{nanos}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
+/// 원자적 쓰기: 같은 폴더의 임시 파일에 쓰고 디스크에 내린 뒤 rename한다.
+/// 쓰는 도중 앱이 꺼져도 원래 파일은 그대로이거나 새 내용 전체다(반쯤 쓴 파일이 없다).
+pub fn atomic_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    // 읽기 전용 파일은 폴더가 쓸 수 있으면 rename으로 조용히 덮어써진다. 그래서 먼저 막아 저장 실패로 알린다 (DATA-02)
+    if fs::metadata(path).is_ok_and(|m| m.permissions().readonly()) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "읽기 전용 파일이라 저장할 수 없어요",
+        ));
+    }
+    let dir = path
+        .parent()
+        .ok_or_else(|| io::Error::other("상위 폴더 없음"))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::other("파일 이름 없음"))?
+        .to_string_lossy();
+    let tmp = dir.join(format!(".{name}.{}.tmp", unique_suffix()));
+    let written = (|| {
+        let mut f = File::create(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()
+    })();
+    if let Err(e) = written.and_then(|_| fs::rename(&tmp, path)) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    // rename 자체도 디스크에 남도록 폴더를 내린다 (unix)
+    #[cfg(unix)]
+    if let Ok(d) = File::open(dir) {
+        let _ = d.sync_all();
+    }
+    Ok(())
+}
+
+/// JSON 파일 읽기. 없으면 None.
+pub fn read_json_opt(path: &Path) -> Result<Option<Value>> {
+    match fs::read(path) {
+        Ok(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub fn write_json(path: &Path, value: &Value) -> Result<()> {
+    let mut bytes = serde_json::to_vec_pretty(value)?;
+    bytes.push(b'\n');
+    atomic_write(path, &bytes)?;
+    Ok(())
+}
+
+/// 고른 폴더로 워크스페이스 위치를 정한다.
+/// - 이미 워크스페이스(`workspace.json` 또는 `pages/`가 있음)거나 빈 폴더면 그대로 쓴다.
+/// - 다른 파일이 있는 폴더면 그 안의 `CetusNote` 폴더를 쓴다(문서 폴더를 어지럽히지 않게).
+pub fn resolve_workspace_dir(chosen: &Path) -> Result<PathBuf> {
+    let is_workspace = chosen.join(WORKSPACE_FILE).is_file() || chosen.join(PAGES_DIR).is_dir();
+    let is_empty = fs::read_dir(chosen)?
+        .filter_map(|e| e.ok())
+        .all(|e| e.file_name().to_string_lossy().starts_with('.'));
+    Ok(if is_workspace || is_empty {
+        chosen.to_path_buf()
+    } else {
+        chosen.join(DEFAULT_FOLDER_NAME)
+    })
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+pub struct LoadError {
+    pub file: String,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoadedPages {
+    pub pages: Vec<Value>,
+    /// 읽지 못한 파일. 앱은 이 파일들을 건드리지 않고 알리기만 한다.
+    pub errors: Vec<LoadError>,
+}
+
+/// 열린 워크스페이스 폴더
+#[derive(Debug, Clone)]
+pub struct Workspace {
+    pub root: PathBuf,
+    /// 이 앱이 마지막으로 읽거나 쓴 파일 상태 — 외부 변경 감지(DATA-07)의 기준
+    stamps: watch::Stamps,
+}
+
+impl Workspace {
+    /// 폴더를 열고 `pages/`·`assets/`를 만든다. 지난번에 남은 임시 파일을 치운다.
+    pub fn open(root: PathBuf) -> Result<Self> {
+        fs::create_dir_all(root.join(PAGES_DIR))?;
+        fs::create_dir_all(root.join(ASSETS_DIR))?;
+        let ws = Self {
+            root,
+            stamps: watch::Stamps::default(),
+        };
+        ws.clean_temp_files();
+        Ok(ws)
+    }
+
+    fn pages_dir(&self) -> PathBuf {
+        self.root.join(PAGES_DIR)
+    }
+
+    fn page_path(&self, id: &str) -> PathBuf {
+        self.pages_dir().join(format!("{id}.json"))
+    }
+
+    fn clean_temp_files(&self) {
+        if let Ok(entries) = fs::read_dir(self.pages_dir()) {
+            for e in entries.filter_map(|e| e.ok()) {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if name.starts_with('.') && name.ends_with(".tmp") {
+                    let _ = fs::remove_file(e.path());
+                }
+            }
+        }
+        // workspace.json의 임시 파일
+        if let Ok(entries) = fs::read_dir(&self.root) {
+            for e in entries.filter_map(|e| e.ok()) {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if name.starts_with(&format!(".{WORKSPACE_FILE}.")) && name.ends_with(".tmp") {
+                    let _ = fs::remove_file(e.path());
+                }
+            }
+        }
+    }
+
+    pub fn read_meta(&self) -> Result<Option<Value>> {
+        let path = self.root.join(WORKSPACE_FILE);
+        self.stamps.remember(WORKSPACE_FILE, &path);
+        read_json_opt(&path)
+    }
+
+    pub fn write_meta(&self, value: &Value) -> Result<()> {
+        if !value.is_object() {
+            return Err(StorageError::new(
+                "invalid_workspace",
+                "workspace.json은 객체여야 해요",
+            ));
+        }
+        let path = self.root.join(WORKSPACE_FILE);
+        write_json(&path, value)?;
+        self.stamps.remember(WORKSPACE_FILE, &path);
+        Ok(())
+    }
+
+    /// `pages/*.json`을 모두 읽는다. 깨진 파일은 건너뛰고 `errors`에 모은다.
+    pub fn load_all(&self) -> Result<LoadedPages> {
+        let mut pages = Vec::new();
+        let mut errors = Vec::new();
+        for entry in fs::read_dir(self.pages_dir())? {
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Some(stem) = name.strip_suffix(".json") else {
+                continue;
+            };
+            if name.starts_with('.') {
+                continue;
+            }
+            let fail = |message: String| LoadError {
+                file: name.clone(),
+                message,
+            };
+            // 링크는 따라가지 않는다 — 워크스페이스 밖 파일을 읽지 않게
+            if entry.file_type()?.is_symlink() {
+                errors.push(fail("링크 파일은 읽지 않아요".into()));
+                continue;
+            }
+            if !is_valid_id(stem) {
+                errors.push(fail("파일 이름이 페이지 id 형식이 아니에요".into()));
+                continue;
+            }
+            self.stamps
+                .remember(&format!("{PAGES_DIR}/{name}"), &entry.path());
+            match read_json_opt(&entry.path())
+                .and_then(|v| v.ok_or_else(|| StorageError::new("not_found", "")))
+            {
+                Ok(page) => match validate_page(&page) {
+                    Ok(id) if id == stem => pages.push(page),
+                    Ok(id) => errors.push(fail(format!("파일 이름과 id({id})가 달라요"))),
+                    Err(e) => errors.push(fail(e.message)),
+                },
+                Err(e) => errors.push(fail(e.message)),
+            }
+        }
+        errors.sort_by(|a, b| a.file.cmp(&b.file));
+        Ok(LoadedPages { pages, errors })
+    }
+
+    pub fn write_page(&self, page: &Value) -> Result<()> {
+        let id = validate_page(page)?;
+        let path = self.page_path(&id);
+        write_json(&path, page)?;
+        self.stamps
+            .remember(&format!("{PAGES_DIR}/{id}.json"), &path);
+        Ok(())
+    }
+
+    /// 페이지 하나 다시 읽기(외부 변경, DATA-07). 파일이 없으면 None
+    pub fn read_page(&self, id: &str) -> Result<Option<Value>> {
+        check_id(id)?;
+        let path = self.page_path(id);
+        if fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err(StorageError::new("symlink", "링크 파일은 읽지 않아요"));
+        }
+        self.stamps
+            .remember(&format!("{PAGES_DIR}/{id}.json"), &path);
+        let Some(page) = read_json_opt(&path)? else {
+            return Ok(None);
+        };
+        let found = validate_page(&page)?;
+        if found != id {
+            return Err(StorageError::new(
+                "invalid_page",
+                format!("파일 이름과 id({found})가 달라요"),
+            ));
+        }
+        Ok(Some(page))
+    }
+
+    /// 지난번 이후 바깥에서 바뀐 것 (DATA-07)
+    pub fn scan_changes(&self) -> Result<watch::Changes> {
+        self.stamps.scan(&self.root)
+    }
+
+    /// 영구 삭제: 휴지통에 있는(`trashedAt`이 있는) 페이지만 지운다. 페이지 파일과 `assets/<id>`.
+    pub fn purge_page(&self, id: &str) -> Result<()> {
+        check_id(id)?;
+        let path = self.page_path(id);
+        if fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err(StorageError::new("symlink", "링크 파일은 지우지 않아요"));
+        }
+        let page = read_json_opt(&path)?
+            .ok_or_else(|| StorageError::new("not_found", format!("페이지 없음: {id}")))?;
+        if page.get("trashedAt").is_none_or(Value::is_null) {
+            return Err(StorageError::new(
+                "not_trashed",
+                "휴지통에 있는 페이지만 영구 삭제할 수 있어요",
+            ));
+        }
+        fs::remove_file(&path)?;
+        self.stamps.forget(&format!("{PAGES_DIR}/{id}.json"));
+        let assets = self.root.join(ASSETS_DIR).join(id);
+        match fs::symlink_metadata(&assets) {
+            // 링크면 링크만 지운다(가리키는 곳은 건드리지 않음)
+            Ok(m) if m.file_type().is_symlink() => fs::remove_file(&assets)?,
+            Ok(m) if m.is_dir() => fs::remove_dir_all(&assets)?,
+            _ => {}
+        }
+        // 버전 기록(DATA-09). 페이지 파일은 이미 지웠으므로 실패해도 영구 삭제는 끝난 것으로 본다
+        // (남은 폴더는 다음 저장 때 쓰이지 않는 고아 폴더일 뿐이다)
+        let _ = self.delete_history(id);
+        Ok(())
+    }
+}
+
+/// 이미지 한 장의 최대 크기 (EDIT-14, PAGE-03)
+pub const ASSET_MAX_BYTES: usize = 25 * 1024 * 1024;
+
+/// 내용의 앞 바이트로 이미지 종류를 알아내 확장자를 돌려준다. 이름·MIME은 믿지 않는다.
+/// SVG는 받지 않는다(문서 안 스크립트·외부 참조).
+pub fn sniff_image(bytes: &[u8]) -> Option<&'static str> {
+    let b = bytes;
+    if b.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("png")
+    } else if b.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("jpg")
+    } else if b.starts_with(b"GIF87a") || b.starts_with(b"GIF89a") {
+        Some("gif")
+    } else if b.len() >= 12 && &b[0..4] == b"RIFF" && &b[8..12] == b"WEBP" {
+        Some("webp")
+    } else if b.len() >= 12 && &b[4..8] == b"ftyp" && (&b[8..12] == b"avif" || &b[8..12] == b"avis")
+    {
+        Some("avif")
+    } else {
+        None
+    }
+}
+
+/// `assets/<페이지 id>/<파일 이름>`을 검사해 (id, 파일 이름)으로 나눈다.
+/// 파일 이름은 영문·숫자·`-`·`_`·`.`만, 점으로 시작하지 않는다(경로 조각·숨김 파일 차단).
+pub fn parse_asset_path(path: &str) -> Result<(&str, &str)> {
+    let bad = || StorageError::new("invalid_asset", format!("잘못된 이미지 경로: {path:?}"));
+    let mut parts = path.split('/');
+    let (Some(ASSETS_DIR), Some(id), Some(name), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(bad());
+    };
+    let name_ok = !name.is_empty()
+        && name.len() <= 100
+        && !name.starts_with('.')
+        && name
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.'));
+    if !is_valid_id(id) || !name_ok {
+        return Err(bad());
+    }
+    Ok((id, name))
+}
+
+impl Workspace {
+    /// 이미지 저장: `assets/<id>/img-<고유값>.<확장자>`. 워크스페이스 기준 상대 경로를 돌려준다.
+    pub fn write_asset(&self, page_id: &str, bytes: &[u8]) -> Result<String> {
+        check_id(page_id)?;
+        if bytes.len() > ASSET_MAX_BYTES {
+            return Err(StorageError::new("too_large", "이미지가 25MB보다 커요"));
+        }
+        let ext = sniff_image(bytes).ok_or_else(|| {
+            StorageError::new(
+                "unsupported_image",
+                "PNG·JPEG·GIF·WebP·AVIF만 넣을 수 있어요",
+            )
+        })?;
+        let dir = self.root.join(ASSETS_DIR).join(page_id);
+        if fs::symlink_metadata(&dir).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err(StorageError::new("symlink", "링크 폴더에는 쓰지 않아요"));
+        }
+        fs::create_dir_all(&dir)?;
+        let name = format!("img-{}.{ext}", unique_suffix());
+        atomic_write(&dir.join(&name), bytes)?;
+        Ok(format!("{ASSETS_DIR}/{page_id}/{name}"))
+    }
+
+    /// 이미지 읽기. 경로는 write_asset이 준 형식만, 링크(폴더·파일)는 따라가지 않는다.
+    pub fn read_asset(&self, path: &str) -> Result<Vec<u8>> {
+        let (id, name) = parse_asset_path(path)?;
+        let dir = self.root.join(ASSETS_DIR).join(id);
+        let file = dir.join(name);
+        for p in [&dir, &file] {
+            if fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_symlink()) {
+                return Err(StorageError::new("symlink", "링크는 읽지 않아요"));
+            }
+        }
+        Ok(fs::read(file)?)
+    }
+}
+
+/// 페이지 최소 형식 검사 후 id를 돌려준다. 본문 구조는 프론트엔드(lib/storage)가 책임진다.
+pub fn validate_page(page: &Value) -> Result<String> {
+    let obj = page
+        .as_object()
+        .ok_or_else(|| StorageError::new("invalid_page", "페이지는 객체여야 해요"))?;
+    let id = obj
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| StorageError::new("invalid_page", "id가 없어요"))?;
+    check_id(id)?;
+    match obj.get("schemaVersion").and_then(Value::as_u64) {
+        Some(v) if v >= 1 => Ok(id.to_owned()),
+        _ => Err(StorageError::new("invalid_page", "schemaVersion이 없어요")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const ID: &str = "01JD0000000000000000000000";
+    const ID2: &str = "01JD0000000000000000000001";
+
+    const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
+
+    #[test]
+    fn asset_write_read_roundtrip_and_sniff() {
+        let (_d, ws) = ws();
+        let path = ws.write_asset(ID, PNG).unwrap();
+        assert!(path.starts_with(&format!("assets/{ID}/img-")) && path.ends_with(".png"));
+        assert_eq!(ws.read_asset(&path).unwrap(), PNG);
+        let jpg = ws.write_asset(ID, &[0xFF, 0xD8, 0xFF, 0xE0, 0, 0]).unwrap();
+        assert!(jpg.ends_with(".jpg"));
+        assert_ne!(
+            path,
+            ws.write_asset(ID, PNG).unwrap(),
+            "같은 내용도 새 이름"
+        );
+    }
+
+    #[test]
+    fn asset_rejects_unknown_types_big_files_and_bad_ids() {
+        let (_d, ws) = ws();
+        let svg = b"<svg xmlns='http://www.w3.org/2000/svg'/>";
+        assert_eq!(
+            ws.write_asset(ID, svg).unwrap_err().code,
+            "unsupported_image"
+        );
+        assert_eq!(ws.write_asset("../x", PNG).unwrap_err().code, "invalid_id");
+        let mut big = PNG.to_vec();
+        big.resize(ASSET_MAX_BYTES + 1, 0);
+        assert_eq!(ws.write_asset(ID, &big).unwrap_err().code, "too_large");
+    }
+
+    #[test]
+    fn asset_path_must_stay_inside_assets() {
+        let (_d, ws) = ws();
+        for bad in [
+            "assets/../workspace.json",
+            &format!("assets/{ID}/../../workspace.json"),
+            &format!("assets/{ID}/.hidden"),
+            &format!("pages/{ID}.json"),
+            &format!("assets/{ID}"),
+            &format!("assets/{ID}/a/b.png"),
+            "/etc/passwd",
+            &format!("assets/{ID}/a b.png"),
+        ] {
+            assert_eq!(
+                ws.read_asset(bad).unwrap_err().code,
+                "invalid_asset",
+                "{bad}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn asset_does_not_follow_symlinks() {
+        let (_d, ws) = ws();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("x.png"), PNG).unwrap();
+        std::os::unix::fs::symlink(outside.path(), ws.root.join(ASSETS_DIR).join(ID)).unwrap();
+        assert_eq!(
+            ws.read_asset(&format!("assets/{ID}/x.png"))
+                .unwrap_err()
+                .code,
+            "symlink"
+        );
+        assert_eq!(ws.write_asset(ID, PNG).unwrap_err().code, "symlink");
+    }
+
+    #[test]
+    fn purge_removes_page_assets() {
+        let (_d, ws) = ws();
+        let mut p = page(ID);
+        ws.write_page(&p).unwrap();
+        let path = ws.write_asset(ID, PNG).unwrap();
+        p["trashedAt"] = json!("2026-11-19T00:00:00Z");
+        ws.write_page(&p).unwrap();
+        ws.purge_page(ID).unwrap();
+        assert_eq!(ws.read_asset(&path).unwrap_err().code, "not_found");
+    }
+
+    fn page(id: &str) -> Value {
+        json!({ "schemaVersion": 1, "id": id, "title": "회의록", "content": { "type": "doc" }, "trashedAt": null })
+    }
+
+    fn ws() -> (tempfile::TempDir, Workspace) {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = Workspace::open(dir.path().to_path_buf()).unwrap();
+        (dir, ws)
+    }
+
+    #[test]
+    fn id_rejects_paths_and_wrong_alphabet() {
+        assert!(is_valid_id(ID));
+        for bad in [
+            "",
+            "../../etc/passwd",
+            "01JD000000000000000000000/",
+            "01jd0000000000000000000000",
+            "01JD000000000000000000000I",
+            "01JD00000000000000000000000",
+        ] {
+            assert!(!is_valid_id(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn atomic_write_replaces_and_leaves_no_temp() {
+        let (_d, ws) = ws();
+        let path = ws.root.join("a.json");
+        atomic_write(&path, b"one").unwrap();
+        atomic_write(&path, b"two").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"two");
+        let names: Vec<_> = fs::read_dir(&ws.root)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(
+            names.iter().all(|n| !n.to_string_lossy().ends_with(".tmp")),
+            "{names:?}"
+        );
+    }
+
+    #[test]
+    fn atomic_write_refuses_read_only_target_and_recovers() {
+        let (_d, ws) = ws();
+        let path = ws.root.join("a.json");
+        atomic_write(&path, b"one").unwrap();
+        let mut perm = fs::metadata(&path).unwrap().permissions();
+        perm.set_readonly(true);
+        fs::set_permissions(&path, perm.clone()).unwrap();
+
+        // 폴더는 쓸 수 있어도 실패해야 하고, 원본은 그대로여야 한다
+        let err = atomic_write(&path, b"two").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(fs::read(&path).unwrap(), b"one");
+        let temps = fs::read_dir(&ws.root)
+            .unwrap()
+            .filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(".tmp"))
+            .count();
+        assert_eq!(temps, 0);
+
+        // 권한을 되돌리면 다시 저장된다 (재시도 복구)
+        perm.set_readonly(false);
+        fs::set_permissions(&path, perm).unwrap();
+        atomic_write(&path, b"two").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"two");
+    }
+
+    #[test]
+    fn write_page_reports_permission_denied_for_read_only_page() {
+        let (_d, ws) = ws();
+        let page = page(ID);
+        ws.write_page(&page).unwrap();
+        let path = ws.page_path(ID);
+        let mut perm = fs::metadata(&path).unwrap().permissions();
+        perm.set_readonly(true);
+        fs::set_permissions(&path, perm.clone()).unwrap();
+
+        let err = ws.write_page(&page).unwrap_err();
+        assert_eq!(err.code, "permission_denied");
+
+        perm.set_readonly(false);
+        fs::set_permissions(&path, perm).unwrap();
+        ws.write_page(&page).unwrap();
+    }
+
+    #[test]
+    fn open_removes_leftover_temp_files() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join(PAGES_DIR)).unwrap();
+        let leftover = dir
+            .path()
+            .join(PAGES_DIR)
+            .join(format!(".{ID}.json.1-2-3.tmp"));
+        fs::write(&leftover, b"{").unwrap();
+        Workspace::open(dir.path().to_path_buf()).unwrap();
+        assert!(!leftover.exists());
+    }
+
+    #[test]
+    fn write_then_load_round_trip() {
+        let (_d, ws) = ws();
+        ws.write_page(&page(ID)).unwrap();
+        ws.write_page(&page(ID2)).unwrap();
+        let loaded = ws.load_all().unwrap();
+        assert_eq!(loaded.pages.len(), 2);
+        assert!(loaded.errors.is_empty());
+    }
+
+    #[test]
+    fn write_rejects_invalid_pages() {
+        let (_d, ws) = ws();
+        assert_eq!(
+            ws.write_page(&json!({ "id": ID })).unwrap_err().code,
+            "invalid_page"
+        );
+        assert_eq!(
+            ws.write_page(&json!({ "id": "../x", "schemaVersion": 1 }))
+                .unwrap_err()
+                .code,
+            "invalid_id"
+        );
+        assert_eq!(ws.write_page(&json!([1])).unwrap_err().code, "invalid_page");
+    }
+
+    #[test]
+    fn load_collects_broken_files_without_failing() {
+        let (_d, ws) = ws();
+        ws.write_page(&page(ID)).unwrap();
+        let pages = ws.root.join(PAGES_DIR);
+        fs::write(pages.join(format!("{ID2}.json")), b"{ broken").unwrap();
+        fs::write(pages.join("notes.json"), b"{}").unwrap();
+        fs::write(
+            pages.join("01JD0000000000000000000002.json"),
+            serde_json::to_vec(&page(ID)).unwrap(),
+        )
+        .unwrap();
+        fs::write(pages.join("readme.txt"), b"x").unwrap();
+        let loaded = ws.load_all().unwrap();
+        assert_eq!(loaded.pages.len(), 1);
+        let files: Vec<_> = loaded.errors.iter().map(|e| e.file.as_str()).collect();
+        assert_eq!(
+            files,
+            [
+                format!("{ID2}.json").as_str(),
+                "01JD0000000000000000000002.json",
+                "notes.json"
+            ]
+        );
+    }
+
+    #[test]
+    fn purge_only_trashed_pages_and_their_assets() {
+        let (_d, ws) = ws();
+        ws.write_page(&page(ID)).unwrap();
+        assert_eq!(ws.purge_page(ID).unwrap_err().code, "not_trashed");
+        let mut trashed = page(ID);
+        trashed["trashedAt"] = json!("2026-11-19T09:00:00Z");
+        ws.write_page(&trashed).unwrap();
+        let assets = ws.root.join(ASSETS_DIR).join(ID);
+        fs::create_dir_all(&assets).unwrap();
+        fs::write(assets.join("cover.jpg"), b"x").unwrap();
+        ws.purge_page(ID).unwrap();
+        assert!(!ws.page_path(ID).exists());
+        assert!(!assets.exists());
+        assert_eq!(ws.purge_page(ID).unwrap_err().code, "not_found");
+        assert_eq!(ws.purge_page("../../x").unwrap_err().code, "invalid_id");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_are_not_followed() {
+        use std::os::unix::fs::symlink;
+        let (_d, ws) = ws();
+        let outside = tempfile::tempdir().unwrap();
+        let secret = outside.path().join("secret.json");
+        fs::write(&secret, serde_json::to_vec(&page(ID)).unwrap()).unwrap();
+        symlink(&secret, ws.page_path(ID)).unwrap();
+        let loaded = ws.load_all().unwrap();
+        assert!(loaded.pages.is_empty());
+        assert_eq!(loaded.errors.len(), 1);
+        assert_eq!(ws.purge_page(ID).unwrap_err().code, "symlink");
+        assert!(secret.exists());
+        // assets/<id>가 바깥 폴더를 가리키는 링크면 링크만 지운다
+        let mut trashed = page(ID2);
+        trashed["trashedAt"] = json!("2026-11-19T09:00:00Z");
+        ws.write_page(&trashed).unwrap();
+        fs::write(outside.path().join("keep.txt"), b"x").unwrap();
+        symlink(outside.path(), ws.root.join(ASSETS_DIR).join(ID2)).unwrap();
+        ws.purge_page(ID2).unwrap();
+        assert!(outside.path().join("keep.txt").exists());
+        assert!(fs::symlink_metadata(ws.root.join(ASSETS_DIR).join(ID2)).is_err());
+    }
+
+    #[test]
+    fn meta_round_trip_and_missing_is_none() {
+        let (_d, ws) = ws();
+        assert_eq!(ws.read_meta().unwrap(), None);
+        let meta = json!({ "schemaVersion": 1, "name": "내 노트" });
+        ws.write_meta(&meta).unwrap();
+        assert_eq!(ws.read_meta().unwrap(), Some(meta));
+        assert_eq!(
+            ws.write_meta(&json!(1)).unwrap_err().code,
+            "invalid_workspace"
+        );
+    }
+
+    #[test]
+    fn resolve_uses_subfolder_only_for_non_empty_non_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        assert_eq!(resolve_workspace_dir(p).unwrap(), p);
+        fs::write(p.join(".DS_Store"), b"").unwrap();
+        assert_eq!(
+            resolve_workspace_dir(p).unwrap(),
+            p,
+            "숨김 파일만 있으면 빈 폴더로 본다"
+        );
+        fs::write(p.join("report.pdf"), b"").unwrap();
+        assert_eq!(
+            resolve_workspace_dir(p).unwrap(),
+            p.join(DEFAULT_FOLDER_NAME)
+        );
+        fs::write(p.join(WORKSPACE_FILE), b"{}").unwrap();
+        assert_eq!(resolve_workspace_dir(p).unwrap(), p);
+    }
+}
