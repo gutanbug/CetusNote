@@ -30,7 +30,7 @@ pub struct AppState {
     app_import: Mutex<Option<ImportSession>>,
 }
 
-/// 다른 앱 가져오기 세션: 고른 원본과 항목 목록(ADR-017)
+/// 다른 앱 가져오기 세션: 고른 원본과 항목 목록(ADR-020)
 pub struct ImportSession {
     source: app_import::Source,
     entries: HashMap<String, app_import::Entry>,
