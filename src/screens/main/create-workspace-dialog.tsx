@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { workspaceErrorMessage, workspaceStore } from "@/features/workspace";
 import * as React from "react";
+import { useRestoreFocus } from "./use-restore-focus";
 
 /**
  * 새 워크스페이스 (SHELL-15): 이름을 적고 "위치 고르기" → 시스템 폴더 대화상자 → <위치>/<이름> 폴더를 만들어 연다.
@@ -27,6 +28,8 @@ export function CreateWorkspaceDialog({
   const [busy, setBusy] = React.useState(false);
   const errorId = React.useId();
   const trimmed = name.trim();
+  // 워크스페이스 메뉴 항목에서 열면 닫을 때 그 버튼(스위처)으로 포커스를 돌린다
+  useRestoreFocus(open);
   return (
     <Dialog
       open={open}

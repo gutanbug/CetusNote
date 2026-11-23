@@ -8,6 +8,32 @@ import * as React from "react";
  */
 type RestoreTarget = HTMLElement | null | (() => HTMLElement | null);
 
+/**
+ * 메뉴 항목에서 연 대화상자는 열 때 포커스가 메뉴 항목에 있는데, 메뉴가 닫히면서 그 항목이 사라진다.
+ * 그래서 메뉴·대화상자 바깥에서 마지막으로 포커스되거나 눌린 요소(메뉴를 연 버튼 등)를 따로 기억한다.
+ */
+let lastOutside: HTMLElement | null = null;
+let tracking = false;
+
+function outsideTarget(t: EventTarget | null): HTMLElement | null {
+  if (!(t instanceof HTMLElement)) return null;
+  if (t.closest('[role="menu"], [role="dialog"], [role="alertdialog"]')) return null;
+  return t.closest<HTMLElement>('button, a, input, [role="button"], [tabindex]');
+}
+
+function trackOutsideFocus() {
+  if (tracking || typeof document === "undefined") return;
+  tracking = true;
+  // WebKit(Tauri 창)은 마우스로 누른 버튼에 포커스를 주지 않으므로 pointerdown도 본다
+  const note = (e: Event) => {
+    const el = outsideTarget(e.target);
+    if (el) lastOutside = el;
+  };
+  document.addEventListener("focusin", note, true);
+  document.addEventListener("pointerdown", note, true);
+}
+trackOutsideFocus();
+
 export function useRestoreFocus(open: boolean, fallback?: RestoreTarget) {
   const from = React.useRef<HTMLElement | null>(null);
   const fallbackRef = React.useRef<RestoreTarget>(null);
@@ -17,7 +43,9 @@ export function useRestoreFocus(open: boolean, fallback?: RestoreTarget) {
   });
   React.useLayoutEffect(() => {
     if (open) {
-      from.current = document.activeElement as HTMLElement | null;
+      const active = document.activeElement as HTMLElement | null;
+      const transient = !active || active === document.body || !!active.closest('[role="menu"]');
+      from.current = transient ? lastOutside : active;
       return;
     }
     const prev = from.current;
