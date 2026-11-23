@@ -1,3 +1,4 @@
+import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import { pagesStore } from "@/features/pages";
 import { sessionStore, type Tab } from "@/features/session";
 import { openPage } from "./actions";
@@ -85,7 +86,7 @@ export function openPageFrom(
   pageId: string,
   e?: { metaKey: boolean; ctrlKey: boolean; altKey?: boolean } | null,
 ) {
-  if (e && e.metaKey && e.altKey) openInRightPane(pageId);
+  if (e && isModPressed(e, currentPlatform()) && e.altKey) openInRightPane(pageId);
   else if (e && (e.metaKey || e.ctrlKey)) openInNewTab(pageId);
   else openPage(pageId);
 }

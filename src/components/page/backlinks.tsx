@@ -1,3 +1,4 @@
+import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { ChevronRight, FileText } from "lucide-react";
@@ -73,7 +74,10 @@ function Backlinks({ items, onOpen, defaultOpen = true, className }: BacklinksPr
               <button
                 type="button"
                 onClick={(e) =>
-                  onOpen(item.id, { newTab: e.metaKey || e.ctrlKey, pane: e.metaKey && e.altKey })
+                  onOpen(item.id, {
+                    newTab: e.metaKey || e.ctrlKey,
+                    pane: isModPressed(e, currentPlatform()) && e.altKey,
+                  })
                 }
                 className={cn(
                   "grid w-full gap-0.5 rounded-lg px-2 py-2 text-left transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",

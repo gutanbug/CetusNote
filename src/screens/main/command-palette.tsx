@@ -1,3 +1,4 @@
+import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import {
   CommandDialog,
   CommandEmpty,
@@ -439,7 +440,8 @@ export function CommandPalette() {
         placeholder={palettePane ? "오른쪽에 열 페이지를 고르세요" : "페이지 검색 · > 명령"}
         onKeyDown={(e) => {
           // ⌥⌘Enter: 고른 페이지를 오른쪽 패널에 연다 (목록의 Enter는 cmdk가 고른다)
-          if (e.key === "Enter" && e.metaKey && e.altKey) paneNext.current = true;
+          if (e.key === "Enter" && isModPressed(e, currentPlatform()) && e.altKey)
+            paneNext.current = true;
           if (
             e.key === "Enter" &&
             (e.metaKey || e.ctrlKey) &&
@@ -466,7 +468,7 @@ export function CommandPalette() {
                 value={it.id}
                 onSelect={() => go(it.id)}
                 onMouseDown={(e) => {
-                  paneNext.current = e.metaKey && e.altKey;
+                  paneNext.current = isModPressed(e, currentPlatform()) && e.altKey;
                 }}
                 icon={
                   it.icon ? (

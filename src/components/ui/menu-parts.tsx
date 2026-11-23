@@ -1,7 +1,9 @@
+import { formatShortcut } from "@/lib/platform-labels";
 import { cn } from "@/lib/utils";
 import { Check, ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { menuItem } from "./styles";
+import { usePlatform } from "./platform-context";
 
 // OV-Menu의 드롭다운·컨텍스트 메뉴가 함께 쓰는 항목 내부 배치.
 
@@ -23,11 +25,14 @@ export function MenuItemInner({
   right?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const platform = usePlatform();
+  // 글자로 적힌 단축키(⌥⌘F)는 운영체제 표기로 바꾼다. Kbd 요소는 Kbd가 바꾼다
+  const shown = typeof right === "string" ? formatShortcut(right, platform) : right;
   return (
     <>
       {icon}
       <span className="min-w-0 flex-1 truncate">{children}</span>
-      {right ? <span className="ml-2 shrink-0 text-label text-tertiary">{right}</span> : null}
+      {shown ? <span className="ml-2 shrink-0 text-label text-tertiary">{shown}</span> : null}
     </>
   );
 }

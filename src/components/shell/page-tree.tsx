@@ -1,3 +1,4 @@
+import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import { motionTokens } from "@/lib/motion";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
@@ -224,7 +225,11 @@ function PageTree({
       case " ":
         if (node.kind === "folder") {
           if (hasKids) setOpen(node.id, !isOpen);
-        } else onOpen(node.id, { newTab: e.metaKey || e.ctrlKey, pane: e.metaKey && e.altKey });
+        } else
+          onOpen(node.id, {
+            newTab: e.metaKey || e.ctrlKey,
+            pane: isModPressed(e, currentPlatform()) && e.altKey,
+          });
         break;
       case "F10":
         if (!e.shiftKey || !rowMenu) return;
@@ -329,7 +334,10 @@ function PageTree({
             onClick={(e) =>
               folder
                 ? hasKids && setOpen(node.id, !isOpen)
-                : onOpen(node.id, { newTab: e.metaKey || e.ctrlKey, pane: e.metaKey && e.altKey })
+                : onOpen(node.id, {
+                    newTab: e.metaKey || e.ctrlKey,
+                    pane: isModPressed(e, currentPlatform()) && e.altKey,
+                  })
             }
             className={cn(
               rowBase,

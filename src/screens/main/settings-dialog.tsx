@@ -29,6 +29,7 @@ import { restoreBuiltinTemplates } from "./actions";
 import { importDocuments } from "./import-document";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { canReveal, revealInFinder } from "@/lib/storage/open-link";
+import { currentPlatform, revealLabel } from "@/lib/platform-labels";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import * as React from "react";
 import { ZOOM_STEPS } from "@/lib/zoom";
@@ -306,7 +307,7 @@ function Data({ onRestored }: { onRestored: () => void }) {
                   .catch(() => toast.error("폴더를 열지 못했어요."))
               }
             >
-              Finder에서 보기
+              {revealLabel(currentPlatform())}
             </Button>
           </SettingsRow>
         ) : null}
@@ -453,7 +454,7 @@ function General() {
       >
         {canReveal() ? (
           <Button variant="secondary" size="sm" onClick={() => void revealInFinder(path)}>
-            Finder에서 보기
+            {revealLabel(currentPlatform())}
           </Button>
         ) : null}
       </SettingsRow>
@@ -531,7 +532,7 @@ function Appearance() {
       </SettingsRow>
       <SettingsRow
         name="앱 아이콘"
-        description="Dock과 창에 보이는 아이콘이에요. 자동이면 테마를 따라요."
+        description="Dock·작업 표시줄·창에 보이는 아이콘이에요. 자동이면 테마를 따라요."
       >
         <Segmented
           label="앱 아이콘"
@@ -550,7 +551,7 @@ function Appearance() {
       </SettingsRow>
       <SettingsRow
         name="화면 크기"
-        description="앱 전체를 키우거나 줄여요. ⌘+ ⌘− ⌘0으로도 바꿀 수 있어요."
+        description={`앱 전체를 키우거나 줄여요. ${currentPlatform() === "mac" ? "⌘+ ⌘− ⌘0" : "Ctrl+ Ctrl− Ctrl+0"}으로도 바꿀 수 있어요.`}
       >
         <Segmented
           label="화면 크기"

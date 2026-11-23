@@ -28,6 +28,7 @@ import {
 import { formatAgo } from "@/lib/format-date";
 import { hasOverlayTitleBar } from "@/lib/platform";
 import { canReveal, revealInFinder } from "@/lib/storage/open-link";
+import { currentPlatform, revealLabel } from "@/lib/platform-labels";
 import {
   Clock,
   Copy,
@@ -309,7 +310,7 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
                 icon={<FolderSearch {...ic} />}
                 onSelect={() => void revealInFinder(workspacePath)}
               >
-                Finder에서 보기
+                {revealLabel(currentPlatform())}
               </DropdownMenuItem>
             ) : null}
           </WorkspaceSwitcher>

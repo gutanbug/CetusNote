@@ -1,3 +1,4 @@
+import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import {
   Extension,
   Node,
@@ -73,7 +74,10 @@ export function MentionChip({
       onClick={(e) => {
         if (broken) return;
         e.preventDefault();
-        onOpen?.({ newTab: e.metaKey || e.ctrlKey, pane: e.metaKey && e.altKey });
+        onOpen?.({
+          newTab: e.metaKey || e.ctrlKey,
+          pane: isModPressed(e, currentPlatform()) && e.altKey,
+        });
       }}
     >
       {broken ? (
