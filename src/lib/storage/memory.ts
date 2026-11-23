@@ -324,8 +324,11 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       if (!bytes) throw new StorageError("not_found", "이미지 파일이 없어요");
       return this.writeAsset(pageId, bytes);
     },
-    async renderPdf() {
+    async renderPdfPage() {
       // PDF는 데스크톱 앱(WKWebView 인쇄 엔진)에서만 만든다
+      throw new StorageError("unsupported", "PDF는 데스크톱 앱에서만 만들 수 있어요");
+    },
+    async finishPdf() {
       throw new StorageError("unsupported", "PDF는 데스크톱 앱에서만 만들 수 있어요");
     },
     async savePdf() {

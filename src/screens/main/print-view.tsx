@@ -16,8 +16,8 @@ import { PageIcon } from "@/components/ui/page-icon";
 
 /**
  * PDF 내보내기(DATA-06)의 인쇄 전용 화면 — body 바로 아래 #print-root에 페이지 제목과 읽기 전용 본문을 그린다.
- * 화면에서는 늘 숨고(globals.css), 인쇄할 때만 이것만 찍힌다. 다음 내보내기 전까지 남겨 둔다
- * (macOS 인쇄 창은 열려 있는 동안 미리보기를 다시 그린다).
+ * 화면에서는 늘 숨고(globals.css), 쪽을 찍는 동안(html[data-pdf-capture])에만 보인다.
+ * 쪽 나누기는 pdf-layout.ts가 한다. 다음 내보내기 전까지 남겨 둔다.
  */
 export function PrintView() {
   const id = useMainUi((s) => s.printId);

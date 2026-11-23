@@ -290,34 +290,26 @@
 }
 
 /*
- * PDF 내보내기 (DATA-06) — 인쇄 때는 #print-root(페이지 제목 + 읽기 전용 본문)만 찍는다.
- * 화면에서는 늘 숨긴다. 다크 토큰은 @media screen 안에 있어 인쇄는 라이트 값이다(tokens.css).
- * 종이 여백은 화면 토큰(px 리듬)과 별개인 물리 단위라 mm로 적는다.
+ * PDF 내보내기 (DATA-06) — 쪽을 찍는 동안(html[data-pdf-capture])에만 #print-root만 보인다.
+ * 쪽 나누기와 크기(A4 pt)는 screens/main/pdf-layout.ts가 정하고, 여기서는 가리기만 한다.
+ * 찍는 동안 data-theme=light가 붙어 라이트 토큰이 쓰인다. 화면에서는 늘 숨긴다.
  */
 #print-root {
   display: none;
 }
-@media print {
-  @page {
-    margin: 18mm 16mm;
-  }
-  html,
-  body {
-    height: auto !important;
-    overflow: visible !important;
-    background: var(--bg-app) !important;
-  }
-  body > :not(#print-root) {
-    display: none !important;
-  }
-  #print-root {
-    display: block;
-  }
-  /* 블록이 페이지 경계에서 잘리지 않게 */
-  #print-root :is(figure, pre, table, blockquote, [data-type="callout"], h1, h2, h3) {
-    break-inside: avoid;
-  }
-  #print-root :is(h1, h2, h3) {
-    break-after: avoid;
-  }
+html[data-pdf-capture],
+html[data-pdf-capture] body {
+  overflow: visible !important;
+  height: auto !important;
+}
+html[data-pdf-capture] body > :not(#print-root) {
+  display: none !important;
+}
+html[data-pdf-capture] #print-root {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  background: var(--bg-app);
 }

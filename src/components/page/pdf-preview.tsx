@@ -12,6 +12,8 @@ type PdfPreviewProps = {
   /** status가 error일 때 보여 줄 이유 */
   message?: string | null;
   onSave: () => void;
+  /** status가 error일 때 다시 만들기 */
+  onRetry?: () => void;
 };
 
 /**
@@ -25,6 +27,7 @@ export function PdfPreview({
   previewUrl,
   message,
   onSave,
+  onRetry,
 }: PdfPreviewProps) {
   const showPreview = (status === "ready" || status === "saving") && previewUrl;
   return (
@@ -54,6 +57,7 @@ export function PdfPreview({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             닫기
           </Button>
+          {status === "error" && onRetry ? <Button onClick={onRetry}>다시 만들기</Button> : null}
           <Button onClick={onSave} disabled={status !== "ready"}>
             {status === "saving" ? "저장하는 중이에요" : "PDF로 저장"}
           </Button>

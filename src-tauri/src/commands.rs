@@ -876,33 +876,101 @@ pub async fn backup_restore(
 
 // ── PDF 내보내기 (DATA-06) ──────────────────────────────────
 
-/// 인쇄 전용 화면(#print-root)을 A4 PDF로 앱 캐시에 쓰고 바이트를 돌려준다(미리보기용). 인쇄 창은 띄우지 않는다.
-/// 마지막 파일은 AppState에 남겨 pdf_save가 쓴다. WKWebView 작업은 메인 스레드에서 한다(pdf.rs).
-#[tauri::command]
-pub async fn pdf_render(
-    app: AppHandle,
-    window: tauri::WebviewWindow,
-    state: State<'_, AppState>,
-) -> Result<tauri::ipc::Response> {
+/// 쪽 하나를 찍는 제한 시간. 넘기면 실패로 돌려보내 미리보기가 무한 로딩에 빠지지 않게 한다
+const PDF_PAGE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// 쪽들을 한 파일로 합치는 제한 시간
+const PDF_FINISH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// 내보내기 한 번(run)의 쪽 조각 폴더. 앱 캐시 안이라 사용자 워크스페이스는 건드리지 않는다
+fn pdf_parts_dir(app: &AppHandle, run: u32) -> Result<PathBuf> {
     let dir = app
         .path()
         .app_cache_dir()
         .map_err(|e| StorageError::new("io", e.to_string()))?;
+    Ok(dir.join("pdf-parts").join(run.to_string()))
+}
+
+/// 인쇄 전용 화면의 rect 한 쪽을 PDF 조각(index.pdf)으로 쓴다. 프론트엔드가 쪽마다 한 번씩 부른다.
+/// WKWebView 작업은 메인 스레드에서 시작하고 기다리지 않는다(완료는 콜백). 제한 시간을 넘기면 실패한다.
+#[tauri::command]
+pub async fn pdf_page(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    run: u32,
+    index: u32,
+    rect: crate::pdf::PageRect,
+) -> Result<()> {
+    let dir = pdf_parts_dir(&app, run)?;
+    if index == 0 {
+        // 새 내보내기는 지난번에 실패해 남은 조각을 지운다
+        if let Some(parts_root) = dir.parent() {
+            let _ = std::fs::remove_dir_all(parts_root);
+        }
+    }
     std::fs::create_dir_all(&dir)?;
-    let path = dir.join("pdf-export.pdf");
-    let (tx, rx) = std::sync::mpsc::channel();
-    let target = path.clone();
+    let part = dir.join(format!("{index}.pdf"));
+    let (tx, rx) = std::sync::mpsc::channel::<std::result::Result<(), String>>();
+    let fail_tx = tx.clone();
     window
         .with_webview(move |webview| {
-            let _ = tx.send(crate::pdf::print_to_file(webview.inner(), &target));
+            let done_tx = tx.clone();
+            let target = part.clone();
+            let started = crate::pdf::capture_page(webview.inner(), rect, move |result| {
+                let outcome = result.and_then(|bytes| {
+                    std::fs::write(&target, bytes).map_err(|_| "쪽 PDF를 쓰지 못했어요".to_string())
+                });
+                let _ = done_tx.send(outcome);
+            });
+            if let Err(message) = started {
+                let _ = fail_tx.send(Err(message));
+            }
         })
         .map_err(|e| StorageError::new("io", e.to_string()))?;
-    let received = tauri::async_runtime::spawn_blocking(move || rx.recv())
+    let received = tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(PDF_PAGE_TIMEOUT))
         .await
         .map_err(|e| StorageError::new("io", e.to_string()))?;
-    let printed = received.map_err(|_| StorageError::new("io", "인쇄 엔진이 응답하지 않았어요"))?;
-    printed.map_err(|m| StorageError::new("io", m))?;
-    let bytes = std::fs::read(&path)?;
+    let outcome = received
+        .map_err(|_| StorageError::new("io", "PDF 쪽을 만들지 못했어요(시간 초과)"))?;
+    outcome.map_err(|m| StorageError::new("io", m))?;
+    Ok(())
+}
+
+/// 찍어 둔 쪽 조각 count개를 순서대로 합쳐 미리보기 PDF로 앱 캐시에 쓰고 바이트를 돌려준다.
+/// 마지막 파일은 AppState에 남겨 pdf_save가 쓴다. 조각 폴더는 지운다.
+#[tauri::command]
+pub async fn pdf_finish(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    run: u32,
+    count: u32,
+) -> Result<tauri::ipc::Response> {
+    if count == 0 {
+        return Err(StorageError::new("io", "찍은 쪽이 없어요").into());
+    }
+    let dir = pdf_parts_dir(&app, run)?;
+    let parts: Vec<PathBuf> = (0..count).map(|i| dir.join(format!("{i}.pdf"))).collect();
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(crate::pdf::merge_pages(&parts));
+    })
+    .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let merged = tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(PDF_FINISH_TIMEOUT))
+        .await
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let bytes = merged
+        .map_err(|_| StorageError::new("io", "PDF를 합치지 못했어요(시간 초과)"))?
+        .map_err(|m| StorageError::new("io", m))?;
+    let _ = std::fs::remove_dir_all(&dir);
+    if let Some(parts_root) = dir.parent() {
+        // 비어 있으면 조각 상위 폴더도 지운다(remove_dir은 빈 폴더만 지운다)
+        let _ = std::fs::remove_dir(parts_root);
+    }
+    let out_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let path = out_dir.join("pdf-export.pdf");
+    storage::atomic_write(&path, &bytes)?;
     *state
         .last_pdf
         .lock()

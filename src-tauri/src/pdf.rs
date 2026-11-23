@@ -1,54 +1,96 @@
-//! PDF 내보내기(DATA-06): 메인 WKWebView의 인쇄 작업을 대화상자 없이 PDF 파일로 쓴다.
-//! 무엇을 찍을지는 프론트엔드의 인쇄 전용 화면(#print-root, @media print)이 정한다.
-//! 페이지는 A4로 나뉘고(WebKit 인쇄 엔진), 글자는 살아 있다(벡터). 래스터 이미지로 찍지 않는다.
+//! PDF 내보내기(DATA-06): 메인 WKWebView의 `createPDFWithConfiguration`으로 쪽(rect) 하나씩 찍고,
+//! PDFKit으로 한 파일에 합친다. 글자는 살아 있다(벡터).
+//!
+//! 왜 인쇄 작업(NSPrintOperation)을 쓰지 않나: `runOperation`은 메인 스레드에서 끝날 때까지 돌면서
+//! 쪽을 계속 만들었다. 내용이 한 문단이어도 PDF가 수백 MB가 될 때까지 멈추지 않아 앱이 얼었다(2026-11-23 재현).
+//! createPDF는 완료 핸들러로 돌아오는 비동기 호출이라 메인 스레드를 막지 않는다.
+//! 쪽 나누기(A4 높이 경계)는 프론트엔드가 정한다(pdf-layout.ts). 여기서는 각 쪽을 rect로 찍기만 한다.
 
-use std::path::Path;
+/// 찍을 영역(웹뷰 문서 좌표, pt = CSS px)
+#[derive(serde::Deserialize, Clone, Copy, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PageRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
 
-/// WKWebView 인쇄 작업을 `path`에 PDF로 쓴다. 메인 스레드에서 불러야 한다(commands::pdf_render가 맞춘다).
+/// 웹뷰의 rect 한 쪽을 PDF 바이트로 만든다. 메인 스레드에서 부른다. 결과는 `done`으로 나중에 온다(막지 않는다).
 #[cfg(target_os = "macos")]
-pub fn print_to_file(webview: *mut std::ffi::c_void, path: &Path) -> Result<(), String> {
-    use objc2::runtime::{AnyObject, ProtocolObject};
-    use objc2_app_kit::{NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob};
-    use objc2_foundation::{NSCopying, NSSize, NSString, NSURL};
-    use objc2_web_kit::WKWebView;
+pub fn capture_page(
+    webview: *mut std::ffi::c_void,
+    rect: PageRect,
+    done: impl Fn(Result<Vec<u8>, String>) + 'static,
+) -> Result<(), String> {
+    use block2::RcBlock;
+    use objc2::MainThreadMarker;
+    use objc2_foundation::{NSData, NSError, NSPoint, NSRect, NSSize};
+    use objc2_web_kit::{WKPDFConfiguration, WKWebView};
 
     if webview.is_null() {
         return Err("미리보기를 만들 화면이 없어요".into());
     }
-    // SAFETY: wry가 준 WKWebView 포인터다. 메인 스레드에서 이 호출이 끝날 때까지만 쓴다.
+    let mtm = MainThreadMarker::new().ok_or("메인 스레드가 아니에요")?;
+    // SAFETY: wry가 준 WKWebView 포인터다. 메인 스레드에서 이 호출 동안만 쓴다.
     let wk: &WKWebView = unsafe { &*webview.cast::<WKWebView>() };
 
-    let info = NSPrintInfo::new();
-    // A4 세로. 종이 여백은 globals.css의 @page가 정한다(여기서는 0)
-    info.setPaperSize(NSSize::new(595.28, 841.89));
-    info.setTopMargin(0.0);
-    info.setBottomMargin(0.0);
-    info.setLeftMargin(0.0);
-    info.setRightMargin(0.0);
-    // 인쇄가 아니라 파일 저장 작업으로 — 프린터를 고르지 않는다
-    info.setJobDisposition(unsafe { NSPrintSaveJob });
-    let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
-    unsafe {
-        let dict = info.dictionary();
-        let url_obj: &AnyObject = &url;
-        let key: &ProtocolObject<dyn NSCopying> = ProtocolObject::from_ref(NSPrintJobSavingURL);
-        dict.setObject_forKey(url_obj, key);
-    }
+    let config = unsafe { WKPDFConfiguration::new(mtm) };
+    let frame = NSRect::new(
+        NSPoint::new(rect.x, rect.y),
+        NSSize::new(rect.width, rect.height),
+    );
+    unsafe { config.setRect(frame) };
 
-    let op = unsafe { wk.printOperationWithPrintInfo(&info) };
-    // 인쇄 창·진행 창을 띄우지 않는다
-    op.setShowsPrintPanel(false);
-    op.setShowsProgressPanel(false);
-    if !op.runOperation() {
-        return Err("PDF를 만들지 못했어요".into());
+    let handler = RcBlock::new(move |data: *mut NSData, error: *mut NSError| {
+        // SAFETY: WebKit이 완료 핸들러에 넘기는 객체는 핸들러가 도는 동안 살아 있다
+        let result = match unsafe { data.as_ref() } {
+            Some(data) if error.is_null() => {
+                let bytes = data.to_vec();
+                if bytes.is_empty() {
+                    Err("빈 PDF가 만들어졌어요".to_string())
+                } else {
+                    Ok(bytes)
+                }
+            }
+            _ => Err("PDF 쪽을 만들지 못했어요".to_string()),
+        };
+        done(result);
+    });
+    unsafe { wk.createPDFWithConfiguration_completionHandler(Some(&config), &handler) };
+    Ok(())
+}
+
+/// 쪽 PDF 파일들을 순서대로 한 PDF로 합친다. PDFKit을 쓰므로 메인 스레드에서 부른다.
+#[cfg(target_os = "macos")]
+pub fn merge_pages(parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
+    use objc2::AnyThread;
+    use objc2_foundation::NSData;
+    use objc2_pdf_kit::PDFDocument;
+
+    let merged = unsafe { PDFDocument::new() };
+    for (index, part) in parts.iter().enumerate() {
+        let bytes = std::fs::read(part).map_err(|_| "쪽 PDF를 읽지 못했어요".to_string())?;
+        let data = NSData::with_bytes(&bytes);
+        let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }
+            .ok_or("쪽 PDF를 열지 못했어요")?;
+        let page = unsafe { doc.pageAtIndex(0) }.ok_or("쪽 PDF에 쪽이 없어요")?;
+        unsafe { merged.insertPage_atIndex(&page, index) };
     }
-    match std::fs::metadata(path) {
-        Ok(m) if m.len() > 0 => Ok(()),
-        _ => Err("PDF 파일이 만들어지지 않았어요".into()),
-    }
+    let out = unsafe { merged.dataRepresentation() }.ok_or("PDF를 합치지 못했어요")?;
+    Ok(out.to_vec())
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn print_to_file(_webview: *mut std::ffi::c_void, _path: &Path) -> Result<(), String> {
+pub fn capture_page(
+    _webview: *mut std::ffi::c_void,
+    _rect: PageRect,
+    _done: impl Fn(Result<Vec<u8>, String>) + 'static,
+) -> Result<(), String> {
+    Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn merge_pages(_parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
     Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
 }

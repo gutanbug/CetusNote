@@ -11,6 +11,8 @@ export type DocJSON = { type: "doc"; content?: unknown[] } & Record<string, unkn
  * 그 컬렉션의 상태 목록(`collection.statuses`, 스키마 4)에서 고른다.
  */
 export type PageStatus = string;
+/** PDF 쪽 하나의 찍을 영역 (웹뷰 문서 좌표, pt = CSS px). DATA-06 */
+export type PdfPageRect = { x: number; y: number; width: number; height: number };
 export type PageFont = "default" | "serif" | "mono";
 
 export type PageKind = "page" | "folder" | "collection";
@@ -291,8 +293,10 @@ export interface Storage {
   revealBackups(): Promise<void>;
   /** 백업 zip 선택 → 풀 폴더 선택 → 풀고 그 폴더를 연다. 지금 워크스페이스는 그대로. 취소하면 null */
   restoreBackup(): Promise<WorkspaceInfo | null>;
-  /** PDF 미리보기 만들기 (DATA-06). 인쇄 전용 영역을 A4 PDF 바이트로 돌려준다. 인쇄 창은 띄우지 않는다 */
-  renderPdf(): Promise<ArrayBuffer>;
+  /** PDF 쪽 한 장 찍기 (DATA-06). run은 내보내기 한 번의 번호, index는 쪽 순서, rect는 웹뷰 문서 좌표(pt). 제한 시간을 넘기면 실패한다 */
+  renderPdfPage(run: number, index: number, rect: PdfPageRect): Promise<void>;
+  /** 찍어 둔 쪽 count장을 한 PDF로 합쳐 미리보기 바이트로 돌려준다 (DATA-06). 마지막 PDF는 savePdf가 쓴다 */
+  finishPdf(run: number, count: number): Promise<ArrayBuffer>;
   /** 마지막 PDF를 저장 대화상자에서 고른 곳에 쓴다 (DATA-06). 취소하면 null, 저장하면 파일 이름 */
   savePdf(fileName: string): Promise<string | null>;
   /** 지난번 이후 바깥에서 바뀐 것 (DATA-07). 이 앱이 읽고 쓴 것은 빠진다 */
