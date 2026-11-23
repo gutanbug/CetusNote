@@ -35,6 +35,8 @@ const COMMANDS: &[&str] = &[
     "pdf_page",
     "pdf_finish",
     "pdf_preview_page",
+    "pdf_print_document",
+    "pdf_export_bytes",
     "pdf_save",
     "workspace_scan",
     "pages_read",

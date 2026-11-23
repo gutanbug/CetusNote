@@ -37,6 +37,8 @@ permissions = [
   "allow-pdf-page",
   "allow-pdf-finish",
   "allow-pdf-preview-page",
+  "allow-pdf-print-document",
+  "allow-pdf-export-bytes",
   "allow-pdf-save",
   "allow-workspace-scan",
   "allow-pages-read",

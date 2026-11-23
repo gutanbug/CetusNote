@@ -45,6 +45,16 @@ block2 = "=0.6.2"
 # 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
 tauri-plugin-mcp-bridge = "0.13"
 
+# Windows PDF 내보내기(DATA-06·SYS-08): WebView2 PrintToPdf. wry·tauri가 쓰는 판과 같다
+[target.'cfg(windows)'.dependencies]
+webview2-com = "=0.39.1"
+windows = "=0.62.2"
+
+# Linux PDF 내보내기(DATA-06·SYS-08): WebKitGTK 인쇄 작업을 파일 PDF로. wry·tauri가 쓰는 판과 같다
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "=2.0.2"
+gtk = "=0.18.2"
+
 [dev-dependencies]
 tempfile = "3"
 

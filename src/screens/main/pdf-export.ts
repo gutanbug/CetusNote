@@ -3,6 +3,8 @@ import { toast } from "@/components/ui/toast";
 import { markdownFileName } from "@/features/export";
 import { pagesStore } from "@/features/pages";
 import { getStorage } from "@/lib/storage/default";
+import { currentPlatform } from "@/lib/platform-labels";
+import { renderPdfPreviewPngs } from "@/features/pdf-js";
 import { create } from "zustand";
 import { PRINT_ROOT_ID, printViewReady } from "./print-ready";
 import { A4, PAGE_MARGIN, measureBlocks, planPages, printBlocks } from "./pdf-layout";
@@ -40,6 +42,13 @@ let activeCapture: { ticket: number; restore: () => void } | null = null;
 const EXPORT_DEADLINE_MS = 30_000;
 /** 미리보기 그림의 픽셀 폭. 화면에서 200%로 키워도 흐리지 않을 만큼 크게 그린다(저장본과 무관) */
 const PREVIEW_PAGE_WIDTH = 1400;
+/** Windows·Linux: 인쇄 엔진이 문서 전체를 찍는 제한 시간 (쪽 수가 많으면 오래 걸린다) */
+const PRINT_DOCUMENT_TIMEOUT_MS = 60_000;
+/** Windows·Linux 인쇄 쪽 여백(mm). Rust(pdf.rs MARGIN_MM)와 같은 값이어야 한다. 위·아래 20, 좌·우 18 */
+const PRINT_MARGIN_MM = { vertical: 20, horizontal: 18 } as const;
+/** Windows·Linux 인쇄 본문 폭: A4 210mm에서 좌·우 여백을 뺀 폭 */
+const PRINT_CONTENT_WIDTH = `${210 - PRINT_MARGIN_MM.horizontal * 2}mm`;
+const PAGE_STYLE_ID = "pdf-print-page";
 
 function dropUrl() {
   for (const url of usePdfExport.getState().pages) URL.revokeObjectURL(url);
@@ -149,6 +158,49 @@ async function capturePages(ticket: number, deadline: number): Promise<number> {
 }
 
 /**
+ * Windows·Linux (SYS-08): 인쇄 화면 전체를 OS 인쇄 엔진으로 PDF 한 파일로 쓴다.
+ * 쪽 나누기는 엔진이 CSS @page(A4, 여백)로 한다. 쪽마다 찍는 방식(capturePages)은 쓰지 않는다.
+ */
+async function printDocument(ticket: number): Promise<void> {
+  const root = document.getElementById(PRINT_ROOT_ID);
+  if (!root) throw new Error("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
+  const storage = getStorage();
+  const html = document.documentElement;
+  const prevTheme = html.dataset.theme;
+  const style = document.createElement("style");
+  style.id = PAGE_STYLE_ID;
+  style.textContent = `@page { size: A4; margin: ${PRINT_MARGIN_MM.vertical}mm ${PRINT_MARGIN_MM.horizontal}mm; }`;
+  document.head.appendChild(style);
+  html.dataset.pdfCapture = "";
+  html.dataset.theme = "light";
+  root.style.width = PRINT_CONTENT_WIDTH;
+  root.style.padding = "0";
+  const restore = () => {
+    style.remove();
+    delete html.dataset.pdfCapture;
+    if (prevTheme === undefined) delete html.dataset.theme;
+    else html.dataset.theme = prevTheme;
+    root.removeAttribute("style");
+  };
+  activeCapture = { ticket, restore };
+  try {
+    await nextFrame();
+    await nextFrame();
+    await document.fonts?.ready;
+    await nextFrame();
+    if (ticket !== seq) throw new Error("PDF 만들기를 멈췄어요.");
+    await within(storage.printPdfDocument(ticket), PRINT_DOCUMENT_TIMEOUT_MS);
+  } finally {
+    if (activeCapture?.ticket === ticket) {
+      activeCapture.restore();
+      activeCapture = null;
+    } else {
+      restore();
+    }
+  }
+}
+
+/**
  * 페이지를 PDF로 내보낸다 (DATA-06): 인쇄 전용 화면을 그린 뒤 쪽마다 찍어 PDF를 만들고 미리보기로 연다.
  * 저장은 savePdfExport가 맡는다. 시스템 인쇄 창은 띄우지 않는다. 전체 제한 시간은 30초.
  */
@@ -173,15 +225,32 @@ export async function runPdfExport(id: string) {
   if (!(await printViewReady(id))) {
     return fail("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
   }
+  const addPage = (png: ArrayBuffer) => {
+    const url = URL.createObjectURL(new Blob([png], { type: "image/png" }));
+    usePdfExport.setState((s) => ({ pages: [...s.pages, url] }));
+  };
   try {
-    const count = await capturePages(ticket, performance.now() + EXPORT_DEADLINE_MS);
     const storage = getStorage();
-    // 쪽 그림은 한 장씩 가져와 준비되는 대로 보여 준다
-    for (let index = 0; index < count; index++) {
-      const png = await storage.renderPdfPreviewPage(index, PREVIEW_PAGE_WIDTH);
+    if (currentPlatform() === "mac") {
+      const count = await capturePages(ticket, performance.now() + EXPORT_DEADLINE_MS);
+      // 쪽 그림은 한 장씩 가져와 준비되는 대로 보여 준다
+      for (let index = 0; index < count; index++) {
+        const png = await storage.renderPdfPreviewPage(index, PREVIEW_PAGE_WIDTH);
+        if (ticket !== seq) return;
+        addPage(png);
+      }
+    } else {
+      // Windows·Linux: 문서 전체를 인쇄 엔진이 한 PDF로 쓰고, 미리보기 쪽은 pdf.js로 그린다
+      await printDocument(ticket);
       if (ticket !== seq) return;
-      const url = URL.createObjectURL(new Blob([png], { type: "image/png" }));
-      usePdfExport.setState((s) => ({ pages: [...s.pages, url] }));
+      const pngs = await renderPdfPreviewPngs(
+        await storage.readPdfExportBytes(),
+        PREVIEW_PAGE_WIDTH,
+      );
+      for (const png of pngs) {
+        if (ticket !== seq) return;
+        addPage(png);
+      }
     }
     if (ticket !== seq) return;
     usePdfExport.setState({ status: "ready" });

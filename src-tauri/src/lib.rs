@@ -52,6 +52,8 @@ pub fn run() {
             commands::pdf_page,
             commands::pdf_finish,
             commands::pdf_preview_page,
+            commands::pdf_print_document,
+            commands::pdf_export_bytes,
             commands::pdf_save,
             commands::workspace_scan,
             commands::pages_read,

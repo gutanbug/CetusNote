@@ -351,6 +351,12 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async savePdf() {
       throw new StorageError("unsupported", "PDF는 데스크톱 앱에서만 저장할 수 있어요");
     },
+    async printPdfDocument() {
+      throw new StorageError("unsupported", "PDF는 데스크톱 앱에서만 만들 수 있어요");
+    },
+    async readPdfExportBytes() {
+      throw new StorageError("unsupported", "PDF는 데스크톱 앱에서만 만들 수 있어요");
+    },
     async scanChanges() {
       need();
       const out = {

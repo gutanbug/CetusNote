@@ -1099,6 +1099,60 @@ pub async fn pdf_preview_page(
     Ok(tauri::ipc::Response::new(png))
 }
 
+/// 제한 시간: 문서 전체를 인쇄 엔진이 찍는 시간(Windows·Linux, SYS-08)
+const PDF_PRINT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Windows·Linux: 인쇄 화면(html[data-pdf-capture]) 전체를 OS 인쇄 엔진으로 PDF 하나로 쓴다(SYS-08).
+/// 미리보기 쪽 그림은 프론트엔드가 pdf.js로 그린다. macOS는 쪽마다 찍는 pdf_page 경로를 쓴다.
+#[tauri::command]
+pub async fn pdf_print_document(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    window: tauri::WebviewWindow,
+    run: u32,
+) -> Result<()> {
+    if cfg!(target_os = "macos") {
+        return Err(StorageError::new("io", "macOS는 쪽마다 찍어요").into());
+    }
+    let dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    std::fs::create_dir_all(&dir)?;
+    // 실행 번호가 같은 지난 파일을 지운다. 이번 인쇄가 실패하면 미리보기도 남지 않는다
+    let path = dir.join(format!("pdf-export-{run}.pdf"));
+    let _ = std::fs::remove_file(&path);
+    let (tx, rx) = std::sync::mpsc::channel::<std::result::Result<(), String>>();
+    let target = path.clone();
+    window
+        .with_webview(move |webview| crate::pdf::print_document(webview, target, tx))
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let received = tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(PDF_PRINT_TIMEOUT))
+        .await
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    received
+        .map_err(|_| StorageError::new("io", "PDF를 만들지 못했어요(시간 초과)"))?
+        .map_err(|m| StorageError::new("io", m))?;
+    *state
+        .last_pdf
+        .lock()
+        .map_err(|_| StorageError::new("io", "PDF 상태를 저장하지 못했어요"))? = Some(path);
+    Ok(())
+}
+
+/// 마지막으로 만든 미리보기 PDF의 바이트(Windows·Linux의 pdf.js 미리보기·글자 확인용, SYS-08)
+#[tauri::command]
+pub fn pdf_export_bytes(state: State<AppState>) -> Result<tauri::ipc::Response> {
+    let src = state
+        .last_pdf
+        .lock()
+        .map_err(|_| StorageError::new("io", "PDF 상태를 읽지 못했어요"))?
+        .clone()
+        .ok_or_else(|| StorageError::new("not_found", "먼저 PDF 미리보기를 만들어 주세요"))?;
+    let bytes = std::fs::read(&src).map_err(|_| StorageError::new("io", "PDF를 읽지 못했어요"))?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// PDF 저장: 저장 대화상자에서 고른 곳에 마지막으로 만든 PDF를 쓴다. 취소하면 None, 아니면 파일 이름
 #[tauri::command]
 pub async fn pdf_save(

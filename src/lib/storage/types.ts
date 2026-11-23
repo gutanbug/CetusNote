@@ -308,6 +308,10 @@ export interface Storage {
   finishPdf(run: number, count: number): Promise<number>;
   /** 합쳐 둔 미리보기 PDF의 쪽 index를 PNG 바이트로 그린다. width는 픽셀 폭 (DATA-06). 화면용이고 저장본은 벡터 그대로다 */
   renderPdfPreviewPage(index: number, width: number): Promise<ArrayBuffer>;
+  /** Windows·Linux: 인쇄 화면 전체를 OS 인쇄 엔진으로 PDF 한 파일로 쓴다 (SYS-08). macOS는 쪽마다 찍어 쓰므로 부르지 않는다 */
+  printPdfDocument(run: number): Promise<void>;
+  /** 마지막으로 만든 미리보기 PDF의 바이트 (SYS-08, Windows·Linux의 pdf.js 미리보기 · 쪽 그림) */
+  readPdfExportBytes(): Promise<ArrayBuffer>;
   /** 마지막 PDF를 저장 대화상자에서 고른 곳에 쓴다 (DATA-06). 취소하면 null, 저장하면 파일 이름 */
   savePdf(fileName: string): Promise<string | null>;
   /** 지난번 이후 바깥에서 바뀐 것 (DATA-07). 이 앱이 읽고 쓴 것은 빠진다 */

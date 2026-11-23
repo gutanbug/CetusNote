@@ -91,6 +91,8 @@ export function createTauriStorage(): Storage {
     finishPdf: (run, count) => call<number>("pdf_finish", { run, count }),
     renderPdfPreviewPage: (index, width) => call<ArrayBuffer>("pdf_preview_page", { index, width }),
     savePdf: (fileName) => call<string | null>("pdf_save", { fileName }),
+    printPdfDocument: (run) => call<void>("pdf_print_document", { run }),
+    readPdfExportBytes: () => call<ArrayBuffer>("pdf_export_bytes"),
   };
 }
 

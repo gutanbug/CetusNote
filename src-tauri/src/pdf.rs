@@ -130,6 +130,128 @@ pub fn merge_pages(_parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
     Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
 }
 
+/// Windows·Linux 인쇄 엔진의 A4 용지와 여백(mm). 프론트엔드가 같은 값을 `@page` 규칙으로 깐다(pdf-export.ts)
+#[cfg(any(windows, target_os = "linux"))]
+const A4_MM: (f64, f64) = (210.0, 297.0);
+#[cfg(any(windows, target_os = "linux"))]
+const MARGIN_MM: (f64, f64) = (20.0, 18.0);
+#[cfg(any(windows, target_os = "linux"))]
+const MM_PER_INCH: f64 = 25.4;
+
+/// 웹뷰 문서 전체를 OS 인쇄 엔진으로 PDF 파일 하나로 쓴다 (SYS-08: Windows·Linux).
+/// 쪽마다 찍는 방식(macOS의 capture_page)은 쓰지 않는다. 쪽 나누기는 브라우저 인쇄 엔진이 CSS @page로 한다.
+/// 메인 스레드에서 부른다(wry의 with_webview 안). 결과는 `done`으로 온다. 대화상자는 띄우지 않는다.
+#[cfg(windows)]
+pub fn print_document(
+    webview: tauri::webview::PlatformWebview,
+    path: std::path::PathBuf,
+    done: std::sync::mpsc::Sender<Result<(), String>>,
+) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_7, ICoreWebView2Environment6};
+    use webview2_com::PrintToPdfCompletedHandler;
+    use windows::core::{HSTRING, Interface};
+
+    let fail_tx = done.clone();
+    let fail = move |message: &str| {
+        let _ = fail_tx.send(Err(message.to_string()));
+    };
+    let controller = webview.controller();
+    let environment = webview.environment();
+    let core: ICoreWebView2_7 = match unsafe { controller.CoreWebView2() }.and_then(|c| c.cast()) {
+        Ok(core) => core,
+        Err(_) => return fail("인쇄 엔진을 찾지 못했어요"),
+    };
+    let env6: ICoreWebView2Environment6 = match environment.cast() {
+        Ok(env) => env,
+        Err(_) => return fail("인쇄 엔진을 찾지 못했어요"),
+    };
+    let settings = match unsafe { env6.CreatePrintSettings() } {
+        Ok(settings) => settings,
+        Err(_) => return fail("인쇄 설정을 만들지 못했어요"),
+    };
+    let inch = |mm: f64| mm / MM_PER_INCH;
+    unsafe {
+        let _ = settings.SetPageWidth(inch(A4_MM.0));
+        let _ = settings.SetPageHeight(inch(A4_MM.1));
+        let _ = settings.SetMarginTop(inch(MARGIN_MM.0));
+        let _ = settings.SetMarginBottom(inch(MARGIN_MM.0));
+        let _ = settings.SetMarginLeft(inch(MARGIN_MM.1));
+        let _ = settings.SetMarginRight(inch(MARGIN_MM.1));
+        let _ = settings.SetShouldPrintBackgrounds(true.into());
+        let _ = settings.SetShouldPrintHeaderAndFooter(false.into());
+    }
+    let handler = PrintToPdfCompletedHandler::create(Box::new(move |error_code, succeeded| {
+        let ok = error_code.is_ok() && succeeded;
+        let _ = done.send(if ok {
+            Ok(())
+        } else {
+            Err("PDF를 만들지 못했어요".to_string())
+        });
+        Ok(())
+    }));
+    let target = HSTRING::from(path.to_string_lossy().as_ref());
+    if unsafe { core.PrintToPdf(&target, &settings, &handler) }.is_err() {
+        fail("PDF를 만들지 못했어요");
+    }
+}
+
+/// Linux: WebKitGTK 인쇄 작업을 "파일로 인쇄(Print to File)" PDF 모드로 돌린다. 대화상자는 띄우지 않는다.
+#[cfg(target_os = "linux")]
+pub fn print_document(
+    webview: tauri::webview::PlatformWebview,
+    path: std::path::PathBuf,
+    done: std::sync::mpsc::Sender<Result<(), String>>,
+) {
+    use std::cell::RefCell;
+    use webkit2gtk::{PrintOperation, PrintOperationExt};
+
+    // 인쇄 중인 작업을 잡아 둔다. 끝나거나 실패하면 놓는다(WebKit이 작업 객체를 붙들지 않는 판본에서도 중간에 사라지지 않게)
+    thread_local! {
+        static RUNNING: RefCell<Vec<PrintOperation>> = const { RefCell::new(Vec::new()) };
+    }
+
+    let uri = match url::Url::from_file_path(&path) {
+        Ok(uri) => uri,
+        Err(()) => {
+            let _ = done.send(Err("PDF 저장 위치를 만들지 못했어요".into()));
+            return;
+        }
+    };
+    let settings = gtk::PrintSettings::new();
+    settings.set_printer("Print to File");
+    settings.set(gtk::PRINT_SETTINGS_OUTPUT_FILE_FORMAT.as_str(), Some("pdf"));
+    settings.set(gtk::PRINT_SETTINGS_OUTPUT_URI.as_str(), Some(uri.as_str()));
+    let page = gtk::PageSetup::new();
+    page.set_paper_size_and_default_margins(&gtk::PaperSize::new(Some("iso_a4")));
+
+    let web_view = webview.inner();
+    let operation = PrintOperation::new(&web_view);
+    operation.set_print_settings(&settings);
+    operation.set_page_setup(&page);
+    let ok_tx = done.clone();
+    operation.connect_finished(move |op| {
+        RUNNING.with(|running| running.borrow_mut().retain(|x| x != op));
+        let _ = ok_tx.send(Ok(()));
+    });
+    let fail_tx = done;
+    operation.connect_failed(move |op, error| {
+        RUNNING.with(|running| running.borrow_mut().retain(|x| x != op));
+        let _ = fail_tx.send(Err(format!("PDF를 만들지 못했어요: {error}")));
+    });
+    RUNNING.with(|running| running.borrow_mut().push(operation.clone()));
+    operation.print();
+}
+
+/// 문서 전체 인쇄를 지원하지 않는 OS(macOS는 쪽마다 찍는다)에서는 쓰지 않는다
+#[cfg(not(any(windows, target_os = "linux")))]
+pub fn print_document(
+    _webview: tauri::webview::PlatformWebview,
+    _path: std::path::PathBuf,
+    done: std::sync::mpsc::Sender<Result<(), String>>,
+) {
+    let _ = done.send(Err("이 운영체제는 문서 인쇄를 쓰지 않아요".into()));
+}
+
 /// 가져오기(DATA-08)용 PDF 글: 메타데이터 제목과 쪽마다 글자. 글자만 뽑는다(표·그림·서식은 잃는다)
 #[derive(serde::Serialize, Debug, PartialEq)]
 pub struct PdfText {
