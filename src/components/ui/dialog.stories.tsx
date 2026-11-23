@@ -80,3 +80,22 @@ export const Interactive: Story = {
     </Dialog>
   ),
 };
+
+/** 긴 본문: scrollable이면 × 는 제자리에 있고 본문 영역만 스크롤한다 (기본 배치는 × 까지 밀린다). */
+export const Scrollable: Story = {
+  render: () => (
+    <Dialog open>
+      <DialogContent size="lg" scrollable>
+        <DialogHeader>
+          <DialogTitle>긴 본문</DialogTitle>
+          <DialogDescription>스크롤해도 닫기 버튼은 그대로 있어요.</DialogDescription>
+        </DialogHeader>
+        {Array.from({ length: 40 }, (_, i) => (
+          <p key={i} className="text-ui text-primary">
+            {i + 1}. 긴 목록 항목이에요. 본문이 대화상자 높이를 넘으면 이 안에서만 스크롤돼요.
+          </p>
+        ))}
+      </DialogContent>
+    </Dialog>
+  ),
+};

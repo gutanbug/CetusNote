@@ -2,7 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
 import { IconButton } from "./icon-button";
 
 /** OV-Dialog — scrim + 가운데 모달 (--r-xl, --shadow-modal). 크기 sm·md·lg·xl */
@@ -33,24 +33,63 @@ const dialogVariants = cva(
   },
 );
 
+/**
+ * scrollable: 본문을 안쪽 스크롤 영역으로 감싼다. 뿌리 요소는 스크롤하지 않으므로 × 가 길어진 본문과 함께 올라가지 않는다.
+ * 기본(false)은 뿌리가 스크롤하는 예전 배치다 — 긴 본문이면 × 가 같이 밀리니, 길어질 수 있는 대화상자는 켠다.
+ * 뿌리가 자식 배치(grid 열·행)를 직접 정하는 대화상자(설정·버전 기록 등)는 자기 className으로 배치하고 끈 채 둔다.
+ */
 function DialogContent({
   className,
   size,
   children,
   showClose = true,
   closeLabel = "닫기",
+  scrollable = false,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> &
-  VariantProps<typeof dialogVariants> & { showClose?: boolean; closeLabel?: string }) {
+  VariantProps<typeof dialogVariants> & {
+    showClose?: boolean;
+    closeLabel?: string;
+    scrollable?: boolean;
+  }) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={contentRef}
         data-slot="dialog-content"
-        className={cn(dialogVariants({ size }), className)}
+        className={cn(
+          dialogVariants({ size }),
+          scrollable && "grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-0",
+          className,
+        )}
+        // 스크롤 영역(tabIndex 0)이 첫 포커스를 받으면 영역 전체에 링이 뜬다. 열 때는 안의 첫 요소(없으면 ×)로 보낸다
+        onOpenAutoFocus={(e) => {
+          onOpenAutoFocus?.(e);
+          if (!scrollable || e.defaultPrevented) return;
+          e.preventDefault();
+          const target =
+            contentRef.current?.querySelector<HTMLElement>(
+              '[data-slot="dialog-body"] :is(a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"]))',
+            ) ??
+            contentRef.current?.querySelector<HTMLElement>(`button[aria-label="${closeLabel}"]`);
+          target?.focus();
+        }}
         {...props}
       >
-        {children}
+        {scrollable ? (
+          <div
+            data-slot="dialog-body"
+            tabIndex={0}
+            className="grid min-h-0 content-start gap-4 overflow-y-auto p-6"
+          >
+            {children}
+          </div>
+        ) : (
+          children
+        )}
         {showClose ? (
           <DialogPrimitive.Close asChild>
             <IconButton label={closeLabel} noTooltip className="absolute top-4 right-4">
