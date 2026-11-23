@@ -17,6 +17,8 @@ export type ImportNode = {
   markdown: string;
   /** 본문이 가리키는 원본 그림 경로(가져오는 쪽이 assets로 옮긴다) */
   assetPaths: string[];
+  /** markdown이면 Markdown 글, html이면 HTML 글 그대로(가져오는 쪽이 htmlToDoc으로 바꾼다). 기본 markdown */
+  format?: "markdown" | "html";
 };
 
 /** 목록의 경로가 안전한지 검사한다(zip-slip·절대 경로·역슬래시·`..`). 안전하면 조각 목록, 아니면 null */

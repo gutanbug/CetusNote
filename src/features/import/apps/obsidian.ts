@@ -100,7 +100,8 @@ function normTag(t: string): string | null {
 /** 본문 한 줄의 `#태그` (코드 밖, 제목 줄 아님) */
 const INLINE_TAG = /(^|[\s(])#([\p{L}_/][\p{L}\p{N}_/-]*)/gu;
 
-export function convertObsidianVault(files: SourceFile[]): ObsidianResult {
+/** paths: 글이 아닌 파일까지 포함한 보관소 전체 경로(그림을 이름으로 찾는다). 없으면 files의 경로만 쓴다 */
+export function convertObsidianVault(files: SourceFile[], paths: string[] = []): ObsidianResult {
   const skipped: string[] = [];
   const safe: SourceFile[] = [];
   for (const f of files) {
@@ -115,7 +116,18 @@ export function convertObsidianVault(files: SourceFile[]): ObsidianResult {
 
   const pages = safe.filter((f) => stemOf(f.path, PAGE_EXTS) !== null);
   const stems = pages.map((f) => stemOf(f.path, PAGE_EXTS)!);
-  const images = safe.filter((f) => stemOf(f.path, IMAGE_EXTS) !== null).map((f) => f.path);
+  const vaultPaths = [
+    ...new Set([
+      ...safe.map((f) => f.path),
+      ...paths
+        .map((p) => safeSegments(p)?.join("/"))
+        .filter(
+          (p): p is string =>
+            !!p && !p.split("/").some((s) => s.startsWith(".") || SKIP_DIRS.has(s)),
+        ),
+    ]),
+  ];
+  const images = vaultPaths.filter((p) => stemOf(p, IMAGE_EXTS) !== null);
   const imageByName = new Map<string, string>();
   for (const p of [...images].sort(
     (a, b) => a.split("/").length - b.split("/").length || (a < b ? -1 : 1),

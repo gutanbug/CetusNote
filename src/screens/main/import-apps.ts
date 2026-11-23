@@ -1,0 +1,180 @@
+import type { JSONContent } from "@tiptap/core";
+import { htmlToDoc, markdownToDoc, type ImageResolver } from "@/components/editor/markdown-import";
+import { toast } from "@/components/ui/toast";
+import {
+  appLabel,
+  parseAppExport,
+  type ImportAppId,
+  type ParseOutcome,
+} from "@/features/import/apps/pipeline";
+import { remapMentions } from "@/features/import/apps/mentions";
+import { decodeSafe, type ImportNode } from "@/features/import/apps/tree";
+import { importSummary, type ImportFailure } from "@/features/import/summary";
+import { metaStore } from "@/features/meta";
+import { pagesStore } from "@/features/pages";
+import { sessionStore } from "@/features/session";
+import { nextTagColor } from "./tag-colors";
+import { StorageError, type AppImportPick, type Page, type Storage } from "@/lib/storage";
+import { getStorage } from "@/lib/storage/default";
+import { ancestors, createDocument, openPage } from "./actions";
+import { askImportDestination } from "./import-destination";
+
+/**
+ * 다른 앱에서 가져오기(DATA-11): 앱과 zip·폴더를 고른 뒤 목록을 만들고, DATA-08과 같은 「어디에 넣을까요?」에서
+ * 목적지를 정한다. 목적지 아래에 「<앱>에서 가져옴」 묶음을 만들고 그 안에 문서를 넣는다. 취소하면 아무것도 가져오지 않는다.
+ */
+export async function importFromApp(
+  app: ImportAppId,
+  kind: "zip" | "folder",
+  storage: Storage = getStorage(),
+): Promise<Page[]> {
+  let pick: AppImportPick | null;
+  try {
+    pick = await storage.pickAppSource(kind);
+  } catch (error) {
+    toast(error instanceof StorageError ? error.message : "가져올 파일을 읽지 못했어요");
+    return [];
+  }
+  if (!pick) return [];
+  const outcome = parseAppExport(app, pick);
+  if (outcome.error) {
+    toast(outcome.error);
+    return [];
+  }
+  if (!outcome.nodes.length) {
+    toast("가져올 문서가 없어요");
+    return [];
+  }
+  const documents = outcome.nodes.filter((n) => n.kind === "page").length;
+  const choice = await askImportDestination(documents);
+  if (!choice) return [];
+  return writeImport(app, outcome, pick, choice.parentId, storage);
+}
+
+/** 항목 목록을 페이지로 만든다. 1) 모양만 만들기 2) 내용 채우기 3) 페이지 멘션 연결 4) 요약 */
+export async function writeImport(
+  app: ImportAppId,
+  outcome: ParseOutcome,
+  pick: AppImportPick,
+  parentId: string | null,
+  storage: Storage,
+): Promise<Page[]> {
+  const paths = new Set(pick.paths);
+  const failed: ImportFailure[] = outcome.skipped.map((name) => ({
+    name,
+    reason: "읽지 못했어요",
+  }));
+  const byKey = new Map(outcome.nodes.map((n) => [n.key, n]));
+  const ids = new Map<string, string>();
+  const shells: { node: ImportNode; page: Page }[] = [];
+
+  // 묶음(컨테이너): 목적지가 폴더·맨 위면 폴더, 문서 아래면 문서로 만든다(문서 아래에는 문서만)
+  const parent = parentId ? pagesStore.getState().pages[parentId] : undefined;
+  const containerTitle = `${appLabel(app)}에서 가져옴`;
+  const container =
+    !parent || parent.kind === "folder"
+      ? pagesStore.getState().create({ kind: "folder", title: containerTitle, parentId })
+      : createDocument(parentId);
+  if (container.kind !== "folder")
+    pagesStore.getState().update(container.id, { title: containerTitle });
+  const containerId = container.id;
+
+  // 1) 모양 만들기: 부모를 먼저 만든다
+  const made = new Map<string, string>();
+  const ensure = (node: ImportNode): string => {
+    const done = made.get(node.key);
+    if (done) return done;
+    const parentPage = node.parentKey ? byKey.get(node.parentKey) : undefined;
+    const parentPageId = parentPage ? ensure(parentPage) : containerId;
+    const parentIsFolder =
+      parentPageId === containerId ? container.kind === "folder" : isFolderPage(parentPageId);
+    const asFolder = node.kind === "folder" && parentIsFolder;
+    const page = asFolder
+      ? pagesStore.getState().create({ kind: "folder", title: node.title, parentId: parentPageId })
+      : createDocument(parentPageId);
+    if (!asFolder) pagesStore.getState().update(page.id, { title: node.title });
+    made.set(node.key, page.id);
+    ids.set(node.key, page.id);
+    if (node.kind === "page") shells.push({ node, page: pagesStore.getState().pages[page.id]! });
+    return page.id;
+  };
+  for (const node of outcome.nodes) ensure(node);
+
+  // 2) 내용 채우기 (문서마다 쉬는 시간을 둬서 화면이 멈추지 않게 한다)
+  const meta = metaStore.getState();
+  let known = Object.keys(meta.meta?.tags ?? {}).length;
+  let count = 0;
+  const created: Page[] = [];
+  for (const { node, page } of shells) {
+    if (++count % 20 === 0) await new Promise((r) => setTimeout(r, 0));
+    try {
+      // 문서 폴더(끝에 / 포함): 그림의 상대 경로 기준
+      const stem = node.key.slice(2);
+      const dir = stem.includes("/") ? stem.slice(0, stem.lastIndexOf("/") + 1) : "";
+      const resolve = imageResolver(page.id, dir, paths, storage);
+      let doc: JSONContent;
+      let title: string | null = null;
+      if (node.format === "html") {
+        const converted = await htmlToDoc(node.markdown, resolve);
+        doc = converted.doc;
+        title = converted.title;
+      } else {
+        doc = await markdownToDoc(node.markdown, resolve);
+      }
+      doc = remapMentions(doc, ids);
+      const latest = pagesStore.getState().pages[page.id]!;
+      pagesStore.getState().update(page.id, {
+        title: title ?? node.title,
+        props: { ...latest.props, tags: node.tags },
+        content: doc as Page["content"],
+      });
+      for (const tag of node.tags)
+        if (!meta.meta?.tags[tag]) meta.setTagColor(tag, nextTagColor(known++));
+      created.push(pagesStore.getState().pages[page.id]!);
+    } catch (error) {
+      // 내용을 못 채운 문서는 휴지통을 거쳐 지운다(purge는 휴지통에 든 문서만 지운다)
+      pagesStore.getState().trash(page.id);
+      void pagesStore.getState().purge(page.id);
+      failed.push({
+        name: node.title,
+        reason: error instanceof StorageError ? error.message : "읽지 못했어요",
+      });
+    }
+  }
+
+  // 펼치기·열기 · 요약
+  sessionStore
+    .getState()
+    .expand(...(parentId ? [parentId, ...ancestors(parentId).map((p) => p.id)] : []), containerId);
+  if (created[0]) openPage(created[0].id);
+  const summary = importSummary(
+    created.map((p) => pagesStore.getState().pages[p.id]?.title || "제목 없음"),
+    failed,
+  );
+  if (summary)
+    toast(summary.message, summary.description ? { description: summary.description } : undefined);
+  return created;
+}
+
+/** 가져온 묶음에서 이 페이지가 폴더인지 */
+function isFolderPage(id: string): boolean {
+  return pagesStore.getState().pages[id]?.kind === "folder";
+}
+
+/**
+ * 그림 한 개 옮기기. src가 목록의 경로와 같으면 그대로, 아니면 문서 폴더 기준으로 찾는다.
+ * 목록에 없으면 not_found(그림은 글 자리에 경로 글로 남는다).
+ */
+function imageResolver(
+  pageId: string,
+  dir: string,
+  paths: Set<string>,
+  storage: Storage,
+): ImageResolver {
+  return async (src) => {
+    const rel = decodeSafe(src).replace(/^\.\//, "");
+    const path = paths.has(rel) ? rel : `${dir}${rel}`;
+    if (!paths.has(path)) throw new StorageError("not_found", "그림 파일이 없어요");
+    return storage.writeAsset(pageId, await storage.readAppImportBytes(path));
+  };
+}

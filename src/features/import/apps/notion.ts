@@ -20,12 +20,25 @@ import {
 
 export type NotionResult = { nodes: ImportNode[]; skipped: string[] };
 
-const PAGE_EXTS = ["md"] as const;
+const PAGE_EXTS = ["md", "markdown"] as const;
+const HTML_EXTS = ["html", "htm"] as const;
 const LINK = /(!?)\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"\n]*")?\)/g;
 const EMOJI_START =
   /^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*)\s*/u;
 
+/** Notion 내보내기 → 항목 목록. CSV는 이 단계에서 건너뛴다 (데이터베이스 변환은 별도) */
 export function convertNotion(files: SourceFile[]): NotionResult {
+  return convertMarkdownTree(files, stripNotionId);
+}
+
+/**
+ * 문서 파일(md·html)의 폴더 구조 → 항목 목록. Notion·AppFlowy·AFFiNE이 같이 쓴다.
+ * clean은 이름 정리(Notion은 id 제거, 그 밖은 그대로). CSV는 건너뛴 목록에 남긴다.
+ */
+export function convertMarkdownTree(
+  files: SourceFile[],
+  clean: (name: string) => string = (n) => n,
+): NotionResult {
   const skipped: string[] = [];
   const safe: SourceFile[] = [];
   for (const f of files) {
@@ -35,20 +48,35 @@ export function convertNotion(files: SourceFile[]): NotionResult {
       continue;
     }
     const path = segs.join("/");
-    if (stemOf(path, PAGE_EXTS) !== null) safe.push({ path, text: f.text });
-    else if (/\.csv$/i.test(path)) skipped.push(path);
+    if (stemOf(path, PAGE_EXTS) !== null || stemOf(path, HTML_EXTS) !== null) {
+      safe.push({ path, text: f.text });
+    } else if (/\.csv$/i.test(path)) skipped.push(path);
   }
 
-  const stems = safe.map((f) => stemOf(f.path, PAGE_EXTS)!);
-  const placed = placeNodes(stems, stripNotionId);
+  const stems = safe.map((f) => (stemOf(f.path, PAGE_EXTS) ?? stemOf(f.path, HTML_EXTS))!);
+  const placed = placeNodes(stems, clean);
   const byKey = new Map(placed.map((n) => [n.key, n]));
   const nodes: ImportNode[] = [];
 
   for (const file of safe) {
-    const stem = stemOf(file.path, PAGE_EXTS)!;
+    const isHtml = stemOf(file.path, HTML_EXTS) !== null;
+    const stem = (stemOf(file.path, PAGE_EXTS) ?? stemOf(file.path, HTML_EXTS))!;
     const dir = stem.includes("/") ? stem.slice(0, stem.lastIndexOf("/")) : "";
     const node = byKey.get(`p:${stem}`)!;
     const text = file.text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+    if (isHtml) {
+      nodes.push({
+        key: node.key,
+        parentKey: node.parentKey,
+        kind: "page",
+        title: node.title,
+        tags: [],
+        markdown: text,
+        assetPaths: [],
+        format: "html",
+      });
+      continue;
+    }
     const { title, tags, body } = readHead(text);
     const assetPaths = new Set<string>();
     const markdown = transformNotionBody(body, { stems, dir, assetPaths });
