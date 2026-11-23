@@ -46,6 +46,9 @@ export function ImportAppDialog() {
     <Dialog open={open} onOpenChange={(o) => !o && closeImportAppPicker()}>
       <DialogContent
         size="lg"
+        scrollable
+        // 두 단계의 높이를 같게 잡아 단계가 바뀔 때 대화상자가 들썩이지 않게 한다(내용이 더 길면 안에서 스크롤)
+        className="min-h-130"
         // 닫으면 연 곳(메뉴·버튼)으로 포커스를 돌린다. 그 자리가 사라졌으면 기본 동작에 맡긴다
         onCloseAutoFocus={(e) => {
           if (returnFocus?.isConnected) {
@@ -191,6 +194,7 @@ function GuideStep({
         <Button variant="ghost" onClick={closeImportAppPicker}>
           취소
         </Button>
+        {/* 기본(주 버튼)은 그 앱의 권장 내보내기 형식이다 = guide.kinds[0] (features/import/apps/guides.ts). 나머지는 보조 버튼 */}
         {guide.kinds.map((kind, i) => (
           <Button
             key={kind}
