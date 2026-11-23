@@ -5,7 +5,7 @@ import { toast as sonnerToast, Toaster as SonnerToaster } from "sonner";
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverse-accent focus-visible:outline-solid";
 
-/** 주 버튼(실행 취소 · 다운로드 후 업데이트 · 다시 시도) — 강조 글자 색 */
+/** 주 버튼(실행 취소 · 업데이트 · 다시 시도) — 강조 글자 색 */
 const actionButtonClass = cn(
   "ml-1 shrink-0 rounded-pill px-2 py-1 font-medium text-inverse-accent hover:bg-inverse-fg/8 force-hover:bg-inverse-fg/8",
   focusRing,
@@ -28,7 +28,11 @@ function Toaster(props: React.ComponentProps<typeof SonnerToaster>) {
       offset={24}
       gap={8}
       visibleToasts={3}
-      // 기본 폭(356px)에 갇히면 긴 문구가 두 줄이 된다 — 틀은 넓게 두고 토스트는 글 길이만큼(가운데)
+      // 스크린 리더가 알림 영역을 찾도록 한국어 이름을 기본으로 단다(호출하는 쪽이 바꿀 수 있다)
+      containerAriaLabel="알림"
+      // 기본 폭(356px)에 갇히면 긴 문구가 두 줄이 된다 — 틀은 넓게 두고 토스트는 글 길이만큼(가운데).
+      // spacing 160 = 4px × 160 = 640px 상한. 긴 문구도 두 줄이 되지 않게 하는 폭이며,
+      // 화면이 좁으면 --fit-w에서 양옆 여백(--s8)을 뺀 값으로 줄어든다. 토큰이 없어 여기서 한 번 정한다.
       style={
         {
           "--width": "min(calc(var(--spacing) * 160), calc(var(--fit-w) - var(--s8)))",

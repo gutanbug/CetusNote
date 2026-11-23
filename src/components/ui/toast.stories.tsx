@@ -49,7 +49,7 @@ export const Variants: Story = {
 
 /**
  * 유지형 토스트 (SYS-07): 자동으로 사라지지 않고, 밀어서 닫지 않는다. 「닫기」나 주 버튼으로만 넘어간다.
- * 새 버전 알림(주 버튼: 다운로드 후 업데이트)과 내려받기 오류(주 버튼: 다시 시도).
+ * 새 버전 알림(주 버튼: 업데이트)과 내려받기 오류(주 버튼: 다시 시도).
  */
 export const Persistent: Story = {
   render: function Render() {
@@ -60,7 +60,7 @@ export const Persistent: Story = {
         ...on,
         toasterId: "story-persistent-update",
         id: "persistent-update",
-        action: { label: "다운로드 후 업데이트", onClick: (e) => e.preventDefault() },
+        action: { label: "업데이트", onClick: (e) => e.preventDefault() },
         cancel: (
           <ToastCancelButton onClick={() => toast.dismiss("persistent-update")}>
             닫기
@@ -88,6 +88,32 @@ export const Persistent: Story = {
           <Toaster id="story-persistent-error" containerAriaLabel="오류 알림" />
         </ToastBox>
       </>
+    );
+  },
+};
+
+/**
+ * 내려받는 중 (SYS-07): 「닫기」로 토스트를 치울 수 있다. 내려받기는 계속되고 설정 화면에 진행률이 남는다.
+ */
+export const Downloading: Story = {
+  render: function Render() {
+    useEffect(() => {
+      toast("내려받는 중 40%", {
+        toasterId: "story-downloading",
+        id: "story-downloading-toast",
+        duration: Infinity,
+        dismissible: false,
+        cancel: (
+          <ToastCancelButton onClick={() => toast.dismiss("story-downloading-toast")}>
+            닫기
+          </ToastCancelButton>
+        ),
+      });
+    }, []);
+    return (
+      <ToastBox>
+        <Toaster id="story-downloading" containerAriaLabel="업데이트 알림" />
+      </ToastBox>
     );
   },
 };
