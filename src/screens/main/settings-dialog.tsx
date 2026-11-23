@@ -333,7 +333,7 @@ function Data({ onRestored }: { onRestored: () => void }) {
           description="Notion, Obsidian, AppFlowy, AFFiNE에서 내보낸 zip 파일이나 폴더를 가져와요. 문서 구조와 링크를 살려요."
         >
           <Button variant="secondary" size="sm" onClick={() => openImportAppPicker()}>
-            고르기…
+            가져오기…
           </Button>
         </SettingsRow>
         <SettingsRow
