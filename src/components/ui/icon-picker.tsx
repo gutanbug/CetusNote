@@ -104,7 +104,8 @@ function IconPicker({
 
       <Tabs.Content value="emoji" className="outline-none">
         <EmojiPicker
-          className="w-full"
+          // 아이콘 탭과 같은 폭(w-80)으로 맞춘다 — 검색 칸 폭이 탭마다 달라지지 않게
+          className="w-80"
           recent={recentOf("emoji").map((e) => ({ emoji: e, label: e }))}
           onSelect={(e: PickedEmoji) => onSelect(e.emoji)}
           onRandom={(e: PickedEmoji) => (onApply ?? onSelect)(e.emoji)}
@@ -195,7 +196,8 @@ function IconTab({
           placeholder="아이콘 검색…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className={cn(inputClass, "min-h-8 flex-1")}
+          // 이모지 탭과 검색 칸 폭을 같게 맞춘다 (w-56). 뒤 버튼 수가 달라도 칸은 그대로
+          className={cn(inputClass, "min-h-8 w-56 shrink-0")}
         />
         <IconButton label="무작위 아이콘" size="md" onClick={shuffle}>
           <Shuffle strokeWidth={1.5} />

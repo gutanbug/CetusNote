@@ -161,7 +161,8 @@ function EmojiPicker({
         <Picker.Search
           aria-label="이모지 검색"
           placeholder="이모지 검색…"
-          className={cn(inputClass, "min-h-8 flex-1")}
+          // 아이콘 탭과 같은 폭(w-56)으로 맞춘다
+          className={cn(inputClass, "min-h-8 w-56 shrink-0")}
           onChange={(e) => setQuery(e.target.value)}
         />
         <IconButton
