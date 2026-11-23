@@ -1,6 +1,11 @@
 import { createMemoryStorage, StorageError } from "@/lib/storage";
 import { describe, expect, it } from "vitest";
-import { createWorkspaceStore, shortenHome, workspaceErrorMessage } from "./store";
+import {
+  createWorkspaceStore,
+  shortenHome,
+  switchErrorMessage,
+  workspaceErrorMessage,
+} from "./store";
 
 describe("워크스페이스 열기 (DATA-03)", () => {
   it("열린 폴더가 있으면 바로 ready", async () => {
@@ -109,6 +114,14 @@ describe("표시용 도우미", () => {
   });
   it("모르는 오류는 일반 문구", () => {
     expect(workspaceErrorMessage(new Error("x"))).toBe("폴더를 열지 못했어요. 다시 시도해 주세요.");
+  });
+  it("목록의 폴더가 사라졌으면 이름을 대고 목록에서 빼거나 다른 폴더를 열라고 한다", () => {
+    expect(switchErrorMessage("notes", new StorageError("not_found", "x"))).toBe(
+      "“notes” 폴더를 찾을 수 없어요. 목록에서 빼거나 다른 폴더를 열어 주세요.",
+    );
+    expect(switchErrorMessage("notes", new Error("x"))).toBe(
+      "폴더를 열지 못했어요. 다시 시도해 주세요.",
+    );
   });
 });
 

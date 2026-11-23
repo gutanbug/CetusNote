@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import type * as React from "react";
 import { insetFocus } from "./parts";
@@ -137,24 +138,29 @@ function WorkspaceSwitcher({
                     w.current ? (
                       <Check {...ic} className="size-4 text-accent!" />
                     ) : w.onRemove ? (
-                      // 메뉴 항목 안에 버튼을 겹치지 않는다(키보드는 Delete) — 마우스용 표시
-                      <span
-                        aria-hidden
-                        data-slot="workspace-remove"
-                        title="목록에서 빼기"
-                        onClick={(e) => {
-                          // 항목 선택(전환)으로 번지지 않게
-                          e.preventDefault();
-                          e.stopPropagation();
-                          w.onRemove?.();
-                        }}
-                        className={cn(
-                          "inline-grid size-6 place-items-center rounded-md text-tertiary opacity-0 transition-opacity duration-(--dur-fast)",
-                          "group-hover/ws:opacity-100 group-data-highlighted/ws:opacity-100 force-hover:opacity-100",
-                          "hover:bg-active hover:text-primary force-hover:bg-active",
-                        )}
-                      >
-                        <X {...ic} />
+                      // 메뉴 항목 안에 버튼을 겹치지 않는다. 키보드는 Delete — 강조된 행에만 키 힌트를 보인다
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden className="hidden group-data-highlighted/ws:inline-flex">
+                          <Kbd keys={["Delete"]} />
+                        </span>
+                        <span
+                          aria-hidden
+                          data-slot="workspace-remove"
+                          title="목록에서 빼기"
+                          onClick={(e) => {
+                            // 항목 선택(전환)으로 번지지 않게
+                            e.preventDefault();
+                            e.stopPropagation();
+                            w.onRemove?.();
+                          }}
+                          className={cn(
+                            "inline-grid size-6 place-items-center rounded-md text-tertiary opacity-0 transition-opacity duration-(--dur-fast)",
+                            "group-hover/ws:opacity-100 group-data-highlighted/ws:opacity-100 force-hover:opacity-100",
+                            "hover:bg-active hover:text-primary force-hover:bg-active",
+                          )}
+                        >
+                          <X {...ic} />
+                        </span>
                       </span>
                     ) : undefined
                   }

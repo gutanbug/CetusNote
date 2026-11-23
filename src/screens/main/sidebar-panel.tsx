@@ -21,8 +21,8 @@ import { buildPageTree } from "@/features/pages/tree";
 import { sessionStore, useSession } from "@/features/session";
 import {
   shortenHome,
+  switchErrorMessage,
   useWorkspace,
-  workspaceErrorMessage,
   workspaceStore,
 } from "@/features/workspace";
 import { formatAgo } from "@/lib/format-date";
@@ -282,7 +282,7 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
                     void workspaceStore
                       .getState()
                       .switchTo(w.path)
-                      .catch((e) => toast.error(workspaceErrorMessage(e))),
+                      .catch((e) => toast.error(switchErrorMessage(w.name, e))),
               // 목록에서 빼기 (SHELL-16) — 폴더는 그대로 둔다
               onRemove: w.current
                 ? undefined

@@ -5,6 +5,7 @@ import { createWorkspaceStore, type WorkspaceState } from "./store";
 export {
   createWorkspaceStore,
   shortenHome,
+  switchErrorMessage,
   workspaceErrorMessage,
   type WorkspacePhase,
   type WorkspaceState,

@@ -61,6 +61,16 @@ export function workspaceErrorMessage(e: unknown): string {
   }
 }
 
+/**
+ * 목록의 워크스페이스로 바꾸다 실패했을 때 (SYS-09/SHELL-15). 폴더가 사라졌으면 이름을 대고 고칠 길을 알려 준다.
+ */
+export function switchErrorMessage(name: string, e: unknown): string {
+  if (e instanceof StorageError && e.code === "not_found") {
+    return `“${name}” 폴더를 찾을 수 없어요. 목록에서 빼거나 다른 폴더를 열어 주세요.`;
+  }
+  return workspaceErrorMessage(e);
+}
+
 export function createWorkspaceStore(storage: Storage) {
   return createStore<WorkspaceState>()((set, get) => {
     const open = async (busy: "default" | "pick", run: () => Promise<WorkspaceInfo | null>) => {
