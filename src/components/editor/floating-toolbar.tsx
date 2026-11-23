@@ -19,6 +19,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator";
 import { focusRing, popoverSurface } from "@/components/ui/styles";
 import type { SoftColor } from "@/components/ui/tag-chip";
+import { floatingBounds } from "./floating-bounds";
 import { useEditorDom } from "./use-editor-dom";
 import { cn } from "@/lib/utils";
 
@@ -229,7 +230,8 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
     <BubbleMenu
       editor={editor}
       pluginKey="floatingToolbar"
-      options={{ placement: "top", offset: 8, flip: true, shift: { padding: 8 } }}
+      // 뒤집기·밀기 경계는 에디터 스크롤 영역(상단 바 아래)이다. 뷰포트 끝에서 다음 줄을 가리지 않는다
+      options={{ placement: "top", offset: 8, ...floatingBounds(editor) }}
       shouldShow={({ editor: e, state, view, from, to }) => {
         if (holdRef.current) return true;
         const { selection } = state;
