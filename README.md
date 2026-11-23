@@ -89,7 +89,7 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 0. Windows·Linux가 빌드되는지는 `.github/workflows/ci.yml`(PR·수동 실행, 릴리스 없음)이 먼저 알려 줘요. macOS는 개발 Mac에서 직접 확인해요. 실제 Windows·Linux 설치는 릴리스 뒤에 직접 확인해요.
 1. 버전 맞추기: `node scripts/version.mjs 0.2.0` — package.json · Cargo.toml · tauri.conf.json · Cargo.lock을 함께 바꿔요. 이어서 `cd src-tauri && cargo check`로 Cargo.lock을 확인해요.
 2. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal(`.dmg`·`.app.tar.gz`), Windows(`-setup.exe`), Linux(`.AppImage`·`.deb`)를 빌드해 GitHub Release에 올리고, 각 업데이트 파일의 `.sig`를 모아 `latest.json` 하나를 만들어요(`scripts/make-latest-json.mjs`, 세 플랫폼이 모두 있어야 성공). 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
-3. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 그리고 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --body ""`(키에 비밀번호를 걸지 않았으면 빈 값).
+3. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 키에 비밀번호를 걸었으면 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD`(비밀번호 입력). 비밀번호가 없으면 이 시크릿을 만들지 않아요(`--body ""`는 빈 값으로 저장되지 않고 입력을 기다려요. 없는 시크릿은 빈 문자열로 넘어가요).
 4. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
 5. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
 
