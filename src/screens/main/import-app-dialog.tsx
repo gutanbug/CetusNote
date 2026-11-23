@@ -41,9 +41,19 @@ function withMenus(text: string): ReactNode[] {
  */
 export function ImportAppDialog() {
   const open = useImportAppPicker((s) => s.open);
+  const returnFocus = useImportAppPicker((s) => s.returnFocus);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && closeImportAppPicker()}>
-      <DialogContent size="lg">
+      <DialogContent
+        size="lg"
+        // 닫으면 연 곳(메뉴·버튼)으로 포커스를 돌린다. 그 자리가 사라졌으면 기본 동작에 맡긴다
+        onCloseAutoFocus={(e) => {
+          if (returnFocus?.isConnected) {
+            e.preventDefault();
+            returnFocus.focus();
+          }
+        }}
+      >
         <ImportAppFlow />
       </DialogContent>
     </Dialog>
@@ -97,7 +107,10 @@ function ImportAppFlow() {
             onValueChange={setPicked}
             columns={2}
           />
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={closeImportAppPicker}>
+              취소
+            </Button>
             <Button disabled={!picked} onClick={() => picked && setApp(picked)}>
               다음
             </Button>
@@ -175,6 +188,9 @@ function GuideStep({
       </div>
 
       <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="ghost" onClick={closeImportAppPicker}>
+          취소
+        </Button>
         {guide.kinds.map((kind, i) => (
           <Button
             key={kind}
