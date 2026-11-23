@@ -399,3 +399,31 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 - **ED-FindBar (감사 완료 유지):** 찾을 글자 칸 레이블, 결과 `aria-live`, ⌥⌘F 바꾸기 칸과 `aria-expanded`를 확인했다. 찾기·다음·바꾸기·모두 바꾸기와 실행 취소 한 번을 동작으로 확인했다.
 - **ED-Image (Ready 유지):** 가져오는 중 자리는 `role="img"` + `aria-busy`, 실패 자리는 `ImageOff` + 레이블이다. 가져오는 순간을 DOM으로 잡지 못했고, 실제 내려받기는 Tauri 백엔드가 필요하다 → 실제 앱 확인 필요.
 - **색 확인:** 찾기 막대의 라이트·다크 계산 색(배경·글자)은 토큰 값과 맞다. DOM 수치 확인이며 스크린샷 확인은 아니다.
+
+### 감사 수정 메모 (2026-11-24, UI 감사 수정 묶음)
+
+고친 항목의 요약이다. 진행 상태(`Ready`·`감사 완료`)는 바꾸지 않았다. 이 문서에는 수정으로 상태를 되돌리는 규칙이 없다.
+
+- **ED-CodeBlock:** 코드 면 색 토큰을 `--color-code-surface`(`bg-code-surface`)로 바꿨다. `text-code`(13.5px)와 같은 이름이 겹쳐 코드가 16px로 그려지던 문제를 막는다. 언어 선택 칸은 고른 이름 길이에 맞추고, 화살표는 lucide chevron을 쓴다.
+- **ED-TableMenu · ED-FloatingToolbar:** 위치는 편집기 스크롤 영역(상단 바 아래) 안에서 기준 사각형에 붙이고, 자리가 없으면 뒤집고(flip) 가장자리에서 밀어낸다(shift). 계산은 공용 헬퍼 `src/components/editor/floating-bounds.ts`를 쓴다.
+- **ED-FindBar:** 찾기 줄과 바꾸기 줄이 같은 격자(shared grid)를 쓰고, 조작 칸은 28px다.
+- **CL-CalendarView:** 칩에 전체 제목을 title로 붙여 잘린 제목을 hover로 읽는다.
+- **CL-RecordDetail:** 태그 칸의 안쪽 여백을 값 열(`px-2`)과 맞췄다.
+- **PG-Properties:** 「수정한 날짜」는 절대 날짜로 보여 준다. 상대 시간은 title에 둔다.
+- **OV-IconPicker · OV-EmojiPicker:** 검색 칸 너비를 `w-56`으로 고정해 탭을 바꿔도 너비가 달라지지 않는다.
+- **SH-PageTree:** 페이지·폴더·컬렉션 행 아이콘을 14px로 맞춘다.
+- **SH-SidebarSection · SH-PageTabs:** 섹션 액션 버튼과 탭 닫기 칸을 24px 맞춤 영역으로 키웠다.
+- **SH-Resizer:** 키보드 포커스에 focus-visible 링을 추가했다.
+- **UI-SearchInput:** 지우기 버튼 맞춤 영역을 24px로 키웠다.
+- **PG-TodayTodos:** 체크박스와 제목의 맞춤 영역을 24px로 키웠다.
+- **PG-RecentCard:** 잘린 제목에 전체 제목을 title로 붙였다.
+- **PG-QuickNote:** 메모 입력의 기본 크기 손잡이를 끈다(`resize-none`).
+- **PG-WorkspaceSetup:** 폴더가 없을 때의 안내에 「폴더 다시 찾기」 동작을 넣었다.
+- **OV-CommandPalette:** 잘린 행에 title을 붙였다. 하단 힌트는 강조된 행에 따라 「만들기」 또는 「열기」로 바뀐다.
+- **SH-WorkspaceSwitcher:** 스토리에서 메뉴를 열어 둔 상태를 그린다(Delete 힌트를 보기 위해서다).
+- **OV-Toast:** 쌓인 실행 취소 토스트는 펼쳐 보이고, 최대 3개까지 보인다. 다운로드 토스트에는 UI-Progress 막대가 있다.
+- **OV-Dialog:** `scrollable`일 때 × 닫기 버튼은 고정된다. 머리글 행은 `DialogHeaderRow`로 묶어 닫기 칸 자리를 남긴다. 메뉴에서 연 대화상자는 닫을 때 `use-restore-focus`로 연 곳에 포커스를 돌려준다.
+- **PG-VersionHistory:** 열릴 때 초기 포커스는 선택된 버전 행이다.
+- **PG-TemplateCard:** 설명은 5줄까지 보이고 아래는 fade로 가린다. 숨은 메뉴 버튼은 드러나기 전까지 클릭되지 않는다.
+- **PG-TemplateGallery:** 빈 카테고리 상태는 20px 아이콘 · 안내 문구 · 「새 템플릿」 버튼으로 구성한다.
+- **UI-Progress:** OV-Toast의 다운로드 토스트에서 쓴다. `aria-label` 또는 `aria-labelledby`가 필수다.

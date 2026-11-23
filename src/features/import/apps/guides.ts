@@ -19,7 +19,10 @@ export type ImportGuide = {
   misses: string[];
   /** 준비 단계. 메뉴 경로는 「」로 감싼다 */
   steps: string[];
-  /** 고를 수 있는 방식. 첫 번째가 주 버튼이다 */
+  /**
+   * 고를 수 있는 방식. 첫 번째가 주 버튼이며, 그 앱의 권장 내보내기 형식이다
+   * (import-app-dialog가 kinds[0]을 주 버튼으로 쓴다).
+   */
   kinds: ImportKind[];
   /** 메뉴 이름 확인 상태 등 짧은 주의 */
   note?: string;
