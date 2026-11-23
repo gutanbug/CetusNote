@@ -41,7 +41,9 @@ import {
   type LucideIcon,
   X,
   PanelRight,
+  RefreshCw,
 } from "lucide-react";
+import { checkForUpdates } from "@/features/updater";
 import * as React from "react";
 import {
   openDailyNote,
@@ -235,6 +237,13 @@ function useCommands(): Command[] {
         keywords: ["shortcuts", "keyboard", "키보드"],
         icon: Keyboard,
         run: () => ui.openSettings("shortcuts"),
+      },
+      {
+        id: "check-update",
+        title: "업데이트 확인",
+        keywords: ["update", "upgrade", "version", "업데이트", "버전", "새 버전", "최신"],
+        icon: RefreshCw,
+        run: () => void checkForUpdates(),
       },
       ...THEMES.filter((t) => t.value !== theme).map((t) => ({
         id: `theme-${t.value}`,

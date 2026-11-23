@@ -24,6 +24,7 @@ import { sessionStore, useSession, type FontScale, type StartScreen } from "@/fe
 import { useWorkspace, workspaceStore } from "@/features/workspace";
 import type { PageFont, RecordOpenMode } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
+import { UpdateSection } from "./update-section";
 import { restoreBuiltinTemplates } from "./actions";
 import { importDocuments } from "./import-document";
 import { exportWorkspaceMarkdown } from "./export-workspace";
@@ -456,6 +457,7 @@ function General() {
           </Button>
         ) : null}
       </SettingsRow>
+      <UpdateSection />
       <TagSettings />
     </div>
   );
