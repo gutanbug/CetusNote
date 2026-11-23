@@ -6,7 +6,7 @@
 //! - 목록·읽기·삭제는 `pages/`와 무관하다. 페이지 불러오기·외부 변경 감지는 `.history`를 보지 않는다.
 //! - 백업 zip에는 넣지 않는다(ADR-013). 버전은 이 기기의 되돌리기용이다.
 
-use super::{check_id, read_json_opt, validate_page, write_json, Result, StorageError, Workspace};
+use super::{Result, StorageError, Workspace, check_id, read_json_opt, validate_page, write_json};
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -154,7 +154,10 @@ impl Workspace {
         let root = self.history_root();
         let dir = self.history_dir(&id);
         if is_symlink(&root) || is_symlink(&dir) {
-            return Err(StorageError::new("symlink", "버전 기록 폴더가 링크라 쓰지 않아요"));
+            return Err(StorageError::new(
+                "symlink",
+                "버전 기록 폴더가 링크라 쓰지 않아요",
+            ));
         }
         fs::create_dir_all(&dir)?;
 
@@ -190,7 +193,10 @@ impl Workspace {
         check_id(id)?;
         let dir = self.history_dir(id);
         if is_symlink(&self.history_root()) || is_symlink(&dir) {
-            return Err(StorageError::new("symlink", "버전 기록 폴더가 링크라 읽지 않아요"));
+            return Err(StorageError::new(
+                "symlink",
+                "버전 기록 폴더가 링크라 읽지 않아요",
+            ));
         }
         let mut out = Vec::new();
         for name in Self::version_names(&dir).into_iter().rev() {
@@ -333,7 +339,9 @@ mod tests {
             "invalid_version"
         );
         assert_eq!(
-            ws.read_version(ID, "20231114T221320123Z/..").unwrap_err().code,
+            ws.read_version(ID, "20231114T221320123Z/..")
+                .unwrap_err()
+                .code,
             "invalid_version"
         );
         let mut bad = page(ID, "x");

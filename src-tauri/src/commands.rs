@@ -464,8 +464,12 @@ pub fn settings_write(app: AppHandle, value: Value) -> Result<()> {
 /// 앱 아이콘 바꾸기(SET-07): "light"(화이트) 또는 "dark"(블랙)만 받는다. Dock(macOS)·창 아이콘에 건다.
 #[tauri::command]
 pub fn app_icon_set(app: AppHandle, theme: String) -> Result<()> {
-    let bytes = crate::app_icon::png_for(&theme)
-        .ok_or_else(|| StorageError::new("invalid_icon", "아이콘은 화이트(light)나 블랙(dark)만 골라요"))?;
+    let bytes = crate::app_icon::png_for(&theme).ok_or_else(|| {
+        StorageError::new(
+            "invalid_icon",
+            "아이콘은 화이트(light)나 블랙(dark)만 골라요",
+        )
+    })?;
     crate::app_icon::apply(&app, bytes)
 }
 
@@ -619,7 +623,11 @@ pub async fn document_pick(
             skipped.push(name);
             continue;
         }
-        let limit = if is_text { IMPORT_MAX_TEXT_BYTES } else { IMPORT_MAX_BINARY_BYTES };
+        let limit = if is_text {
+            IMPORT_MAX_TEXT_BYTES
+        } else {
+            IMPORT_MAX_BINARY_BYTES
+        };
         let size_ok = std::fs::metadata(&path)
             .ok()
             .is_some_and(|m| m.is_file() && m.len() <= limit);
@@ -768,16 +776,27 @@ pub async fn app_import_pick(
     let texts = listing
         .texts
         .iter()
-        .map(|(path, text)| AppImportText { path: path.clone(), text: text.clone() })
+        .map(|(path, text)| AppImportText {
+            path: path.clone(),
+            text: text.clone(),
+        })
         .collect();
     let skipped = listing.skipped.clone();
-    let entries = listing.entries.into_iter().map(|e| (e.path.clone(), e)).collect();
+    let entries = listing
+        .entries
+        .into_iter()
+        .map(|e| (e.path.clone(), e))
+        .collect();
     *state
         .app_import
         .lock()
         .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))? =
         Some(ImportSession { source, entries });
-    Ok(Some(AppImportPick { texts, paths, skipped }))
+    Ok(Some(AppImportPick {
+        texts,
+        paths,
+        skipped,
+    }))
 }
 
 /// 가져오기 목록에 있는 항목 하나의 바이트(그림 등). path는 목록의 상대 경로
@@ -801,14 +820,13 @@ pub async fn app_import_bytes(
             .ok_or_else(|| StorageError::new("not_found", "가져올 파일을 찾지 못했어요"))?;
         (session.source.clone(), entry)
     };
-    let bytes = match tauri::async_runtime::spawn_blocking(move || {
-        app_import::read_entry(&source, &entry)
-    })
-    .await
-    {
-        Ok(bytes) => bytes?,
-        Err(e) => return Err(StorageError::new("io", e.to_string())),
-    };
+    let bytes =
+        match tauri::async_runtime::spawn_blocking(move || app_import::read_entry(&source, &entry))
+            .await
+        {
+            Ok(bytes) => bytes?,
+            Err(e) => return Err(StorageError::new("io", e.to_string())),
+        };
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -1174,8 +1192,8 @@ pub async fn pdf_page(
     let received = tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(PDF_PAGE_TIMEOUT))
         .await
         .map_err(|e| StorageError::new("io", e.to_string()))?;
-    let outcome = received
-        .map_err(|_| StorageError::new("io", "PDF 쪽을 만들지 못했어요(시간 초과)"))?;
+    let outcome =
+        received.map_err(|_| StorageError::new("io", "PDF 쪽을 만들지 못했어요(시간 초과)"))?;
     outcome.map_err(|m| StorageError::new("io", m))?;
     Ok(())
 }

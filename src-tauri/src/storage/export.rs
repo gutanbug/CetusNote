@@ -96,7 +96,12 @@ pub fn sanitize_name(raw: &str) -> String {
 
 /// Windows 예약 장치 이름인가(확장자를 떼고, 대소문자 무시). CON, PRN, AUX, NUL, COM1–9, LPT1–9
 fn is_windows_reserved(name: &str) -> bool {
-    let stem = name.split('.').next().unwrap_or(name).trim_end().to_ascii_uppercase();
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim_end()
+        .to_ascii_uppercase();
     matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
         || (stem.len() == 4
             && (stem.starts_with("COM") || stem.starts_with("LPT"))

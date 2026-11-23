@@ -85,7 +85,11 @@ pub fn merge_pages(parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
 /// 합친 PDF의 쪽 하나를 PNG로 그린다(미리보기 전용, DATA-06). 저장본은 그대로 벡터다.
 /// 폭은 `width` 픽셀이고 높이는 쪽 비율을 따른다. PDFKit을 쓰므로 메인 스레드에서 부른다.
 #[cfg(target_os = "macos")]
-pub fn render_page_png(path: &std::path::Path, index: usize, width: f64) -> Result<Vec<u8>, String> {
+pub fn render_page_png(
+    path: &std::path::Path,
+    index: usize,
+    width: f64,
+) -> Result<Vec<u8>, String> {
     use objc2::AnyThread;
     use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep};
     use objc2_foundation::{NSData, NSDictionary, NSSize};
@@ -101,10 +105,11 @@ pub fn render_page_png(path: &std::path::Path, index: usize, width: f64) -> Resu
         return Err("쪽 크기를 알 수 없어요".into());
     }
     let height = width * bounds.size.height / bounds.size.width;
-    let image = unsafe {
-        page.thumbnailOfSize_forBox(NSSize::new(width, height), PDFDisplayBox::MediaBox)
-    };
-    let tiff = image.TIFFRepresentation().ok_or("쪽 그림을 만들지 못했어요")?;
+    let image =
+        unsafe { page.thumbnailOfSize_forBox(NSSize::new(width, height), PDFDisplayBox::MediaBox) };
+    let tiff = image
+        .TIFFRepresentation()
+        .ok_or("쪽 그림을 만들지 못했어요")?;
     let rep = NSBitmapImageRep::imageRepWithData(&tiff).ok_or("쪽 그림을 읽지 못했어요")?;
     let props = NSDictionary::new();
     let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &props) }
@@ -113,7 +118,11 @@ pub fn render_page_png(path: &std::path::Path, index: usize, width: f64) -> Resu
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn render_page_png(_path: &std::path::Path, _index: usize, _width: f64) -> Result<Vec<u8>, String> {
+pub fn render_page_png(
+    _path: &std::path::Path,
+    _index: usize,
+    _width: f64,
+) -> Result<Vec<u8>, String> {
     Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
 }
 
@@ -148,7 +157,9 @@ pub fn print_document(
     path: std::path::PathBuf,
     done: std::sync::mpsc::Sender<Result<(), String>>,
 ) {
-    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_7, ICoreWebView2Environment6};
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2_7, ICoreWebView2Environment6,
+    };
     use webview2_com::PrintToPdfCompletedHandler;
     use windows::core::{HSTRING, Interface};
 
@@ -307,7 +318,11 @@ mod tests {
         let pdf = extract_text(include_bytes!("../testdata/sample.pdf")).unwrap();
         assert_eq!(pdf.title.as_deref(), Some("Fixture Title"));
         assert_eq!(pdf.pages.len(), 2);
-        assert!(pdf.pages[0].contains("Hello from page one"), "{:?}", pdf.pages);
+        assert!(
+            pdf.pages[0].contains("Hello from page one"),
+            "{:?}",
+            pdf.pages
+        );
         assert!(pdf.pages[1].contains("Second page text"), "{:?}", pdf.pages);
     }
 

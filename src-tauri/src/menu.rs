@@ -53,13 +53,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             &MenuItem::with_id(app, CLOSE_TAB, "탭 닫기", true, Some("CmdOrCtrl+W"))?,
             &sep()?,
             // 문서 가져오기 (DATA-08) — 프런트엔드가 파일 고르기부터 한다
-            &MenuItem::with_id(
-                app,
-                IMPORT_DOCUMENT,
-                "문서 가져오기…",
-                true,
-                None::<&str>,
-            )?,
+            &MenuItem::with_id(app, IMPORT_DOCUMENT, "문서 가져오기…", true, None::<&str>)?,
             // 다른 앱에서 가져오기 (DATA-11) — 프런트엔드가 앱과 zip·폴더 고르기부터 한다
             &MenuItem::with_id(app, IMPORT_APP, "다른 앱에서 가져오기…", true, None::<&str>)?,
             // 워크스페이스 전체 Markdown 내보내기 (DATA-10) — 프런트엔드가 폴더 고르기부터 한다

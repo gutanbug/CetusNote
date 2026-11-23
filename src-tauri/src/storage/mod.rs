@@ -589,7 +589,13 @@ mod tests {
         assert_eq!(fs::read(&path).unwrap(), b"one");
         let temps = fs::read_dir(&ws.root)
             .unwrap()
-            .filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(".tmp"))
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .ends_with(".tmp")
+            })
             .count();
         assert_eq!(temps, 0);
 
