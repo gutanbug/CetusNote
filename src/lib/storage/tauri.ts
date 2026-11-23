@@ -5,7 +5,8 @@ import {
   type ExternalChanges,
   type LoadError,
   type LoadResult,
-  type MarkdownPick,
+  type DocumentPick,
+  type PdfText,
   type WorkspaceExportReport,
   type Page,
   type PageVersion,
@@ -65,8 +66,11 @@ export function createTauriStorage(): Storage {
     exportWorkspaceMarkdown: (manifest) =>
       call<WorkspaceExportReport | null>("workspace_export_markdown", { manifest }),
     revealWorkspaceExport: () => call("workspace_export_reveal"),
-    pickMarkdown: () => call<MarkdownPick | null>("markdown_pick"),
-    importMarkdownImage: (pageId, dir, src) => call<string>("markdown_image", { pageId, dir, src }),
+    pickDocuments: () => call<DocumentPick | null>("document_pick"),
+    readDocumentBytes: async (id) =>
+      new Uint8Array(await call<ArrayBuffer>("document_bytes", { id })),
+    readPdfText: (id) => call<PdfText>("document_pdf_text", { id }),
+    importDocumentImage: (pageId, dir, src) => call<string>("document_image", { pageId, dir, src }),
     // 바이트는 JSON 배열이 아니라 그대로 보낸다(큰 이미지도 빠르게)
     writeAsset: (pageId, bytes) =>
       call<string>("asset_write", bytes as unknown as Record<string, unknown>, {

@@ -267,13 +267,20 @@ export interface Storage {
   exportWorkspaceMarkdown(manifest: WorkspaceExportManifest): Promise<WorkspaceExportReport | null>;
   /** 마지막으로 만든 워크스페이스 내보내기 폴더를 Finder로 연다 */
   revealWorkspaceExport(): Promise<void>;
-  /** Markdown 가져오기(DATA-08): 파일 고르기(여러 개). 취소하면 null */
-  pickMarkdown(): Promise<MarkdownPick | null>;
   /**
-   * 가져온 Markdown의 상대 경로 이미지(`img/a.png`)를 그 페이지 assets로 복사한다.
-   * dir은 pickMarkdown이 준 폴더여야 하고, 이미지는 그 폴더 안에 있어야 한다.
+   * 문서 가져오기(DATA-08): 파일 고르기(여러 개). md·txt·html은 글(text)을 바로 담고,
+   * docx·pdf는 id로 readDocumentBytes·readPdfText를 부른다. 취소하면 null
    */
-  importMarkdownImage(pageId: string, dir: string, src: string): Promise<string>;
+  pickDocuments(): Promise<DocumentPick | null>;
+  /** 고른 docx 파일의 바이트 (DATA-08) */
+  readDocumentBytes(id: string): Promise<Uint8Array>;
+  /** 고른 PDF의 제목과 쪽마다 글자 (DATA-08). 브라우저 미리보기에서는 unsupported 오류 */
+  readPdfText(id: string): Promise<PdfText>;
+  /**
+   * 가져온 문서의 상대 경로 이미지(`img/a.png`)를 그 페이지 assets로 복사한다.
+   * dir은 pickDocuments가 준 폴더여야 하고, 이미지는 그 폴더 안에 있어야 한다.
+   */
+  importDocumentImage(pageId: string, dir: string, src: string): Promise<string>;
   /** 이미지 저장(EDIT-14, PAGE-03): 그 페이지의 assets에 넣고 `assets/<id>/…` 경로를 돌려준다 */
   writeAsset(pageId: string, bytes: Uint8Array): Promise<string>;
   /** writeAsset이 준 경로의 바이트 */
@@ -320,13 +327,20 @@ export type WorkspaceExportReport = {
   written: number;
 };
 
-export type MarkdownFile = {
+/** 문서 가져오기로 고른 파일 한 개. id는 readDocumentBytes·readPdfText에 돌려준다 */
+export type DocumentFile = {
+  id: string;
   /** 확장자를 뺀 파일 이름 */
   name: string;
-  text: string;
-  /** 파일이 있는 폴더 (상대 경로 이미지용) */
+  /** 소문자 확장자 (md · txt · html · docx · pdf) */
+  ext: string;
+  /** 파일이 있는 폴더 (상대 경로 이미지용). 브라우저 미리보기는 빈 문자열 */
   dir: string;
+  /** md·txt·html의 글. 나머지는 null */
+  text: string | null;
 };
-export type MarkdownPick = { files: MarkdownFile[]; skipped: string[] };
+export type DocumentPick = { files: DocumentFile[]; skipped: string[] };
+/** PDF 글: 메타데이터 제목(없으면 null)과 쪽마다 글자 */
+export type PdfText = { title: string | null; pages: string[] };
 
 export type ExternalChanges = { changed: string[]; removed: string[]; meta: boolean };

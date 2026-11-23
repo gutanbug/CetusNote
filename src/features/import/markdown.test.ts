@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseMarkdownFile } from "./markdown";
 
-describe("Markdown 가져오기 — 머리 읽기 (DATA-08)", () => {
+describe("문서 가져오기 — 머리 읽기 (DATA-08)", () => {
   it("이 앱이 내보낸 모양을 되돌린다", () => {
     const text = [
       "---",

@@ -12,7 +12,7 @@ const page = (id: string, extra: Partial<Page> = {}): Page =>
     ...extra,
   }) as Page;
 
-describe("Markdown 가져오기 목적지 (DATA-08)", () => {
+describe("문서 가져오기 목적지 (DATA-08)", () => {
   it("맨 위가 맨 앞에 오고 트리 순서로 폴더·문서가 이어진다", () => {
     const pages = [page("a"), page("f", { kind: "folder" }), page("a1", { parentId: "a" })];
     expect(importDestinations(pages)).toEqual([null, "f", "a", "a1"]);

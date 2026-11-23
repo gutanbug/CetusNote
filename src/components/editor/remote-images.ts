@@ -35,7 +35,7 @@ type Download = {
  * 붙여 넣은 HTML의 `<img>`를 내려받을 이미지 블록 자리(`figure[data-remote]`)로 바꾼다.
  * http·https · data:image(png·jpeg·gif·webp)만, 붙여넣기 한 번에 MAX_PASTED_IMAGES개까지.
  * alt는 캡션이 된다. 나머지 `<img>`는 지운다(스키마에 없어 원래도 버려졌다).
- * `local`(Markdown 가져오기, DATA-08): 상대 경로(`img/a.png`)도 `figure[data-local]` 자리로 남긴다 —
+ * `local`(문서 가져오기, DATA-08): 상대 경로(`img/a.png`)도 `figure[data-local]` 자리로 남긴다 —
  * 가져오는 쪽이 파일을 읽어 `data-src`로 바꾼다. `max`로 개수 한도를 바꾼다.
  */
 export function imagesToFigures(

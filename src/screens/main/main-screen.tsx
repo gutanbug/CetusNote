@@ -28,7 +28,7 @@ import { TagDialogs } from "./tag-dialogs";
 import { TagMenu } from "./tag-menu";
 import { VersionHistoryDialog } from "./version-history-dialog";
 import { onAppMenu } from "@/lib/storage/app-menu";
-import { importMarkdown } from "./import-markdown";
+import { importDocuments } from "./import-document";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { toast } from "@/components/ui/toast";
 import { stepZoom, zoomKey } from "@/lib/zoom";
@@ -151,7 +151,7 @@ export function MainScreen() {
       else if (item === "find" || item === "find-replace")
         openFind(item === "find" ? "find" : "replace");
       else if (item === "outline") toggleOutline();
-      else if (item === "import-markdown") void importMarkdown();
+      else if (item === "import-document") void importDocuments();
       else if (item === "export-workspace-markdown") void exportWorkspaceMarkdown();
       else zoomBy(item === "zoom-in" ? 1 : item === "zoom-out" ? -1 : 0);
     }).then((f) => {

@@ -15,7 +15,7 @@ pub const ZOOM_RESET: &str = "zoom-reset";
 pub const FIND: &str = "find";
 pub const FIND_REPLACE: &str = "find-replace";
 pub const OUTLINE: &str = "outline";
-pub const IMPORT_MARKDOWN: &str = "import-markdown";
+pub const IMPORT_DOCUMENT: &str = "import-document";
 pub const EXPORT_WORKSPACE_MARKDOWN: &str = "export-workspace-markdown";
 const CLOSE_WINDOW: &str = "close-window";
 
@@ -51,11 +51,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             &MenuItem::with_id(app, NEW_TAB, "새 탭", true, Some("CmdOrCtrl+T"))?,
             &MenuItem::with_id(app, CLOSE_TAB, "탭 닫기", true, Some("CmdOrCtrl+W"))?,
             &sep()?,
-            // Markdown 가져오기 (DATA-08) — 프런트엔드가 파일 고르기부터 한다
+            // 문서 가져오기 (DATA-08) — 프런트엔드가 파일 고르기부터 한다
             &MenuItem::with_id(
                 app,
-                IMPORT_MARKDOWN,
-                "Markdown 가져오기…",
+                IMPORT_DOCUMENT,
+                "문서 가져오기…",
                 true,
                 None::<&str>,
             )?,
@@ -145,7 +145,7 @@ pub fn handle<R: Runtime>(app: &AppHandle<R>, id: &str) {
         | FIND
         | FIND_REPLACE
         | OUTLINE
-        | IMPORT_MARKDOWN
+        | IMPORT_DOCUMENT
         | EXPORT_WORKSPACE_MARKDOWN => {
             let _ = app.emit("app-menu", id);
         }

@@ -37,8 +37,10 @@ const COMMANDS: &[&str] = &[
     "pdf_save",
     "workspace_scan",
     "pages_read",
-    "markdown_pick",
-    "markdown_image",
+    "document_pick",
+    "document_bytes",
+    "document_pdf_text",
+    "document_image",
 ];
 
 fn main() {

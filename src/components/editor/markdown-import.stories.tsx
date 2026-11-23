@@ -51,7 +51,7 @@ function ImportSpecimen({ text, withImages = true }: Props) {
 }
 
 /**
- * Markdown 가져오기 변환(DATA-08) — 붙여넣기(EDIT-23)와 같은 변환 + 상대 경로 이미지.
+ * 문서 가져오기 변환(DATA-08) — 붙여넣기(EDIT-23)와 같은 변환 + 상대 경로 이미지.
  * 폴더 안 이미지는 assets 경로로, 못 찾으면 캡션(없으면 경로) 글로, 웹 이미지는 내려받을 자리로 남긴다.
  */
 const meta = {

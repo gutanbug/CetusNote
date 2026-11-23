@@ -17,8 +17,10 @@ const SETTINGS_FILE: &str = "settings.json";
 #[derive(Default)]
 pub struct AppState {
     workspace: Mutex<Option<Workspace>>,
-    /// Markdown 가져오기(DATA-08)로 사용자가 고른 파일들의 폴더(정규화). 그 안의 이미지만 읽는다
+    /// 문서 가져오기(DATA-08)로 사용자가 고른 파일들의 폴더(정규화). 그 안의 이미지만 읽는다
     import_dirs: Mutex<HashSet<PathBuf>>,
+    /// 문서 가져오기로 고른 파일 경로. 번호(인덱스)로만 프런트엔드와 주고받는다
+    import_files: Mutex<Vec<PathBuf>>,
     /// 마지막으로 만든 워크스페이스 Markdown 내보내기 폴더(폴더 열기용, DATA-10)
     last_export: Mutex<Option<PathBuf>>,
     /// 마지막으로 만든 PDF 미리보기 파일(앱 캐시, DATA-06). pdf_save가 이 파일을 복사한다
@@ -465,39 +467,60 @@ pub fn workspace_export_reveal(app: AppHandle, state: State<AppState>) -> Result
         .map_err(|e| StorageError::new("io", e.to_string()))
 }
 
-/// Markdown 가져오기(DATA-08)에서 한 번에 고를 수 있는 파일 수 · 파일 하나의 크기
+/// 문서 가져오기(DATA-08)에서 한 번에 고를 수 있는 파일 수 · 글 파일 크기 · 이진 파일(docx·pdf) 크기
 const IMPORT_MAX_FILES: usize = 100;
-const IMPORT_MAX_BYTES: u64 = 5 * 1024 * 1024;
+const IMPORT_MAX_TEXT_BYTES: u64 = 5 * 1024 * 1024;
+const IMPORT_MAX_BINARY_BYTES: u64 = 25 * 1024 * 1024;
+/// 글로 바로 읽는 형식 · 바이트를 프런트엔드가 변환하는 형식(docx) · PDF 글(pdf_text)
+const TEXT_EXTS: [&str; 5] = ["md", "markdown", "txt", "html", "htm"];
+const BINARY_EXTS: [&str; 2] = ["docx", "pdf"];
 const IMAGE_EXTS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "webp", "avif"];
 
 #[derive(Serialize)]
-pub struct MarkdownFile {
+pub struct DocumentFile {
+    /// 고른 파일의 번호(document_bytes · document_pdf_text에 돌려준다). 경로는 프런트엔드에 주지 않는다
+    id: String,
     /// 확장자를 뺀 파일 이름 (제목이 없을 때 쓴다)
     name: String,
-    text: String,
-    /// 파일이 있는 폴더 — 상대 경로 이미지를 읽을 때 markdown_image에 돌려준다
+    /// 소문자 확장자 (md · txt · html · docx · pdf …)
+    ext: String,
+    /// 파일이 있는 폴더 — 상대 경로 이미지를 읽을 때 document_image에 돌려준다
     dir: String,
+    /// 글 형식(md·txt·html)만 담는다. 나머지는 null
+    text: Option<String>,
 }
 
 #[derive(Serialize)]
-pub struct MarkdownPick {
-    files: Vec<MarkdownFile>,
-    /// 너무 크거나 읽지 못해 건너뛴 파일 이름
+pub struct DocumentPick {
+    files: Vec<DocumentFile>,
+    /// 너무 크거나 읽지 못하거나 지원하지 않는 파일 이름
     skipped: Vec<String>,
 }
 
-/// Markdown 가져오기(DATA-08): 파일 고르기(여러 개) → 글을 읽어 돌려준다. 취소하면 None.
-/// 고른 파일의 폴더를 기억해 두고, markdown_image는 그 폴더 안의 이미지만 읽는다.
+/// 고른 파일 번호 → 실제 경로. 이 목록에 없는 번호는 거절한다
+fn picked_path(state: &AppState, id: &str) -> Result<PathBuf> {
+    let bad = || StorageError::new("not_found", "가져올 파일을 찾지 못했어요");
+    let index: usize = id.parse().map_err(|_| bad())?;
+    state
+        .import_files
+        .lock()
+        .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))?
+        .get(index)
+        .cloned()
+        .ok_or_else(bad)
+}
+
+/// 문서 가져오기(DATA-08): 파일 고르기(여러 개) → md·txt·html은 글을, docx·pdf는 번호만 돌려준다.
+/// 취소하면 None. 고른 파일의 폴더를 기억해 두고, document_image는 그 폴더 안의 이미지만 읽는다.
 #[tauri::command]
-pub async fn markdown_pick(
+pub async fn document_pick(
     app: AppHandle,
     state: State<'_, AppState>,
-) -> Result<Option<MarkdownPick>> {
-    let mut dialog = app
-        .dialog()
-        .file()
-        .set_title("Markdown 가져오기")
-        .add_filter("Markdown", &["md", "markdown"]);
+) -> Result<Option<DocumentPick>> {
+    let mut dialog = app.dialog().file().set_title("문서 가져오기").add_filter(
+        "문서",
+        &["md", "markdown", "txt", "html", "htm", "docx", "pdf"],
+    );
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
     }
@@ -507,40 +530,102 @@ pub async fn markdown_pick(
     let mut files = Vec::new();
     let mut skipped = Vec::new();
     let mut dirs = Vec::new();
+    let mut paths = Vec::new();
+    // 이번 고르기의 첫 번호: 앞선 고르기에서 기억한 파일 수 다음부터
+    let base = state_offset(&state)?;
     for item in picked.into_iter().take(IMPORT_MAX_FILES) {
         let Ok(path) = item.into_path() else { continue };
         let name = path
             .file_stem()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let read = std::fs::metadata(&path)
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let is_text = TEXT_EXTS.contains(&ext.as_str());
+        if !is_text && !BINARY_EXTS.contains(&ext.as_str()) {
+            skipped.push(name);
+            continue;
+        }
+        let limit = if is_text { IMPORT_MAX_TEXT_BYTES } else { IMPORT_MAX_BINARY_BYTES };
+        let size_ok = std::fs::metadata(&path)
             .ok()
-            .filter(|m| m.is_file() && m.len() <= IMPORT_MAX_BYTES)
-            .and_then(|_| std::fs::read(&path).ok());
-        let (Some(bytes), Some(dir)) = (read, path.parent().and_then(|d| d.canonicalize().ok()))
-        else {
+            .is_some_and(|m| m.is_file() && m.len() <= limit);
+        let text = if is_text && size_ok {
+            std::fs::read(&path)
+                .ok()
+                .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        } else {
+            None
+        };
+        let dir = path.parent().and_then(|d| d.canonicalize().ok());
+        let readable = size_ok && (!is_text || text.is_some());
+        let (true, Some(dir)) = (readable, dir) else {
             skipped.push(name);
             continue;
         };
-        files.push(MarkdownFile {
+        files.push(DocumentFile {
+            id: (base + paths.len()).to_string(),
             name,
-            text: String::from_utf8_lossy(&bytes).into_owned(),
+            ext,
             dir: dir.to_string_lossy().into_owned(),
+            text,
         });
+        paths.push(path);
         dirs.push(dir);
+    }
+    {
+        let mut list = state
+            .import_files
+            .lock()
+            .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))?;
+        list.extend(paths);
     }
     state
         .import_dirs
         .lock()
         .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))?
         .extend(dirs);
-    Ok(Some(MarkdownPick { files, skipped }))
+    Ok(Some(DocumentPick { files, skipped }))
 }
 
-/// 가져온 Markdown의 상대 경로 이미지 → 이 페이지의 assets로 복사(DATA-08).
-/// `dir`은 markdown_pick이 돌려준 폴더여야 하고, 이미지는 그 폴더 안(하위 폴더 포함)에 있어야 한다.
+/// 지금까지 기억한 파일 수. 번호는 여러 번 고르기에 걸쳐 이어진다
+fn state_offset(state: &AppState) -> Result<usize> {
+    state
+        .import_files
+        .lock()
+        .map(|list| list.len())
+        .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))
+}
+
+/// 고른 docx 파일의 바이트(DATA-08). 프런트엔드가 mammoth로 HTML을 만든다
 #[tauri::command]
-pub fn markdown_image(
+pub fn document_bytes(state: State<AppState>, id: String) -> Result<tauri::ipc::Response> {
+    let path = picked_path(&state, &id)?;
+    let meta = std::fs::metadata(&path)?;
+    if meta.len() > IMPORT_MAX_BINARY_BYTES {
+        return Err(StorageError::new("too_large", "파일이 25MB보다 커요"));
+    }
+    Ok(tauri::ipc::Response::new(std::fs::read(&path)?))
+}
+
+/// 고른 PDF의 글자와 제목(DATA-08). 글자만 가져온다
+#[tauri::command]
+pub fn document_pdf_text(state: State<AppState>, id: String) -> Result<crate::pdf::PdfText> {
+    let path = picked_path(&state, &id)?;
+    let meta = std::fs::metadata(&path)?;
+    if meta.len() > IMPORT_MAX_BINARY_BYTES {
+        return Err(StorageError::new("too_large", "파일이 25MB보다 커요"));
+    }
+    let bytes = std::fs::read(&path)?;
+    crate::pdf::extract_text(&bytes).map_err(|msg| StorageError::new("io", msg))
+}
+
+/// 가져온 문서의 상대 경로 이미지 → 이 페이지의 assets로 복사(DATA-08).
+/// `dir`은 document_pick이 돌려준 폴더여야 하고, 이미지는 그 폴더 안(하위 폴더 포함)에 있어야 한다.
+#[tauri::command]
+pub fn document_image(
     state: State<AppState>,
     page_id: String,
     dir: String,

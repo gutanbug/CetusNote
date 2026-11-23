@@ -24,7 +24,7 @@ import { useWorkspace, workspaceStore } from "@/features/workspace";
 import type { PageFont, RecordOpenMode } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
 import { restoreBuiltinTemplates } from "./actions";
-import { importMarkdown } from "./import-markdown";
+import { importDocuments } from "./import-document";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { canReveal, revealInFinder } from "@/lib/storage/open-link";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -309,12 +309,12 @@ function Data({ onRestored }: { onRestored: () => void }) {
           </SettingsRow>
         ) : null}
       </DataSection>
-      <DataSection id="data-markdown" title="Markdown">
+      <DataSection id="data-transfer" title="가져오기·내보내기">
         <SettingsRow
-          name="Markdown 가져오기"
-          description=".md 파일을 고르고 넣을 위치를 정하면 파일마다 새 문서로 만들어요. 같은 폴더 안의 이미지도 함께 가져와요."
+          name="문서 가져오기"
+          description="md, txt, html, docx, pdf 파일을 고르면 파일마다 새 문서로 만들어요. PDF는 글자만 가져와요. 같은 폴더 안의 이미지도 함께 가져와요."
         >
-          <Button variant="secondary" size="sm" onClick={() => void importMarkdown()}>
+          <Button variant="secondary" size="sm" onClick={() => void importDocuments()}>
             가져오기…
           </Button>
         </SettingsRow>

@@ -10,7 +10,7 @@ export type AppMenuItem =
   | "find"
   | "find-replace"
   | "outline"
-  | "import-markdown"
+  | "import-document"
   | "export-workspace-markdown";
 const ITEMS: readonly string[] = [
   "new-tab",
@@ -21,7 +21,7 @@ const ITEMS: readonly string[] = [
   "find",
   "find-replace",
   "outline",
-  "import-markdown",
+  "import-document",
   "export-workspace-markdown",
 ];
 

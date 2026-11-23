@@ -54,7 +54,7 @@ import {
   toggleFavorite,
   openQuickNote,
 } from "./actions";
-import { importMarkdown } from "./import-markdown";
+import { importDocuments } from "./import-document";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { isCommandQuery, matchCommands, paletteItems, visibleIds } from "./palette-model";
 import { closeTabAt, newTab } from "./tabs";
@@ -185,11 +185,24 @@ function useCommands(): Command[] {
         run: () => openDailyNote(),
       },
       {
-        id: "import-markdown",
-        title: "Markdown 가져오기…",
-        keywords: ["import", "markdown", "md", "가져오기", "불러오기", "파일"],
+        id: "import-document",
+        title: "문서 가져오기…",
+        keywords: [
+          "import",
+          "document",
+          "markdown",
+          "md",
+          "txt",
+          "html",
+          "docx",
+          "pdf",
+          "가져오기",
+          "불러오기",
+          "문서",
+          "파일",
+        ],
         icon: FileDown,
-        run: () => void importMarkdown(),
+        run: () => void importDocuments(),
       },
       {
         id: "export-workspace-markdown",

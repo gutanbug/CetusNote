@@ -1,7 +1,8 @@
 import { normalizePage, normalizeWorkspace } from "./schema";
 import {
   StorageError,
-  type MarkdownPick,
+  type DocumentFile,
+  type DocumentPick,
   type Page,
   type Storage,
   type WorkspaceInfo,
@@ -22,8 +23,8 @@ type MemoryOptions = {
   failWrite?: (page: Page) => StorageError | undefined;
   /** 이미지 선택 대화상자 결과 흉내 — 바이트를 주면 그 이미지를 넣은 것으로 */
   pickAsset?: () => Uint8Array | null;
-  /** Markdown 고르기 대화상자 결과 흉내 (없으면 브라우저 파일 선택) */
-  pickMarkdown?: () => MarkdownPick | null;
+  /** 문서 고르기 대화상자 결과 흉내 (없으면 브라우저 파일 선택) */
+  pickDocuments?: () => DocumentPick | null;
   /** 가져올 상대 경로 이미지 (dir/src → 바이트). 없으면 not_found */
   importImages?: Record<string, Uint8Array>;
   /** fetchAsset이 부르는 fetch (테스트용) */
@@ -101,6 +102,8 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
   /** 자동 백업 이름(오래된 것이 앞) */
   const backups = [...(options.backups ?? [])].sort();
   const assets = new Map(Object.entries(options.assets ?? {}));
+  /** 문서 가져오기로 고른 파일(번호 → 파일) — readDocumentBytes가 읽는다 */
+  const picked = new Map<string, File>();
   let assetSeq = 0;
 
   /** 최근 워크스페이스(맨 앞이 최근). 메모리 구현은 열 때마다 앞에 둔다 */
@@ -315,11 +318,19 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       if (picked) info = { ...picked };
       return picked && { ...picked };
     },
-    async pickMarkdown() {
-      if (options.pickMarkdown) return options.pickMarkdown();
-      return pickMarkdownFiles();
+    async pickDocuments() {
+      if (options.pickDocuments) return options.pickDocuments();
+      return pickDocumentFiles(picked);
     },
-    async importMarkdownImage(pageId, dir, src) {
+    async readDocumentBytes(id) {
+      const file = picked.get(id);
+      if (!file) throw new StorageError("not_found", "가져올 파일을 찾지 못했어요");
+      return new Uint8Array(await file.arrayBuffer());
+    },
+    async readPdfText() {
+      throw new StorageError("unsupported", "데스크톱 앱에서만 PDF를 가져올 수 있어요");
+    },
+    async importDocumentImage(pageId, dir, src) {
       const bytes = options.importImages?.[`${dir}/${src}`];
       if (!bytes) throw new StorageError("not_found", "이미지 파일이 없어요");
       return this.writeAsset(pageId, bytes);
@@ -386,14 +397,14 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
 }
 
 /** 브라우저 미리보기: 파일 선택 창으로 이미지를 고른다. 취소하면 null(취소 이벤트가 없는 브라우저는 응답이 없다) */
-/** 브라우저 미리보기: .md 파일 여러 개 고르기. 폴더는 알 수 없어 상대 경로 이미지는 가져오지 못한다 */
-function pickMarkdownFiles(): Promise<MarkdownPick | null> {
+/** 브라우저 미리보기: 문서 파일 여러 개 고르기. 폴더는 알 수 없어 상대 경로 이미지는 가져오지 못한다. 고른 파일은 picked에 번호로 둔다 */
+function pickDocumentFiles(picked: Map<string, File>): Promise<DocumentPick | null> {
   if (typeof document === "undefined") return Promise.resolve(null);
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = ".md,.markdown,text/markdown";
+    input.accept = ".md,.markdown,.txt,.html,.htm,.docx,.pdf";
     input.hidden = true;
     document.body.append(input);
     input.addEventListener("change", () => {
@@ -401,12 +412,23 @@ function pickMarkdownFiles(): Promise<MarkdownPick | null> {
       const files = [...(input.files ?? [])];
       if (!files.length) return resolve(null);
       void Promise.all(
-        files.map(async (f) => ({
-          name: f.name.replace(/\.(md|markdown)$/i, ""),
-          text: await f.text(),
-          dir: "",
-        })),
-      ).then((list) => resolve({ files: list, skipped: [] }));
+        files.map(async (f): Promise<DocumentFile | null> => {
+          const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+          if (!DOCUMENT_EXTS.includes(ext)) return null;
+          // 글을 못 읽은 파일은 건너뛴다 (나머지 파일의 가져오기를 막지 않는다)
+          const text = TEXT_EXTS.includes(ext) ? await f.text().catch(() => undefined) : null;
+          if (text === undefined) return null;
+          const id = String(picked.size);
+          picked.set(id, f);
+          return { id, name: f.name.replace(/\.[^.]+$/, ""), ext, dir: "", text };
+        }),
+      ).then((list) => {
+        const done = list.filter((f): f is DocumentFile => f !== null);
+        const skipped = files
+          .filter((_, i) => list[i] === null)
+          .map((f) => f.name.replace(/\.[^.]+$/, ""));
+        resolve({ files: done, skipped });
+      });
     });
     input.addEventListener("cancel", () => {
       input.remove();
@@ -415,6 +437,9 @@ function pickMarkdownFiles(): Promise<MarkdownPick | null> {
     input.click();
   });
 }
+
+const TEXT_EXTS = ["md", "markdown", "txt", "html", "htm"];
+const DOCUMENT_EXTS = [...TEXT_EXTS, "docx", "pdf"];
 
 function pickFile(): Promise<Uint8Array | null> {
   if (typeof document === "undefined") return Promise.resolve(null);

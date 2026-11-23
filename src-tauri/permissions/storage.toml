@@ -39,6 +39,8 @@ permissions = [
   "allow-pdf-save",
   "allow-workspace-scan",
   "allow-pages-read",
-  "allow-markdown-pick",
-  "allow-markdown-image",
+  "allow-document-pick",
+  "allow-document-bytes",
+  "allow-document-pdf-text",
+  "allow-document-image",
 ]

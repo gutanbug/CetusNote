@@ -129,3 +129,67 @@ pub fn capture_page(
 pub fn merge_pages(_parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
     Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
 }
+
+/// 가져오기(DATA-08)용 PDF 글: 메타데이터 제목과 쪽마다 글자. 글자만 뽑는다(표·그림·서식은 잃는다)
+#[derive(serde::Serialize, Debug, PartialEq)]
+pub struct PdfText {
+    pub title: Option<String>,
+    pub pages: Vec<String>,
+}
+
+/// PDF 바이트에서 글자를 뽑는다. PDFKit을 쓰므로 macOS에서만 된다
+#[cfg(target_os = "macos")]
+pub fn extract_text(bytes: &[u8]) -> Result<PdfText, String> {
+    use objc2::AnyThread;
+    use objc2::runtime::AnyObject;
+    use objc2_foundation::{NSData, NSDictionary, NSString};
+    use objc2_pdf_kit::{PDFDocument, PDFDocumentTitleAttribute};
+
+    let data = NSData::with_bytes(bytes);
+    let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }
+        .ok_or("PDF를 열지 못했어요")?;
+
+    let attrs: Option<objc2::rc::Retained<NSDictionary>> = unsafe { doc.documentAttributes() };
+    let title = attrs.and_then(|attrs| {
+        let key: &AnyObject = unsafe { PDFDocumentTitleAttribute }.as_ref();
+        let value = attrs.objectForKey(key)?;
+        let text = value.downcast_ref::<NSString>()?.to_string();
+        let text = text.trim().to_string();
+        (!text.is_empty()).then_some(text)
+    });
+
+    let count = unsafe { doc.pageCount() };
+    let pages = (0..count)
+        .map(|i| {
+            unsafe { doc.pageAtIndex(i) }
+                .and_then(|page| unsafe { page.string() })
+                .map(|s| s.to_string())
+                .unwrap_or_default()
+        })
+        .collect();
+    Ok(PdfText { title, pages })
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn extract_text(_bytes: &[u8]) -> Result<PdfText, String> {
+    Err("PDF 가져오기는 macOS 앱에서만 돼요".into())
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_text_per_page_and_title() {
+        let pdf = extract_text(include_bytes!("../testdata/sample.pdf")).unwrap();
+        assert_eq!(pdf.title.as_deref(), Some("Fixture Title"));
+        assert_eq!(pdf.pages.len(), 2);
+        assert!(pdf.pages[0].contains("Hello from page one"), "{:?}", pdf.pages);
+        assert!(pdf.pages[1].contains("Second page text"), "{:?}", pdf.pages);
+    }
+
+    #[test]
+    fn rejects_bytes_that_are_not_pdf() {
+        assert!(extract_text(b"not a pdf").is_err());
+    }
+}

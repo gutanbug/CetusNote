@@ -16,7 +16,7 @@ import { useRestoreFocus } from "./use-restore-focus";
 const ic = { strokeWidth: 1.5 } as const;
 
 /**
- * 위치 고르기 대화상자 — 옮기기(PAGE-05)와 Markdown 가져오기 목적지(DATA-08)가 같이 쓴다.
+ * 위치 고르기 대화상자 — 옮기기(PAGE-05)와 문서 가져오기 목적지(DATA-08)가 같이 쓴다.
  * targets는 고를 수 있는 곳만 받는다. null은 맨 위(워크스페이스 최상위).
  */
 export function ParentPicker({
