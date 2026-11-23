@@ -141,7 +141,7 @@ function PageTabs({
                 aria-hidden
                 onClick={() => onClose(i)}
                 className={cn(
-                  "mr-2 grid size-4.5 shrink-0 place-items-center rounded-pill text-tertiary opacity-0",
+                  "mr-2 grid size-6 shrink-0 place-items-center rounded-pill text-tertiary opacity-0",
                   "transition-[opacity,background-color] duration-(--dur-fast) ease-(--ease) group-hover/tab:opacity-100 group-data-selected/tab:opacity-100 force-hover:opacity-100",
                   "hover:bg-active hover:text-primary force-hover:bg-active",
                 )}
