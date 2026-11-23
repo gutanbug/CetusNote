@@ -5,6 +5,7 @@ import {
   type ExternalChanges,
   type LoadError,
   type LoadResult,
+  type AppImportPick,
   type DocumentPick,
   type PdfText,
   type WorkspaceExportReport,
@@ -71,6 +72,9 @@ export function createTauriStorage(): Storage {
     readDocumentBytes: async (id) =>
       new Uint8Array(await call<ArrayBuffer>("document_bytes", { id })),
     readPdfText: (id) => call<PdfText>("document_pdf_text", { id }),
+    pickAppSource: (kind) => call<AppImportPick | null>("app_import_pick", { kind }),
+    readAppImportBytes: async (path) =>
+      new Uint8Array(await call<ArrayBuffer>("app_import_bytes", { path })),
     importDocumentImage: (pageId, dir, src) => call<string>("document_image", { pageId, dir, src }),
     // 바이트는 JSON 배열이 아니라 그대로 보낸다(큰 이미지도 빠르게)
     writeAsset: (pageId, bytes) =>

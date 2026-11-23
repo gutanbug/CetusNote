@@ -191,6 +191,7 @@ export type StorageErrorCode =
   | "too_large"
   | "fetch_failed"
   | "invalid_backup"
+  | "invalid_archive"
   | "not_empty"
   | "invalid_path"
   | "invalid_date"
@@ -318,6 +319,10 @@ export interface Storage {
   scanChanges(): Promise<ExternalChanges>;
   /** 페이지 몇 개 다시 읽기. 없어진 파일은 결과에서 빠진다 */
   readPages(ids: string[]): Promise<LoadResult>;
+  /** 다른 앱에서 가져오기(DATA-11): zip 파일 또는 폴더를 고르고 목록을 만든다. 취소하면 null */
+  pickAppSource(kind: "zip" | "folder"): Promise<AppImportPick | null>;
+  /** 고른 원본 안의 항목 하나의 바이트(그림 등). path는 목록의 경로 */
+  readAppImportBytes(path: string): Promise<Uint8Array>;
 }
 
 /** 워크스페이스 내보내기 목록의 한 항목: 글이거나 워크스페이스 이미지(assets/…) 복사 */
@@ -348,5 +353,16 @@ export type DocumentFile = {
 export type DocumentPick = { files: DocumentFile[]; skipped: string[] };
 /** PDF 글: 메타데이터 제목(없으면 null)과 쪽마다 글자 */
 export type PdfText = { title: string | null; pages: string[] };
+
+/** 다른 앱에서 가져오기(DATA-11)로 고른 zip·폴더의 목록. path는 원본 안 상대 경로(`/`) */
+export type AppImportText = { path: string; text: string };
+export type AppImportPick = {
+  /** 글 파일(md·csv·html·txt)의 글자 */
+  texts: AppImportText[];
+  /** 쓸 수 있는 모든 항목 경로(그림 포함). 바이트는 readAppImportBytes로 */
+  paths: string[];
+  /** 건너뛴 항목 이름(안전하지 않거나 너무 큰 것 · 심볼릭 링크) */
+  skipped: string[];
+};
 
 export type ExternalChanges = { changed: string[]; removed: string[]; meta: boolean };

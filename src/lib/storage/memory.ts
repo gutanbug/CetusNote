@@ -2,6 +2,7 @@ import { normalizePage, normalizeWorkspace } from "./schema";
 import {
   StorageError,
   type DocumentFile,
+  type AppImportPick,
   type DocumentPick,
   type Page,
   type Storage,
@@ -25,6 +26,10 @@ type MemoryOptions = {
   pickAsset?: () => Uint8Array | null;
   /** 문서 고르기 대화상자 결과 흉내 (없으면 브라우저 파일 선택) */
   pickDocuments?: () => DocumentPick | null;
+  /** 다른 앱에서 가져오기 고르기 결과 흉내. 없으면 unsupported (브라우저에서는 zip·폴더를 읽지 못한다) */
+  pickAppSource?: (kind: "zip" | "folder") => AppImportPick | null;
+  /** 다른 앱 가져오기 항목 바이트 (경로 → 바이트) */
+  appImportBytes?: Record<string, Uint8Array>;
   /** 가져올 상대 경로 이미지 (dir/src → 바이트). 없으면 not_found */
   importImages?: Record<string, Uint8Array>;
   /** fetchAsset이 부르는 fetch (테스트용) */
@@ -329,6 +334,18 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       const file = picked.get(id);
       if (!file) throw new StorageError("not_found", "가져올 파일을 찾지 못했어요");
       return new Uint8Array(await file.arrayBuffer());
+    },
+    async pickAppSource(kind) {
+      if (options.pickAppSource) return options.pickAppSource(kind);
+      throw new StorageError(
+        "unsupported",
+        "데스크톱 앱에서만 다른 앱의 내보내기를 가져올 수 있어요",
+      );
+    },
+    async readAppImportBytes(path) {
+      const bytes = options.appImportBytes?.[path];
+      if (!bytes) throw new StorageError("not_found", "가져올 파일을 찾지 못했어요");
+      return bytes;
     },
     async readPdfText() {
       throw new StorageError("unsupported", "데스크톱 앱에서만 PDF를 가져올 수 있어요");
