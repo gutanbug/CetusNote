@@ -44,6 +44,8 @@ const COMMANDS: &[&str] = &[
     "document_bytes",
     "document_pdf_text",
     "document_image",
+    "app_import_pick",
+    "app_import_bytes",
 ];
 
 fn main() {

@@ -1,10 +1,11 @@
 //! 프론트엔드가 부르는 저장 커맨드. 프론트엔드는 `src/lib/storage`만 이 커맨드를 부른다.
 //! 경로는 받지 않는다: 폴더·저장 위치는 Rust가 띄우는 대화상자에서만 정해진다.
 
+use crate::app_import;
 use crate::storage::{self, LoadedPages, Result, StorageError, Workspace};
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
@@ -25,6 +26,29 @@ pub struct AppState {
     last_export: Mutex<Option<PathBuf>>,
     /// 마지막으로 만든 PDF 미리보기 파일(앱 캐시, DATA-06). pdf_save가 이 파일을 복사한다
     last_pdf: Mutex<Option<PathBuf>>,
+    /// 다른 앱에서 가져오기(DATA-11)로 고른 zip·폴더와 그 목록. 항목은 경로(상대)로만 찾는다
+    app_import: Mutex<Option<ImportSession>>,
+}
+
+/// 다른 앱 가져오기 세션: 고른 원본과 항목 목록(ADR-017)
+pub struct ImportSession {
+    source: app_import::Source,
+    entries: HashMap<String, app_import::Entry>,
+}
+
+/// 가져오기 목록의 글 파일 한 개 (경로와 글자)
+#[derive(Serialize)]
+pub struct AppImportText {
+    path: String,
+    text: String,
+}
+
+/// 고른 zip·폴더의 목록. texts는 글 파일, paths는 쓸 수 있는 모든 항목(그림 포함), skipped는 건너뛴 이름
+#[derive(Serialize)]
+pub struct AppImportPick {
+    texts: Vec<AppImportText>,
+    paths: Vec<String>,
+    skipped: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -658,6 +682,95 @@ pub fn document_image(
     }
     let bytes = std::fs::read(&path)?;
     with_workspace(&state, |ws| ws.write_asset(&page_id, &bytes))
+}
+
+/// 다른 앱에서 가져오기(DATA-11): zip 파일 또는 폴더를 고르고 목록을 만든다. 취소하면 None.
+/// kind는 "zip" 또는 "folder". 목록 만들기는 백그라운드 스레드에서 한다(화면이 멈추지 않게).
+#[tauri::command]
+pub async fn app_import_pick(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    kind: String,
+) -> Result<Option<AppImportPick>> {
+    let picked = if kind == "folder" {
+        app.dialog()
+            .file()
+            .set_title("다른 앱에서 가져오기")
+            .blocking_pick_folder()
+    } else {
+        app.dialog()
+            .file()
+            .set_title("다른 앱에서 가져오기")
+            .add_filter("zip", &["zip"])
+            .blocking_pick_file()
+    };
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|_| StorageError::new("invalid_path", "고른 위치를 읽지 못했어요"))?;
+    let source = if kind == "folder" {
+        app_import::Source::Folder(path)
+    } else {
+        app_import::Source::Zip(path)
+    };
+    let job = source.clone();
+    let listing = match tauri::async_runtime::spawn_blocking(move || match &job {
+        app_import::Source::Zip(p) => app_import::list_zip(p),
+        app_import::Source::Folder(p) => app_import::list_folder(p),
+    })
+    .await
+    {
+        Ok(listing) => listing?,
+        Err(e) => return Err(StorageError::new("io", e.to_string())),
+    };
+    let paths = listing.entries.iter().map(|e| e.path.clone()).collect();
+    let texts = listing
+        .texts
+        .iter()
+        .map(|(path, text)| AppImportText { path: path.clone(), text: text.clone() })
+        .collect();
+    let skipped = listing.skipped.clone();
+    let entries = listing.entries.into_iter().map(|e| (e.path.clone(), e)).collect();
+    *state
+        .app_import
+        .lock()
+        .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))? =
+        Some(ImportSession { source, entries });
+    Ok(Some(AppImportPick { texts, paths, skipped }))
+}
+
+/// 가져오기 목록에 있는 항목 하나의 바이트(그림 등). path는 목록의 상대 경로
+#[tauri::command]
+pub async fn app_import_bytes(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<tauri::ipc::Response> {
+    let (source, entry) = {
+        let guard = state
+            .app_import
+            .lock()
+            .map_err(|_| StorageError::new("io", "가져오기 상태를 읽지 못했어요"))?;
+        let session = guard
+            .as_ref()
+            .ok_or_else(|| StorageError::new("not_found", "가져올 원본이 없어요"))?;
+        let entry = session
+            .entries
+            .get(&path)
+            .cloned()
+            .ok_or_else(|| StorageError::new("not_found", "가져올 파일을 찾지 못했어요"))?;
+        (session.source.clone(), entry)
+    };
+    let bytes = match tauri::async_runtime::spawn_blocking(move || {
+        app_import::read_entry(&source, &entry)
+    })
+    .await
+    {
+        Ok(bytes) => bytes?,
+        Err(e) => return Err(StorageError::new("io", e.to_string())),
+    };
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 /// 마크다운 속 상대 주소(`img/a%20b.png`, `./a.png`)를 dir 기준 실제 경로로. 폴더 밖·이미지가 아니면 거절

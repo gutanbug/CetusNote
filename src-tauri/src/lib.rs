@@ -1,4 +1,5 @@
 mod app_icon;
+mod app_import;
 mod commands;
 #[cfg(target_os = "macos")]
 mod menu;
@@ -38,6 +39,8 @@ pub fn run() {
             commands::document_bytes,
             commands::document_pdf_text,
             commands::document_image,
+            commands::app_import_pick,
+            commands::app_import_bytes,
             commands::workspace_export_markdown,
             commands::workspace_export_reveal,
             commands::asset_write,
