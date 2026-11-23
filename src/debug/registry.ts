@@ -91,6 +91,8 @@ export const registry = {
     priority: "P1",
   },
   "UI-PageIcon": { layer: "L1", name: "페이지 아이콘", status: "ready", priority: "P1" },
+  "UI-AppLogo": { layer: "L1", name: "다른 앱 로고", status: "ready", priority: "P1" },
+  "UI-ChoiceCard": { layer: "L1", name: "선택 카드", status: "ready", priority: "P1" },
   "OV-Popover": {
     layer: "L2",
     name: "팝오버 기본 틀",
