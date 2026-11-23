@@ -208,7 +208,8 @@ function RecordDetail({
 }: RecordDetailProps) {
   const name = item.title || "제목 없음";
   const chips = item.tags.length ? (
-    <span className="flex flex-wrap items-center gap-1 px-1">
+    // 다른 속성 값 칸과 같은 왼쪽 여백(px-2)으로 맞춘다
+    <span className="flex flex-wrap items-center gap-1 px-2">
       {item.tags.map((t) => (
         <TagChip
           key={t.name}
@@ -220,7 +221,7 @@ function RecordDetail({
       ))}
     </span>
   ) : (
-    <span className="px-1">
+    <span className="px-2">
       <EmptyValue />
     </span>
   );
