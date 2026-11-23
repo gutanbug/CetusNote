@@ -86,9 +86,22 @@ pub fn sanitize_name(raw: &str) -> String {
     let cut = cut.trim().to_string();
     if cut.is_empty() {
         "제목 없음".to_string()
+    } else if is_windows_reserved(&cut) {
+        // Windows는 CON·NUL 같은 장치 이름을 파일 이름으로 쓰지 못한다(SYS-08). 앞에 밑줄을 붙인다
+        format!("_{cut}")
     } else {
         cut
     }
+}
+
+/// Windows 예약 장치 이름인가(확장자를 떼고, 대소문자 무시). CON, PRN, AUX, NUL, COM1–9, LPT1–9
+fn is_windows_reserved(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or(name).trim_end().to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.as_bytes()[3].is_ascii_digit()
+            && stem.as_bytes()[3] != b'0')
 }
 
 /// `parent` 안에 `base`(없으면 ` (2)`, ` (3)`…)로 새 폴더를 만든다. 만든 경로를 돌려준다.
@@ -279,6 +292,11 @@ mod tests {
         );
         assert_eq!(sanitize_name("  ..hidden  "), "hidden");
         assert_eq!(sanitize_name("   "), "제목 없음");
+        assert_eq!(sanitize_name("CON"), "_CON");
+        assert_eq!(sanitize_name("nul.txt"), "_nul.txt");
+        assert_eq!(sanitize_name("com1"), "_com1");
+        assert_eq!(sanitize_name("COM0"), "COM0");
+        assert_eq!(sanitize_name("console"), "console");
         assert_eq!(sanitize_name("x\u{7}y"), "x y");
         assert_eq!(
             sanitize_name(&"가".repeat(300)).chars().count(),
