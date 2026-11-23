@@ -83,6 +83,16 @@ export function VersionHistory({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         size={null}
+        // 열면 고른 버전 행에 초기 포커스를 둔다. 기본(첫 포커스 가능 요소)은 스크롤 영역 section이라
+        // 미리보기 전체에 포커스 링이 뜬다. 행이 아직 없으면(불러오는 중) 기본 동작에 맡긴다
+        onOpenAutoFocus={(e) => {
+          const row = listRef.current?.querySelector<HTMLElement>(
+            '[data-value][aria-selected="true"], [data-value]',
+          );
+          if (!row) return;
+          e.preventDefault();
+          row.focus();
+        }}
         className="grid h-140 max-h-[calc(var(--fit-h)-var(--s16))] w-220 max-w-[calc(var(--fit-w)-var(--s8))] grid-cols-[calc(var(--spacing)*70)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-0"
       >
         <div className="grid min-h-0 grid-rows-[minmax(0,1fr)] border-r border-line bg-subtle">
