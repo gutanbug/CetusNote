@@ -11,7 +11,7 @@ export function PdfExportDialog() {
         if (!open) closePdfExport();
       }}
       status={s.status}
-      previewUrl={s.url}
+      pages={s.pages}
       message={s.message}
       onSave={() => void savePdfExport()}
       onRetry={retryPdfExport}

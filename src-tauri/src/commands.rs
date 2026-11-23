@@ -943,7 +943,7 @@ pub async fn pdf_finish(
     state: State<'_, AppState>,
     run: u32,
     count: u32,
-) -> Result<tauri::ipc::Response> {
+) -> Result<u32> {
     if count == 0 {
         return Err(StorageError::new("io", "찍은 쪽이 없어요").into());
     }
@@ -975,7 +975,35 @@ pub async fn pdf_finish(
         .last_pdf
         .lock()
         .map_err(|_| StorageError::new("io", "PDF 상태를 저장하지 못했어요"))? = Some(path);
-    Ok(tauri::ipc::Response::new(bytes))
+    Ok(count)
+}
+
+/// 미리보기 PDF의 쪽 index를 PNG로 그려 돌려준다(DATA-06). 화면에만 보이는 그림이고 저장본은 벡터 그대로다.
+#[tauri::command]
+pub async fn pdf_preview_page(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    index: u32,
+    width: u32,
+) -> Result<tauri::ipc::Response> {
+    let src = state
+        .last_pdf
+        .lock()
+        .map_err(|_| StorageError::new("io", "PDF 상태를 읽지 못했어요"))?
+        .clone()
+        .ok_or_else(|| StorageError::new("not_found", "먼저 PDF 미리보기를 만들어 주세요"))?;
+    let width = f64::from(width.clamp(200, 2400));
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(crate::pdf::render_page_png(&src, index as usize, width));
+    })
+    .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let png = tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(PDF_PAGE_TIMEOUT))
+        .await
+        .map_err(|e| StorageError::new("io", e.to_string()))?
+        .map_err(|_| StorageError::new("io", "쪽 그림을 그리지 못했어요(시간 초과)"))?
+        .map_err(|m| StorageError::new("io", m))?;
+    Ok(tauri::ipc::Response::new(png))
 }
 
 /// PDF 저장: 저장 대화상자에서 고른 곳에 마지막으로 만든 PDF를 쓴다. 취소하면 None, 아니면 파일 이름

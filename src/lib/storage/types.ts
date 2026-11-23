@@ -295,8 +295,10 @@ export interface Storage {
   restoreBackup(): Promise<WorkspaceInfo | null>;
   /** PDF 쪽 한 장 찍기 (DATA-06). run은 내보내기 한 번의 번호, index는 쪽 순서, rect는 웹뷰 문서 좌표(pt). 제한 시간을 넘기면 실패한다 */
   renderPdfPage(run: number, index: number, rect: PdfPageRect): Promise<void>;
-  /** 찍어 둔 쪽 count장을 한 PDF로 합쳐 미리보기 바이트로 돌려준다 (DATA-06). 마지막 PDF는 savePdf가 쓴다 */
-  finishPdf(run: number, count: number): Promise<ArrayBuffer>;
+  /** 찍어 둔 쪽 count장을 한 PDF로 합쳐 앱 캐시에 둔다. 돌려주는 값은 쪽 수다 (DATA-06). 마지막 PDF는 savePdf가 쓴다 */
+  finishPdf(run: number, count: number): Promise<number>;
+  /** 합쳐 둔 미리보기 PDF의 쪽 index를 PNG 바이트로 그린다. width는 픽셀 폭 (DATA-06). 화면용이고 저장본은 벡터 그대로다 */
+  renderPdfPreviewPage(index: number, width: number): Promise<ArrayBuffer>;
   /** 마지막 PDF를 저장 대화상자에서 고른 곳에 쓴다 (DATA-06). 취소하면 null, 저장하면 파일 이름 */
   savePdf(fileName: string): Promise<string | null>;
   /** 지난번 이후 바깥에서 바뀐 것 (DATA-07). 이 앱이 읽고 쓴 것은 빠진다 */

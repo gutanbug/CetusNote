@@ -5,7 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
 import { IconButton } from "./icon-button";
 
-/** OV-Dialog — scrim + 가운데 모달 (--r-xl, --shadow-modal). 크기 sm·md·lg */
+/** OV-Dialog — scrim + 가운데 모달 (--r-xl, --shadow-modal). 크기 sm·md·lg·xl */
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogClose = DialogPrimitive.Close;
@@ -27,7 +27,7 @@ const dialogVariants = cva(
   "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(var(--fit-h)-var(--s16))] w-[calc(var(--fit-w)-var(--s8))] -translate-1/2 gap-4 overflow-auto rounded-xl bg-elevated p-6 text-primary shadow-modal outline-none data-[state=open]:animate-rise",
   {
     variants: {
-      size: { sm: "max-w-100", md: "max-w-140", lg: "max-w-180" },
+      size: { sm: "max-w-100", md: "max-w-140", lg: "max-w-180", xl: "max-w-240" },
     },
     defaultVariants: { size: "md" },
   },

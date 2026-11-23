@@ -81,6 +81,41 @@ pub fn merge_pages(parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
     Ok(out.to_vec())
 }
 
+/// 합친 PDF의 쪽 하나를 PNG로 그린다(미리보기 전용, DATA-06). 저장본은 그대로 벡터다.
+/// 폭은 `width` 픽셀이고 높이는 쪽 비율을 따른다. PDFKit을 쓰므로 메인 스레드에서 부른다.
+#[cfg(target_os = "macos")]
+pub fn render_page_png(path: &std::path::Path, index: usize, width: f64) -> Result<Vec<u8>, String> {
+    use objc2::AnyThread;
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep};
+    use objc2_foundation::{NSData, NSDictionary, NSSize};
+    use objc2_pdf_kit::{PDFDisplayBox, PDFDocument};
+
+    let bytes = std::fs::read(path).map_err(|_| "미리보기 PDF를 읽지 못했어요".to_string())?;
+    let data = NSData::with_bytes(&bytes);
+    let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }
+        .ok_or("미리보기 PDF를 열지 못했어요")?;
+    let page = unsafe { doc.pageAtIndex(index) }.ok_or("미리보기 쪽이 없어요")?;
+    let bounds = unsafe { page.boundsForBox(PDFDisplayBox::MediaBox) };
+    if bounds.size.width <= 0.0 || bounds.size.height <= 0.0 {
+        return Err("쪽 크기를 알 수 없어요".into());
+    }
+    let height = width * bounds.size.height / bounds.size.width;
+    let image = unsafe {
+        page.thumbnailOfSize_forBox(NSSize::new(width, height), PDFDisplayBox::MediaBox)
+    };
+    let tiff = image.TIFFRepresentation().ok_or("쪽 그림을 만들지 못했어요")?;
+    let rep = NSBitmapImageRep::imageRepWithData(&tiff).ok_or("쪽 그림을 읽지 못했어요")?;
+    let props = NSDictionary::new();
+    let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &props) }
+        .ok_or("쪽 그림을 PNG로 바꾸지 못했어요")?;
+    Ok(png.to_vec())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn render_page_png(_path: &std::path::Path, _index: usize, _width: f64) -> Result<Vec<u8>, String> {
+    Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
+}
+
 #[cfg(not(target_os = "macos"))]
 pub fn capture_page(
     _webview: *mut std::ffi::c_void,

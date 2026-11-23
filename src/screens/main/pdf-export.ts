@@ -14,8 +14,8 @@ type PdfExportState = {
   status: PdfPreviewStatus;
   /** 내보내는 페이지 (다시 시도할 때 쓴다) */
   pageId: string | null;
-  /** 만든 PDF의 blob 주소 — 닫을 때 해제한다 */
-  url: string | null;
+  /** 쪽마다 그린 미리보기 그림(blob 주소)의 순서대로 목록 — 닫을 때 해제한다 */
+  pages: string[];
   message: string | null;
   /** 저장 대화상자의 기본 이름 (페이지 제목.pdf) */
   fileName: string;
@@ -25,7 +25,7 @@ export const usePdfExport = create<PdfExportState>(() => ({
   open: false,
   status: "loading",
   pageId: null,
-  url: null,
+  pages: [],
   message: null,
   fileName: "제목 없음.pdf",
 }));
@@ -38,10 +38,11 @@ let activeCapture: { ticket: number; restore: () => void } | null = null;
 
 /** 내보내기 한 번의 제한 시간. 넘기면 실패로 돌려준다 */
 const EXPORT_DEADLINE_MS = 30_000;
+/** 미리보기 그림의 픽셀 폭. 화면에서 200%로 키워도 흐리지 않을 만큼 크게 그린다(저장본과 무관) */
+const PREVIEW_PAGE_WIDTH = 1400;
 
 function dropUrl() {
-  const { url } = usePdfExport.getState();
-  if (url) URL.revokeObjectURL(url);
+  for (const url of usePdfExport.getState().pages) URL.revokeObjectURL(url);
 }
 
 function errorText(e: unknown, fallback: string) {
@@ -101,8 +102,8 @@ function beginCapture(root: HTMLElement): () => void {
   };
 }
 
-/** 찍는 동안 쪽 나누기를 하고 쪽마다 PDF 조각을 만든 뒤 한 파일로 합친다 */
-async function capturePages(ticket: number, deadline: number): Promise<ArrayBuffer> {
+/** 찍는 동안 쪽 나누기를 하고 쪽마다 PDF 조각을 만든 뒤 한 파일로 합친다. 쪽 수를 돌려준다 */
+async function capturePages(ticket: number, deadline: number): Promise<number> {
   const root = document.getElementById(PRINT_ROOT_ID);
   if (!root) throw new Error("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
   const storage = getStorage();
@@ -161,7 +162,7 @@ export async function runPdfExport(id: string) {
     open: true,
     status: "loading",
     pageId: id,
-    url: null,
+    pages: [],
     message: null,
     fileName: markdownFileName(page).replace(/\.md$/, ".pdf"),
   });
@@ -173,10 +174,17 @@ export async function runPdfExport(id: string) {
     return fail("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
   }
   try {
-    const bytes = await capturePages(ticket, performance.now() + EXPORT_DEADLINE_MS);
+    const count = await capturePages(ticket, performance.now() + EXPORT_DEADLINE_MS);
+    const storage = getStorage();
+    // 쪽 그림은 한 장씩 가져와 준비되는 대로 보여 준다
+    for (let index = 0; index < count; index++) {
+      const png = await storage.renderPdfPreviewPage(index, PREVIEW_PAGE_WIDTH);
+      if (ticket !== seq) return;
+      const url = URL.createObjectURL(new Blob([png], { type: "image/png" }));
+      usePdfExport.setState((s) => ({ pages: [...s.pages, url] }));
+    }
     if (ticket !== seq) return;
-    const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-    usePdfExport.setState({ status: "ready", url });
+    usePdfExport.setState({ status: "ready" });
   } catch (e) {
     fail(errorText(e, "PDF를 만들지 못했어요."));
   }
@@ -213,5 +221,5 @@ export function closePdfExport() {
   activeCapture?.restore();
   activeCapture = null;
   dropUrl();
-  usePdfExport.setState({ open: false, url: null, status: "loading", message: null });
+  usePdfExport.setState({ open: false, pages: [], status: "loading", message: null });
 }

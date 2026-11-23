@@ -31,6 +31,7 @@
   --color-hover: var(--bg-hover);
   --color-active: var(--bg-active);
   --color-elevated: var(--bg-elevated);
+  --color-paper: var(--bg-paper);
   /* 글자 */
   --color-primary: var(--text-primary);
   --color-secondary: var(--text-secondary);

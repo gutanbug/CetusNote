@@ -83,7 +83,8 @@ export function createTauriStorage(): Storage {
     revealBackups: () => call("backup_reveal"),
     restoreBackup: () => call<WorkspaceInfo | null>("backup_restore"),
     renderPdfPage: (run, index, rect) => call<void>("pdf_page", { run, index, rect }),
-    finishPdf: (run, count) => call<ArrayBuffer>("pdf_finish", { run, count }),
+    finishPdf: (run, count) => call<number>("pdf_finish", { run, count }),
+    renderPdfPreviewPage: (index, width) => call<ArrayBuffer>("pdf_preview_page", { index, width }),
     savePdf: (fileName) => call<string | null>("pdf_save", { fileName }),
   };
 }

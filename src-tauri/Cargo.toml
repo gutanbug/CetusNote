@@ -35,7 +35,9 @@ url = "=2.5.8"
 objc2 = "=0.6.5"
 objc2-foundation = "=0.3.2"
 objc2-web-kit = { version = "=0.3.2", features = ["std", "WKWebView", "WKPDFConfiguration", "block2", "objc2-app-kit"] }
-objc2-pdf-kit = { version = "=0.3.2", features = ["std", "PDFDocument", "PDFPage"] }
+objc2-pdf-kit = { version = "=0.3.2", features = ["std", "PDFDocument", "PDFPage", "objc2-app-kit"] }
+# 미리보기 쪽 그림(PNG, DATA-06): PDFKit 썸네일을 비트맵으로 바꾼다. objc2-web-kit이 쓰는 판과 같다
+objc2-app-kit = { version = "=0.3.2", features = ["std", "NSImage", "NSBitmapImageRep"] }
 block2 = "=0.6.2"
 
 # 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.

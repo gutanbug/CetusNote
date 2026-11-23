@@ -46,6 +46,7 @@ pub fn run() {
             commands::backup_restore,
             commands::pdf_page,
             commands::pdf_finish,
+            commands::pdf_preview_page,
             commands::pdf_save,
             commands::workspace_scan,
             commands::pages_read,

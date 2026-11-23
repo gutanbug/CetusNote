@@ -33,6 +33,7 @@ const COMMANDS: &[&str] = &[
     "backup_restore",
     "pdf_page",
     "pdf_finish",
+    "pdf_preview_page",
     "pdf_save",
     "workspace_scan",
     "pages_read",

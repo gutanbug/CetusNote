@@ -17,6 +17,7 @@
 | `--bg-hover`            | `#F1F3F5`                                                | `#2D3035`           | hover                                                                       |
 | `--bg-active`           | `#E6E9ED`                                                | `#3A3E44`           | 선택된 항목                                                                 |
 | `--bg-elevated`         | `#FFFFFF`                                                | `#26282C`           | 팝오버, 모달, 메뉴                                                          |
+| `--bg-paper`            | `#FFFFFF`                                                | `#FFFFFF`           | PDF 미리보기 종이 바탕(다크에서도 흰색)                                     |
 | `--border-subtle`       | `#E4E7EC`                                                | `#34373C`           | 구분선, 카드 테두리                                                         |
 | `--border-strong`       | `#CFD4DC`                                                | `#4B5058`           | 보조 버튼 테두리, 강조 구분선                                               |
 | `--border-control`      | `#A8B0BB`                                                | `#5A6069`           | 입력 칸 테두리, 꺼진 스위치 트랙 (2026-11-19 추가)                          |
