@@ -67,14 +67,20 @@ function TemplateCard({
           {name || "제목 없음"}
         </span>
         <span className="text-caption text-secondary">{description}</span>
-        <DocPreview doc={doc} className="h-28 rounded-lg bg-subtle p-2.5" />
+        {/* 줄 단위로 5줄까지만 — 아래 끝은 마스크로 흐려서 마지막 줄이 반쯤 잘리지 않게 한다 */}
+        <DocPreview
+          doc={doc}
+          max={5}
+          className="h-28 rounded-lg bg-subtle mask-b-from-70% mask-b-to-100% p-2.5"
+        />
       </button>
       {hasMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton
               label={`${name || "제목 없음"} 템플릿 메뉴`}
-              className="absolute top-3 right-3 opacity-0 transition-opacity duration-(--dur-fast) group-focus-within/card:opacity-100 group-hover/card:opacity-100 data-[state=open]:bg-active data-[state=open]:text-primary data-[state=open]:opacity-100 force-hover:opacity-100"
+              // 숨은 동안(opacity-0)에도 자리를 차지하므로 카드 모서리 클릭을 가리지 않게 포인터 이벤트를 끈다. 키보드 포커스는 그대로 닿는다
+              className="pointer-events-none absolute top-3 right-3 opacity-0 transition-opacity duration-(--dur-fast) group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100 group-hover/card:pointer-events-auto group-hover/card:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:bg-active data-[state=open]:text-primary data-[state=open]:opacity-100 force-hover:pointer-events-auto force-hover:opacity-100"
             >
               <Ellipsis {...ic} />
             </IconButton>

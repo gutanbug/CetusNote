@@ -115,10 +115,17 @@ export const Keyboard: Story = {
 export const CardMenu: Story = {
   play: async ({ args }) => {
     const body = within(document.body);
-    await userEvent.click(await body.findByRole("button", { name: "회의록 템플릿 메뉴" }));
+    // ··· 메뉴는 카드에 마우스가 올라가거나 카드 안에 포커스가 있어야 누를 수 있다(숨은 동안 pointer-events가 꺼진다).
+    // 시뮬레이션 마우스(hover)는 CSS :hover를 켜지 않으므로 키보드 경로(포커스 → focus-within)로 연다
+    const openMenu = async (name: string) => {
+      const menu = await body.findByRole("button", { name });
+      menu.focus();
+      await userEvent.click(menu);
+    };
+    await openMenu("회의록 템플릿 메뉴");
     await userEvent.click(await body.findByRole("menuitem", { name: "편집" }));
     await expect(args.onEdit).toHaveBeenCalledWith("meeting");
-    await userEvent.click(await body.findByRole("button", { name: "주간 리뷰 템플릿 메뉴" }));
+    await openMenu("주간 리뷰 템플릿 메뉴");
     await userEvent.click(await body.findByRole("menuitem", { name: "삭제" }));
     await expect(args.onDelete).toHaveBeenCalledWith("weekly");
   },
