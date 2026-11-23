@@ -33,7 +33,9 @@
 
 - Node.js 22 이상, [pnpm](https://pnpm.io)
 - Rust (stable) — [Tauri 사전 준비](https://tauri.app/start/prerequisites/) 참고
-- macOS (Windows·Linux는 아직 확인하지 않았어요)
+- 지원 OS: macOS(universal, Apple Silicon·Intel), Windows 10·11(x64), Linux(x64, Ubuntu 22.04 이상 등 WebKitGTK 4.1을 쓰는 배포판)
+- Linux 개발 빌드에 필요한 패키지(Ubuntu/Debian): `sudo apt install build-essential curl file pkg-config libssl-dev libxdo-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev`
+- Windows 개발 빌드: Visual Studio Build Tools(C++ 데스크톱 워크로드)와 WebView2 런타임(Windows 11은 기본 설치)
 
 ### 실행
 
@@ -65,6 +67,17 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 - [릴리스 페이지](https://github.com/gutanbug/CetusNote/releases)에서 최신 `.dmg`를 받아요.
 - 서명과 공증을 아직 하지 않아서, 처음 실행하면 macOS가 막을 수 있어요. 앱을 우클릭 › 열기로 열어 주세요(또는 시스템 설정 › 개인정보 보호 및 보안에서 허용).
 
+### 설치 (Windows)
+
+- 릴리스 페이지에서 `…-setup.exe`(NSIS 설치 파일)를 받아 실행해요. 현재 사용자 폴더에 설치돼요.
+- 코드 서명을 아직 하지 않아서 **Windows SmartScreen이 "Windows의 PC 보호"를 띄울 수 있어요.** 「추가 정보」를 누르고 「실행」을 누르면 설치돼요.
+
+### 설치 (Linux)
+
+- **AppImage**: 내려받은 파일에 실행 권한을 주고(`chmod +x Cetus.Note_*.AppImage`) 실행해요. Ubuntu 22.04 이상에서는 `libfuse2`가 필요할 수 있어요(`sudo apt install libfuse2`).
+- **deb**: `sudo apt install ./Cetus.Note_*_amd64.deb`로 설치해요. deb 설치본은 앱 안에서 업데이트하지 않으니 새 파일을 받아 다시 설치해요.
+- 「…에서 보기」 메뉴는 그 OS의 기본 파일 관리자를 열어요(macOS Finder · Windows 탐색기 · Linux 파일 관리자).
+
 ### 업데이트
 
 - 앱을 켤 때와 켜 둔 동안 하루에 한 번 새 버전이 있는지 확인해요. 새 버전이 나오면 토스트로 알려 드려요.
@@ -73,8 +86,9 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 
 ### 릴리스 (메인테이너)
 
+0. 세 OS가 모두 빌드되는지는 `.github/workflows/ci.yml`(PR·수동 실행, 릴리스 없음)이 먼저 알려 줘요. 실제 Windows·Linux 설치는 릴리스 뒤에 직접 확인해요.
 1. 버전 맞추기: `node scripts/version.mjs 0.2.0` — package.json · Cargo.toml · tauri.conf.json · Cargo.lock을 함께 바꿔요. 이어서 `cd src-tauri && cargo check`로 Cargo.lock을 확인해요.
-2. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal 앱을 빌드해서 GitHub Release에 `.dmg`, 업데이트 파일(`.app.tar.gz`·`.sig`)과 `latest.json`을 공개해요. 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
+2. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal(`.dmg`·`.app.tar.gz`), Windows(`-setup.exe`), Linux(`.AppImage`·`.deb`)를 빌드해 GitHub Release에 올리고, 각 업데이트 파일의 `.sig`를 모아 `latest.json` 하나를 만들어요(`scripts/make-latest-json.mjs`, 세 플랫폼이 모두 있어야 성공). 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
 3. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 그리고 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --body ""`(키에 비밀번호를 걸지 않았으면 빈 값).
 4. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
 5. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
