@@ -60,7 +60,9 @@ function RecentCard({
         </span>
       )}
       <span className="grid gap-1 px-3 pt-2 pb-3">
-        <span className="truncate text-ui font-medium">{title}</span>
+        <span className="truncate text-ui font-medium" title={title}>
+          {title}
+        </span>
         <span className="flex items-center gap-1 text-label text-tertiary">
           <Clock strokeWidth={1.5} aria-hidden className="size-3" />
           {meta}
