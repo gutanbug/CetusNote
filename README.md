@@ -1,23 +1,117 @@
+<div align="center">
+
+<img src="src-tauri/icons/128x128@2x.png" width="112" alt="Cetus Note 아이콘" />
+
 # Cetus Note
 
-흩어진 생각을 잇는 개인용 노트 앱. 데스크톱(macOS) 우선, 로컬 우선.
+**흩어진 생각을 잇는 로컬 우선 노트 앱**
 
-노트는 내 컴퓨터의 워크스페이스 폴더에 **페이지 하나 = JSON 파일 하나**로 저장해요. 계정·동기화 서버·DB가 없고, Markdown·PDF·zip 백업으로 언제든 꺼낼 수 있어요.
+블록 에디터로 쓰고, 링크·멘션·백링크로 잇고, 내 컴퓨터의 폴더에 그대로 남겨요.
+계정도 서버도 DB도 없어요.
+
+[![최신 릴리스](https://img.shields.io/github/v/release/gutanbug/CetusNote?label=release)](https://github.com/gutanbug/CetusNote/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24C8DB?logo=tauri&logoColor=white)
+
+</div>
+
+## 다운로드
+
+<table align="center">
+  <tr>
+    <td align="center" width="240">
+      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.1/Cetus.Note_0.1.1_x64-setup.exe">
+        <img src="https://img.shields.io/badge/Windows-다운로드-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows 다운로드" />
+      </a>
+      <br /><sub>Windows 10 · 11 (x64)<br /><code>.exe</code> 설치 파일</sub>
+    </td>
+    <td align="center" width="240">
+      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.1/Cetus.Note_0.1.1_universal.dmg">
+        <img src="https://img.shields.io/badge/macOS-다운로드-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS 다운로드" />
+      </a>
+      <br /><sub>Apple Silicon · Intel (universal)<br /><code>.dmg</code></sub>
+    </td>
+    <td align="center" width="240">
+      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.1/Cetus.Note_0.1.1_amd64.AppImage">
+        <img src="https://img.shields.io/badge/Linux-다운로드-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux 다운로드" />
+      </a>
+      <br /><sub>x64 · <code>.AppImage</code><br />또는 <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.1/Cetus.Note_0.1.1_amd64.deb"><code>.deb</code></a></sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center"><sub>v0.1.1 · 다른 버전은 <a href="https://github.com/gutanbug/CetusNote/releases">릴리스 페이지</a>에서 받을 수 있어요. 처음 실행할 때 보안 경고가 뜨면 <a href="#설치">설치</a>를 참고하세요.</sub></p>
+
+## 왜 Cetus Note인가요
+
+- **내 파일은 내 폴더에** — 노트는 워크스페이스 폴더에 **페이지 하나 = JSON 파일 하나**로 저장돼요. 클라우드에 묶이지 않아요.
+- **언제든 꺼낼 수 있어요** — Markdown · PDF 내보내기, zip 백업을 지원해요.
+- **오프라인에서도 그대로** — 계정과 동기화 서버가 없어서, 인터넷 없이도 모든 기능을 써요.
+- **가볍고 빨라요** — Tauri(Rust) 기반이라 설치 파일이 작고, 실행이 가벼워요.
+- **키보드 우선** — ⌘K 명령 팔레트와 단축키로 손을 떼지 않고 써요.
 
 > 이름은 고래자리(Cetus)에서 왔어요. 흩어진 메모(별)를 링크·멘션·백링크로 이으면 생각의 모양(별자리)이 드러난다는 뜻이에요.
 
 ## 주요 기능
 
-| 영역      | 내용                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------ |
-| 편집      | 블록 에디터(Tiptap 3) — 슬래시 메뉴, Markdown 단축 입력, 표, 이미지, 콜아웃, 수식, 할 일   |
-| 페이지    | 페이지 트리, 즐겨찾기, 템플릿, 아이콘, 태그, 휴지통, 버전 기록                             |
-| 탐색      | ⌘K 명령 팔레트, 초성 검색, @ 멘션, 백링크, 탭, 분할 화면, 목차, 집중 모드                  |
-| 컬렉션    | 표·보드·캘린더 보기, 속성(선택·날짜·숫자 등), 레코드 상세                                  |
-| 빠른 메모 | ⌘⇧N으로 바로 적기                                                                          |
-| 데이터    | 자동 저장(원자적 쓰기), 외부 변경 감지, Markdown 가져오기·내보내기, PDF 내보내기, zip 백업 |
+#### ✍️ 블록 에디터
 
-전체 기능 목록과 상태는 [`docs/product/features.md`](docs/product/features.md)에 있어요.
+슬래시(`/`) 메뉴, Markdown 단축 입력, 표, 이미지, 콜아웃, 토글, 수식(LaTeX), 할 일 목록, 이모지 단축 코드.
+
+#### 🗂️ 페이지 정리
+
+무한 중첩 페이지 트리와 폴더, 드래그 앤 드롭, 즐겨찾기, 태그, 템플릿, 페이지 아이콘, 휴지통, 버전 기록.
+
+#### 🔗 연결과 탐색
+
+⌘K 명령 팔레트, 한글 초성 검색, `@` 페이지 멘션, 백링크, 탭, 분할 화면, 목차, 집중 모드.
+
+#### 📊 컬렉션
+
+표 · 보드 · 캘린더 보기, 선택·날짜·숫자 등 속성, 레코드 상세 화면.
+
+#### ⚡ 빠른 메모와 홈
+
+⌘⇧N으로 바로 적는 빠른 메모, 최근 페이지와 오늘의 할 일이 모인 홈 대시보드.
+
+#### 💾 안전한 저장
+
+자동 저장(원자적 쓰기), 외부 변경 감지, Markdown 가져오기·내보내기, PDF 내보내기, zip 백업·자동 백업.
+
+#### 🎨 외관
+
+라이트 · 다크 · 시스템 테마, 포인트 색 8종, 글꼴 크기와 본문 폭, 화면 확대·축소, 앱 아이콘 선택.
+
+#### 🔄 자동 업데이트
+
+새 버전이 나오면 알려 주고, 사용자가 누를 때만 설치해요.
+
+전체 기능 목록과 진행 상태는 [`docs/product/features.md`](docs/product/features.md)에 있어요.
+
+## 설치
+
+### macOS
+
+- [다운로드](#다운로드)에서 `.dmg`를 받아 열고, Cetus Note를 응용 프로그램 폴더로 끌어 놓아요.
+- 서명과 공증을 아직 하지 않아서, 처음 실행하면 macOS가 막을 수 있어요. 앱을 우클릭 › 열기로 열어 주세요(또는 시스템 설정 › 개인정보 보호 및 보안에서 허용).
+
+### Windows
+
+- 릴리스 페이지에서 `…-setup.exe`(NSIS 설치 파일)를 받아 실행해요. 현재 사용자 폴더에 설치돼요.
+- 코드 서명을 아직 하지 않아서 **Windows SmartScreen이 "Windows의 PC 보호"를 띄울 수 있어요.** 「추가 정보」를 누르고 「실행」을 누르면 설치돼요.
+
+### Linux
+
+- **AppImage**: 내려받은 파일에 실행 권한을 주고(`chmod +x Cetus.Note_*.AppImage`) 실행해요. Ubuntu 22.04 이상에서는 `libfuse2`가 필요할 수 있어요(`sudo apt install libfuse2`).
+- **deb**: `sudo apt install ./Cetus.Note_*_amd64.deb`로 설치해요. deb 설치본은 앱 안에서 업데이트하지 않으니 새 파일을 받아 다시 설치해요.
+- 「…에서 보기」 메뉴는 그 OS의 기본 파일 관리자를 열어요(macOS Finder · Windows 탐색기 · Linux 파일 관리자).
+
+## 업데이트
+
+- 앱을 켤 때와 켜 둔 동안 하루에 한 번 새 버전이 있는지 확인해요. 새 버전이 나오면 토스트로 알려 드려요.
+- 설치는 **업데이트를 누를 때만** 해요. 내려받은 뒤 편집 중인 내용을 모두 저장하고 앱을 다시 열어요.
+- 설정 › 일반 › 업데이트에서 현재 버전을 보고 "업데이트 확인"을 누를 수 있어요. ⌘K에서 "업데이트 확인"도 돼요. "자동으로 업데이트 확인"을 끄면 자동 확인을 멈춰요.
 
 ## 기술 스택
 
@@ -60,38 +154,15 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 
 앱 안의 Debug 화면(`#/debug`)에서 모든 컴포넌트 견본과 디자인 토큰을 라이트·다크로 볼 수 있어요.
 
-## 설치 · 업데이트 · 릴리스
-
-### 설치 (macOS)
-
-- [릴리스 페이지](https://github.com/gutanbug/CetusNote/releases)에서 최신 `.dmg`를 받아요.
-- 서명과 공증을 아직 하지 않아서, 처음 실행하면 macOS가 막을 수 있어요. 앱을 우클릭 › 열기로 열어 주세요(또는 시스템 설정 › 개인정보 보호 및 보안에서 허용).
-
-### 설치 (Windows)
-
-- 릴리스 페이지에서 `…-setup.exe`(NSIS 설치 파일)를 받아 실행해요. 현재 사용자 폴더에 설치돼요.
-- 코드 서명을 아직 하지 않아서 **Windows SmartScreen이 "Windows의 PC 보호"를 띄울 수 있어요.** 「추가 정보」를 누르고 「실행」을 누르면 설치돼요.
-
-### 설치 (Linux)
-
-- **AppImage**: 내려받은 파일에 실행 권한을 주고(`chmod +x Cetus.Note_*.AppImage`) 실행해요. Ubuntu 22.04 이상에서는 `libfuse2`가 필요할 수 있어요(`sudo apt install libfuse2`).
-- **deb**: `sudo apt install ./Cetus.Note_*_amd64.deb`로 설치해요. deb 설치본은 앱 안에서 업데이트하지 않으니 새 파일을 받아 다시 설치해요.
-- 「…에서 보기」 메뉴는 그 OS의 기본 파일 관리자를 열어요(macOS Finder · Windows 탐색기 · Linux 파일 관리자).
-
-### 업데이트
-
-- 앱을 켤 때와 켜 둔 동안 하루에 한 번 새 버전이 있는지 확인해요. 새 버전이 나오면 토스트로 알려 드려요.
-- 설치는 **업데이트를 누를 때만** 해요. 내려받은 뒤 편집 중인 내용을 모두 저장하고 앱을 다시 열어요.
-- 설정 › 일반 › 업데이트에서 현재 버전을 보고 "업데이트 확인"을 누를 수 있어요. ⌘K에서 "업데이트 확인"도 돼요. "자동으로 업데이트 확인"을 끄면 자동 확인을 멈춰요.
-
-### 릴리스 (메인테이너)
+## 릴리스 (메인테이너)
 
 0. Windows·Linux가 빌드되는지는 `.github/workflows/ci.yml`(PR·수동 실행, 릴리스 없음)이 먼저 알려 줘요. macOS는 개발 Mac에서 직접 확인해요. 실제 Windows·Linux 설치는 릴리스 뒤에 직접 확인해요.
 1. 버전 맞추기: `node scripts/version.mjs 0.2.0` — package.json · Cargo.toml · tauri.conf.json · Cargo.lock을 함께 바꿔요. 이어서 `cd src-tauri && cargo check`로 Cargo.lock을 확인해요.
-2. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal(`.dmg`·`.app.tar.gz`), Windows(`-setup.exe`), Linux(`.AppImage`·`.deb`)를 빌드해 GitHub Release에 올리고, 각 업데이트 파일의 `.sig`를 모아 `latest.json` 하나를 만들어요(`scripts/make-latest-json.mjs`, 세 플랫폼이 모두 있어야 성공). 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
-3. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 키에 비밀번호를 걸었으면 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD`(비밀번호 입력). 비밀번호가 없으면 이 시크릿을 만들지 않아요(`--body ""`는 빈 값으로 저장되지 않고 입력을 기다려요. 없는 시크릿은 빈 문자열로 넘어가요).
-4. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
-5. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
+2. README의 [다운로드](#다운로드) 링크에 있는 버전(파일 이름의 `0.1.1` 등)을 새 버전으로 바꿔요. 파일 이름에 버전이 들어 있어서 `releases/latest/download` 고정 링크를 쓸 수 없어요.
+3. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal(`.dmg`·`.app.tar.gz`), Windows(`-setup.exe`), Linux(`.AppImage`·`.deb`)를 빌드해 GitHub Release에 올리고, 각 업데이트 파일의 `.sig`를 모아 `latest.json` 하나를 만들어요(`scripts/make-latest-json.mjs`, 세 플랫폼이 모두 있어야 성공). 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
+4. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 키에 비밀번호를 걸었으면 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD`(비밀번호 입력). 비밀번호가 없으면 이 시크릿을 만들지 않아요(`--body ""`는 빈 값으로 저장되지 않고 입력을 기다려요. 없는 시크릿은 빈 문자열로 넘어가요).
+5. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
+6. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
 
 ## 프로젝트 구조
 
