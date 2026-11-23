@@ -1,17 +1,13 @@
 import type { AppImportPick } from "@/lib/storage";
 import { convertMarkdownTree, convertNotion } from "./notion";
 import { convertObsidianVault } from "./obsidian";
+import { IMPORT_GUIDES, type ImportGuide } from "./guides";
 import type { ImportNode, SourceFile } from "./tree";
 
-/** 다른 앱에서 가져오기(DATA-11)가 다루는 앱. 순서는 선택 목록 순서 */
-export const IMPORT_APPS = [
-  { id: "notion", label: "Notion", hint: "Markdown & CSV로 내보낸 zip 또는 폴더" },
-  { id: "obsidian", label: "Obsidian", hint: "보관소(vault) 폴더 또는 zip" },
-  { id: "appflowy", label: "AppFlowy", hint: "Markdown 또는 HTML로 내보낸 파일·폴더" },
-  { id: "affine", label: "AFFiNE", hint: "Markdown으로 내보낸 파일·폴더" },
-] as const;
+/** 다른 앱에서 가져오기(DATA-11)가 다루는 앱. 목록과 안내는 guides.ts가 원천이다 */
+export const IMPORT_APPS = IMPORT_GUIDES;
 
-export type ImportAppId = (typeof IMPORT_APPS)[number]["id"];
+export type ImportAppId = ImportGuide["id"];
 
 export function appLabel(app: ImportAppId): string {
   return IMPORT_APPS.find((a) => a.id === app)!.label;
