@@ -1,7 +1,9 @@
-# 릴리스 (SYS-07): v* 태그를 올리면 macOS universal 앱을 만들어 GitHub Release에 올린다.
-# 올라가는 것: .dmg · .app.tar.gz(업데이트 본체) · .sig(서명) · latest.json(앱이 읽는 업데이트 목록).
+# 릴리스 (SYS-07, SYS-08): v* 태그를 올리면 macOS(universal) · Windows(NSIS) · Linux(AppImage · deb)를 만들어 GitHub Release에 올린다.
+# 올라가는 것: .dmg · .app.tar.gz · Windows 설치 파일(-setup.exe) · .AppImage · .deb · 각 .sig(서명) · latest.json(앱이 읽는 업데이트 목록).
+# 흐름: create-release(릴리스 만들기) → build(세 OS, 병렬) → updater-json(세 OS의 .sig를 모아 latest.json 하나를 만든다).
+# latest.json은 tauri-action이 아니라 scripts/make-latest-json.mjs가 만든다. 작업마다 덮어쓰면 한 OS만 남기 때문이다.
 # 필요한 저장소 시크릿: TAURI_SIGNING_PRIVATE_KEY (필수), TAURI_SIGNING_PRIVATE_KEY_PASSWORD (키 비밀번호, 없으면 빈 값으로 설정).
-# Apple 서명·공증은 하지 않는다. 처음 설치하는 사람은 앱을 우클릭 › 열기로 열어야 한다.
+# Apple 서명·공증, Windows 코드 서명은 하지 않는다. 처음 설치하는 사람은 macOS는 우클릭 › 열기, Windows는 SmartScreen의 「추가 정보 › 실행」을 누른다.
 #
 # 실행 전 체크: 태그 이름과 package.json · tauri.conf.json · Cargo.toml · Cargo.lock 버전이 같아야 한다(scripts/version.mjs).
 # Release는 바로 공개한다(draft 아님). 앱의 업데이트 주소가 releases/latest/download/latest.json이라,
@@ -21,11 +23,58 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: macos-latest
+  create-release:
+    name: 릴리스 만들기
+    runs-on: ubuntu-22.04
     steps:
       - name: 저장소 가져오기
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: 태그와 버전 파일 확인
+        run: node scripts/version.mjs --check "$GITHUB_REF_NAME"
+
+      - name: 릴리스 없으면 만들기 (이미 있으면 그대로)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "릴리스가 이미 있어요: $TAG"
+          else
+            gh release create "$TAG" --title "Cetus Note $TAG" --notes "Cetus Note $TAG
+
+          이미 설치한 앱은 설정 › 일반 › 업데이트에서 바로 업데이트할 수 있어요.
+          처음 설치하는 경우 서명이 없어서 macOS는 우클릭 › 열기, Windows는 SmartScreen의 「추가 정보 › 실행」으로 열어 주세요."
+          fi
+
+  build:
+    name: 빌드 · 서명 (${{ matrix.name }})
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            args: --target universal-apple-darwin --config src-tauri/tauri.release.conf.json
+          - name: Windows
+            os: windows-latest
+            args: --config src-tauri/tauri.release.conf.json
+          - name: Linux
+            os: ubuntu-22.04
+            args: --config src-tauri/tauri.release.conf.json
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Linux 시스템 패키지 (WebKitGTK · AppImage)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl file pkg-config libssl-dev libxdo-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - name: pnpm 준비
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -38,14 +87,12 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Rust 타깃 추가 (universal 빌드용)
+      - name: Rust 타깃 추가 (macOS universal 빌드용)
+        if: runner.os == 'macOS'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: 의존성 설치
         run: pnpm install --frozen-lockfile
-
-      - name: 태그와 버전 파일 확인
-        run: node scripts/version.mjs --check "$GITHUB_REF_NAME"
 
       - name: 빌드 · 서명 · Release 올리기
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
@@ -56,13 +103,42 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Cetus Note ${{ github.ref_name }}"
-          releaseBody: |
-            Cetus Note ${{ github.ref_name }}
-
-            이미 설치한 앱은 설정 › 일반 › 업데이트에서 바로 업데이트할 수 있어요.
-            처음 설치하는 경우 서명·공증이 없어서 앱을 우클릭 › 열기로 열어 주세요.
           releaseDraft: false
           prerelease: false
-          # 릴리스 빌드에만 업데이트 산출물(.sig, latest.json 원본)을 만든다. 개발 빌드(pnpm app)에는 영향 없음
-          args: --target universal-apple-darwin --config src-tauri/tauri.release.conf.json
-          uploadUpdaterJson: true
+          # latest.json은 아래 updater-json 작업이 만든다(세 OS의 서명을 모으려고)
+          uploadUpdaterJson: false
+          # 릴리스 빌드에만 업데이트 산출물(.sig)을 만든다. 개발 빌드(pnpm app)에는 영향 없음
+          args: ${{ matrix.args }}
+
+  updater-json:
+    name: 업데이트 목록 만들기 (latest.json)
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Node 준비
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+
+      - name: 서명 파일 내려받기
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release download "$TAG" --pattern "*.sig" --dir "$RUNNER_TEMP/sigs"
+
+      - name: latest.json 만들기 (세 플랫폼 모두 있어야 성공)
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: node scripts/make-latest-json.mjs --tag "$TAG" --dir "$RUNNER_TEMP/sigs" --repo "$REPO" --out "$RUNNER_TEMP/latest.json"
+
+      - name: latest.json 올리기
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" "$RUNNER_TEMP/latest.json" --clobber

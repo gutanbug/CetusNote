@@ -1,0 +1,92 @@
+# 빌드 검사 (SYS-08): 세 OS에서 Rust 앱이 컴파일·링크되고 저장 계층 테스트가 도는지 본다. 릴리스는 만들지 않는다.
+# PR과 수동 실행(workflow_dispatch)에서 돈다. 태그·Release는 release.yml이 맡는다.
+# Linux는 WebKitGTK 개발 패키지(webkit2gtk-4.1)가 있어야 링크된다. Windows는 코드 서명 없이 빌드만 한다.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: 프런트엔드 검사 (pnpm check)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: pnpm 준비
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.6.1
+
+      - name: Node 준비
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      - name: 검사
+        run: pnpm check
+
+  native:
+    name: Rust 빌드 · 테스트 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Linux 시스템 패키지 (WebKitGTK)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl file pkg-config libssl-dev libxdo-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: pnpm 준비
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.6.1
+
+      - name: Node 준비
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Rust 준비 (stable)
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+
+      - name: Rust 캐시
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      - name: 프런트엔드 빌드 (Tauri가 dist를 찾는다)
+        run: pnpm build
+
+      - name: 앱 빌드 (디버그, 링크까지)
+        working-directory: src-tauri
+        run: cargo build --locked
+
+      - name: 저장 계층 테스트
+        working-directory: src-tauri
+        run: cargo test --locked
