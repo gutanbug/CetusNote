@@ -128,3 +128,19 @@ export const CardMenu: Story = {
 export const PickOnly: Story = {
   args: { onEdit: undefined, onDuplicate: undefined, onDelete: undefined, onCreate: undefined },
 };
+
+/** 머리글: 「새 템플릿」이 × 닫기 버튼과 겹치지 않는다 (× 자리는 DialogHeaderRow의 오른쪽 여백이 비운다) */
+export const HeaderClearance: Story = {
+  play: async () => {
+    const body = within(document.body);
+    const action = (await body.findByRole("button", { name: "새 템플릿" })).getBoundingClientRect();
+    const close = (await body.findByRole("button", { name: "닫기" })).getBoundingClientRect();
+    const intersects =
+      action.left < close.right &&
+      close.left < action.right &&
+      action.top < close.bottom &&
+      close.top < action.bottom;
+    await expect(intersects).toBe(false);
+    await expect(close.left).toBeGreaterThanOrEqual(action.right);
+  },
+};

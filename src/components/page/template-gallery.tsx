@@ -1,5 +1,11 @@
 import { insetFocus, rowActive, rowBase } from "@/components/shell/parts";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeaderRow,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
@@ -110,7 +116,7 @@ function TemplateGallery({
           </div>
         </div>
         <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
-          <div className="flex items-center gap-2 border-b border-line px-6 py-4">
+          <DialogHeaderRow className="border-b border-line">
             <DialogTitle className="flex-1">
               템플릿{current ? ` · ${current.name}` : ""}
             </DialogTitle>
@@ -122,7 +128,7 @@ function TemplateGallery({
             <DialogDescription className="sr-only">
               템플릿을 고르면 그 모양으로 페이지를 만들어요.
             </DialogDescription>
-          </div>
+          </DialogHeaderRow>
           <div
             role="tabpanel"
             id={`${ID}-panel`}

@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { MoveHorizontal, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
@@ -50,12 +56,12 @@ export function PdfPreview({
         size="xl"
         className="grid h-[calc(var(--fit-h)*0.88)] grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3"
       >
-        <div className="grid gap-1">
+        <DialogHeader>
           <DialogTitle>PDF로 내보내기</DialogTitle>
           <DialogDescription className="text-caption text-tertiary">
             미리보기를 확인하고 PDF로 저장해요.
           </DialogDescription>
-        </div>
+        </DialogHeader>
 
         <div className="flex h-8 items-center justify-between gap-2">
           <span className="text-caption text-tertiary tabular-nums">

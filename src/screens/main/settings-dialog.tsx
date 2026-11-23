@@ -9,7 +9,13 @@ import { SettingsNav } from "@/components/page/settings-nav";
 import { SettingsRow } from "@/components/page/settings-row";
 import { ThemeCardGroup } from "@/components/page/theme-card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeaderRow,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Segmented } from "@/components/ui/segmented";
@@ -67,10 +73,10 @@ export function SettingsDialog() {
         {/* PG-SettingsNav가 왼쪽 칸의 배경·구분선을 스스로 그린다 */}
         <SettingsNav value={tab} onValueChange={setTab} idPrefix={ID} />
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)]">
-          <div className="flex items-center gap-2 border-b border-line px-6 py-4">
+          <DialogHeaderRow className="border-b border-line">
             <DialogTitle>{current.name}</DialogTitle>
             <DialogDescription className="sr-only">Cetus Note 설정</DialogDescription>
-          </div>
+          </DialogHeaderRow>
           {/* 내용이 넘치면 스크롤 막대를 늘 보인다(목록이 아래로 이어진다는 표시) · 내려가면 위에 구분선 */}
           <ScrollArea type="auto" className="min-h-0">
             <div

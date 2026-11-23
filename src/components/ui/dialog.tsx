@@ -67,6 +67,21 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div data-slot="dialog-header" className={cn("grid gap-1 pr-8", className)} {...props} />;
 }
 
+/**
+ * 제목과 동작이 한 줄인 머리글(제목 · 「새 템플릿」 등). 오른쪽 × 자리를 늘 비워 둔다.
+ * 기본 여백은 px-6 py-4이고 오른쪽은 pr-14(56px)다 — p-6 안의 DialogHeader(pr-8)와 × 기준 거리가 같다.
+ * 칸이 p-0인 대화상자에서도 쓰므로 여백은 className으로 덮어쓸 수 있다.
+ */
+function DialogHeaderRow({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-header-row"
+      className={cn("flex items-center gap-2 px-6 py-4 pr-14", className)}
+      {...props}
+    />
+  );
+}
+
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -107,6 +122,7 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogHeaderRow,
   DialogOverlay,
   DialogTitle,
   DialogTrigger,

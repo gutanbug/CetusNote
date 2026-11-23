@@ -1,6 +1,12 @@
 import { insetFocus } from "@/components/shell/parts";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeaderRow,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
@@ -135,12 +141,12 @@ export function VersionHistory({
         </div>
 
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]">
-          <div className="border-b border-line px-6 py-4">
+          <DialogHeaderRow className="border-b border-line">
             <DialogTitle>버전 기록</DialogTitle>
             <DialogDescription className="sr-only">
               왼쪽에서 버전을 고르면 오른쪽에 미리 보여요. 되돌리면 지금 내용도 버전으로 남아요.
             </DialogDescription>
-          </div>
+          </DialogHeaderRow>
           <section
             aria-label="미리보기"
             tabIndex={0}
