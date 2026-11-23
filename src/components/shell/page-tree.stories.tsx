@@ -4,7 +4,7 @@ import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/tes
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { SAMPLE_PAGES } from "@/debug/shell-data";
 import { RowMenu } from "@/debug/shell-sample";
-import { PageTree, type PageTreeProps } from "./page-tree";
+import { PageTree, type PageNode, type PageTreeProps } from "./page-tree";
 
 function Tree(props: Partial<PageTreeProps> & { initialExpanded?: string[] }) {
   const [expanded, setExpanded] = React.useState(props.initialExpanded ?? ["work"]);
@@ -256,5 +256,44 @@ export const DragAndDrop: Story = {
       ),
     );
     fireEvent.dragEnd(study, { dataTransfer: dt });
+  },
+};
+
+/** 페이지 5000개(폴더 100개 × 49문서 + 폴더) — 모두 펼쳐도 DOM에는 보이는 행과 포커스 행만 둔다 (SYS-10) */
+const MANY_FOLDERS: PageNode[] = Array.from({ length: 100 }, (_, f) => ({
+  id: `f${f}`,
+  title: `프로젝트 ${f + 1}`,
+  kind: "folder" as const,
+  children: Array.from({ length: 49 }, (_, i) => ({
+    id: `f${f}-${i}`,
+    title: `문서 ${f + 1}-${i + 1}`,
+  })),
+}));
+const MANY_IDS = MANY_FOLDERS.map((f) => f.id);
+
+/**
+ * 많은 페이지 — 트리 높이를 고정해 스크롤 영역으로 만든다. 행은 보이는 만큼만 DOM에 있고,
+ * 구간 밖으로 간 포커스 행도 남아 있으며, aria-setsize는 실제 형제 수다.
+ */
+export const ManyPages: Story = {
+  args: { pages: MANY_FOLDERS, initialExpanded: MANY_IDS, activeId: "f0-0", className: "h-96" },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const tree = c.getByRole("tree");
+    await waitFor(() =>
+      expect(tree.querySelectorAll('[role="treeitem"]').length).toBeGreaterThan(0),
+    );
+    // 5100행 중 DOM에 있는 행은 100개 미만
+    await expect(tree.querySelectorAll('[role="treeitem"]').length).toBeLessThan(100);
+    await expect(c.getByRole("treeitem", { name: "문서 1-1" })).toHaveAttribute(
+      "aria-setsize",
+      "49",
+    );
+    // 맨 아래로 가도 그 행은 포커스를 잃지 않는다
+    c.getByRole("treeitem", { name: "프로젝트 1" }).focus();
+    await userEvent.keyboard("{End}");
+    await expect(c.getByRole("treeitem", { name: "문서 100-49" })).toHaveFocus();
+    await userEvent.keyboard("{Home}");
+    await expect(c.getByRole("treeitem", { name: "프로젝트 1" })).toHaveFocus();
   },
 };

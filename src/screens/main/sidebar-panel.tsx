@@ -1,8 +1,9 @@
 import { PageIcon } from "@/components/ui/page-icon";
 import { TrashPopover, type TrashItem } from "@/components/page/trash-popover";
 import { PageTree, type PageNode } from "@/components/shell/page-tree";
+import type { DropPosition } from "@/components/shell/drop-indicator";
 import { Sidebar } from "@/components/shell/sidebar";
-import { SidebarFooter } from "@/components/shell/sidebar-footer";
+import { SidebarFooter, type SidebarFooterProps } from "@/components/shell/sidebar-footer";
 import { SidebarItem } from "@/components/shell/sidebar-item";
 import { SidebarSection } from "@/components/shell/sidebar-section";
 import { TagItem } from "@/components/shell/tag-item";
@@ -91,10 +92,27 @@ function defaultSidebarWidth(): number {
 }
 
 /** 메인 화면 사이드바 — 워크스페이스, 페이지 트리(폴더 포함), 휴지통·저장 상태 (SHELL-01, 05, 08, 14) */
-export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
+/** 트리 콜백은 모듈 수준이라 렌더마다 새로 만들지 않는다 (SYS-10) */
+const treeExpandedChange = (ids: string[]) => sessionStore.getState().setExpanded(ids);
+const treeOpen = (id: string, o?: { newTab: boolean; pane?: boolean }) =>
+  o?.pane ? openInRightPane(id) : o?.newTab ? openInNewTab(id) : openPage(id);
+const treePaneAction = (node: PageNode, action: "open" | "close") =>
+  action === "open" ? openInRightPane(node.id) : closeSplit();
+
+/**
+ * 저장 상태만 따로 구독한다 — 저장 상태가 바뀌어도(본문 입력마다) 사이드바 전체를 다시 그리지 않는다 (SYS-10)
+ */
+function SaveAwareFooter(props: Omit<SidebarFooterProps, "saveState">) {
+  const saveState = usePages((s) => s.saveState);
+  return <SidebarFooter {...props} saveState={saveState} />;
+}
+
+/**
+ * SH-Sidebar 패널. 구조(structure)·순서(order)·펼침만 구독한다. 본문 입력은 여기를 다시 그리지 않는다 (SYS-10)
+ */
+function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
   // 사이드바는 구조만 쓴다 — 본문 입력마다 트리를 다시 만들지 않는다 (SYS-10)
   const pages = usePages((s) => s.structure);
-  const saveState = usePages((s) => s.saveState);
   const folderName = useWorkspace((s) => s.workspace?.name ?? "");
   const workspacePath = useWorkspace((s) => s.workspace?.path ?? "");
   const metaName = useMeta((s) => s.meta?.name ?? "");
@@ -131,11 +149,19 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
   const focusMode = useMainUi((s) => s.focusMode);
   const splitArea = useMainUi((s) => s.splitArea);
   const paneAvailable = !focusMode && canSplit(splitArea);
-  const paneAction = (node: PageNode) => {
-    if (!paneAvailable || node.kind === "folder" || node.kind === "collection") return null;
-    if (!isPaneable("page", !!pages[node.id]?.template)) return null;
-    return splitId === node.id ? "close" : "open";
-  };
+  const paneAction = React.useCallback(
+    (node: PageNode) => {
+      if (!paneAvailable || node.kind === "folder" || node.kind === "collection") return null;
+      if (!isPaneable("page", !!pages[node.id]?.template)) return null;
+      return splitId === node.id ? "close" : "open";
+    },
+    [paneAvailable, pages, splitId],
+  );
+  const canDropInTree = React.useCallback(
+    (id: string, target: string, position: DropPosition) =>
+      !!planDrop(pages, tree, id, target, position),
+    [pages, tree],
+  );
   const tagColors = useMeta((s) => s.meta?.tags);
   // 태그 섹션(SHELL-07): 보이는 문서에 붙은 태그만, 이름순(사이드바는 자리가 바뀌지 않게)
   const tags = React.useMemo(
@@ -317,11 +343,10 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
           </WorkspaceSwitcher>
         }
         footer={
-          <SidebarFooter
+          <SaveAwareFooter
             trashCount={trashed.length}
             // 열려 있을 때 누르면 바깥 클릭으로 닫힌 뒤 다시 열리지 않게 — 여는 것만 한다
             onOpenTrash={() => setTrashOpen(true)}
-            saveState={saveState}
             onRetrySave={() => void pagesStore.getState().retry()}
           >
             <QuickNotePopover />
@@ -347,7 +372,7 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
               onRestore={restore}
               onPurge={(id) => void purgeWithChildren(id)}
             />
-          </SidebarFooter>
+          </SaveAwareFooter>
         }
       >
         <SidebarSection title="빠른 액션" untitled>
@@ -467,20 +492,16 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
           {tree.length ? (
             <PageTree
               pages={tree}
-              canDrop={(id, target, position) => !!planDrop(pages, tree, id, target, position)}
-              onDrop={(id, target, position) => dropPage(id, target, position)}
+              canDrop={canDropInTree}
+              onDrop={dropPage}
               activeId={activeId ?? undefined}
               expanded={expanded}
-              onExpandedChange={(ids) => sessionStore.getState().setExpanded(ids)}
-              onOpen={(id, o) =>
-                o?.pane ? openInRightPane(id) : o?.newTab ? openInNewTab(id) : openPage(id)
-              }
+              onExpandedChange={treeExpandedChange}
+              onOpen={treeOpen}
               addMenu={addMenu}
               rowMenu={rowMenu}
               paneAction={paneAction}
-              onPaneAction={(node, action) =>
-                action === "open" ? openInRightPane(node.id) : closeSplit()
-              }
+              onPaneAction={treePaneAction}
             />
           ) : (
             // 섹션 제목 글자(화살표 자리 뒤)와 줄을 맞춘다
@@ -524,3 +545,6 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
     </>
   );
 }
+
+/** 본문만 고친 입력에는 다시 그리지 않는다 — props(hidden)만 본다 (SYS-10) */
+export const SidebarPanel = React.memo(SidebarPanelImpl);
