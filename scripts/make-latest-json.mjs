@@ -11,7 +11,8 @@ import { pathToFileURL } from "node:url";
 /** 번들 이름 → 업데이트 플랫폼 키. 위에서부터 맞는 첫 규칙을 쓴다 */
 const RULES = [
   { test: /\.app\.tar\.gz$/, keys: ["darwin-aarch64", "darwin-x86_64"] },
-  { test: /\.AppImage\.tar\.gz$/, keys: ["linux-x86_64"] },
+  // Tauri v2는 AppImage에 바로 서명한다(.AppImage.sig). 예전 형식(.AppImage.tar.gz)도 받는다
+  { test: /\.AppImage(\.tar\.gz)?$/, keys: ["linux-x86_64"] },
   { test: /-setup\.exe$/, keys: ["windows-x86_64"] },
   { test: /\.nsis\.zip$/, keys: ["windows-x86_64"] },
 ];
