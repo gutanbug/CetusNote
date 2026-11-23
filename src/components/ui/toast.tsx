@@ -28,6 +28,8 @@ function Toaster(props: React.ComponentProps<typeof SonnerToaster>) {
       offset={24}
       gap={8}
       visibleToasts={3}
+      // 기본은 겹쳐 접혀서 맨 앞 토스트만 보인다(뒤의 「실행 취소」가 가려짐). 펼쳐서 최대 3개를 다 보이게 한다
+      expand
       // 스크린 리더가 알림 영역을 찾도록 한국어 이름을 기본으로 단다(호출하는 쪽이 바꿀 수 있다)
       containerAriaLabel="알림"
       // 기본 폭(356px)에 갇히면 긴 문구가 두 줄이 된다 — 틀은 넓게 두고 토스트는 글 길이만큼(가운데).
