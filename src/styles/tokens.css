@@ -21,7 +21,7 @@
   --border-control: #a8b0bb;
   --text-primary: #1f2329;
   --text-secondary: #4b535f;
-  --text-tertiary: #676e7c;
+  --text-tertiary: #5f6675;
   --accent: var(--accent-l);
   --accent-soft: var(--accent-soft-l);
   --accent-on: #ffffff;
@@ -91,7 +91,7 @@
     --border-control: #5a6069;
     --text-primary: #eceef1;
     --text-secondary: #bcc1c7;
-    --text-tertiary: #a2a7af;
+    --text-tertiary: #b4b9c0;
     --accent: var(--accent-d);
     --accent-soft: var(--accent-soft-d);
     --accent-on: #1b1c1f;

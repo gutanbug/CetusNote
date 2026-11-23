@@ -23,7 +23,7 @@
 | `--border-control`      | `#A8B0BB`                                                | `#5A6069`           | 입력 칸 테두리, 꺼진 스위치 트랙 (2026-11-19 추가)                          |
 | `--text-primary`        | `#1F2329`                                                | `#ECEEF1`           | 본문                                                                        |
 | `--text-secondary`      | `#4B535F`                                                | `#BCC1C7`           | 보조 텍스트, 사이드바 항목                                                  |
-| `--text-tertiary`       | `#676E7C`                                                | `#A2A7AF`           | 플레이스홀더, 단축키 힌트                                                   |
+| `--text-tertiary`       | `#5F6675`                                                | `#B4B9C0`           | 플레이스홀더, 단축키 힌트                                                   |
 | `--accent`              | `#1A62D8`                                                | `#6AA6F5`           | 링크, 포커스 링, 주요 버튼 (포인트 색에 따라 교체)                          |
 | `--accent-soft`         | `#EAF1FD`                                                | `#1B2E48`           | 선택 배경                                                                   |
 | `--accent-on`           | `#FFFFFF`                                                | `#1B1C1F`           | accent 위 글자                                                              |
@@ -89,6 +89,8 @@
 > | `--text-primary`   | `#E6E8EB` → `#ECEEF1` | 14.66 · 11.39 · 9.25         |
 > | `--text-secondary` | `#AFB4BA` → `#BCC1C7` | 9.40 · 7.31 · 5.94           |
 > | `--text-tertiary`  | `#969BA3` → `#A2A7AF` | 7.04 · 5.48 · 4.45           |
+
+> **선택 행 대비 보정 (2026-11-24, 사용자 승인 · WCAG AA, bg-active 위):** 선택된 행(`--bg-active`) 위에서 `--text-tertiary`가 AA에 못 미쳐 글자색만 옮겼다. 라이트 `#676E7C` → `#5F6675`(bg-active `#E6E9ED` 위 4.21 → 4.73:1), 다크 `#A2A7AF` → `#B4B9C0`(bg-active `#3A3E44` 위 4.45 → 5.45:1). 명도 위계는 유지한다: 라이트에서 tertiary는 `--text-secondary` `#4B535F`보다 여전히 연하고, 다크에서는 `--text-secondary` `#BCC1C7`보다 여전히 어둡다. 상태: **tokens.md · tokens.css 반영, OpenDesign 프로토타입 반영 대기**(open-design MCP 연결 실패로 이번에는 OpenDesign 미수정).
 
 ## 2. 색상 — 소프트 컬러 9종 (태그 · 콜아웃 · 하이라이트)
 

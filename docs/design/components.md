@@ -128,7 +128,7 @@ L6 컬렉션           components/collection/ 표/보드/캘린더 (P2)
 
 SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한 줄, 같은 44px). UI 감사 결과: 높음 0 · 중간 3 · 낮음 7. 고친 것: 제목 버튼 접근성 이름(`aria-label`에 "주 화면에서 열기"), 숨김 표시 아이콘을 상태 아이콘 `PanelRightDashed`로 바꿔 "패널 닫기"와 구분, "왼쪽과 바꾸기" → "주 화면과 바꾸기"(사이드바와 혼동), 숨김 표시 이름을 "오른쪽 패널 숨김됨 · 창을 넓히면 다시 보여요"로 통일.
 
-- **중간(해결, SHELL-19 후속):** 활성 쪽 표시가 없었다. 패널이 열렸을 때 비활성 쪽 머리(제목·경로·아이콘)를 `text-tertiary`로 낮췄다(`dimmed` prop, 색만 바꾸고 자리·테두리·포커스는 그대로). 대비: 라이트 `--text-tertiary` #676E7C on #FFFFFF 5.12:1, hover #F1F3F5 위 4.61:1, 다크 7.04:1 / 5.48:1 — 전부 AA 통과라 제목도 tertiary로 두었다(text-secondary 대체 불필요). hover·focus 강제 variant는 IconButton 쪽 그대로. 활성 여부는 `useInactiveSide(side)`(split.ts)가 쥔다.
+- **중간(해결, SHELL-19 후속):** 활성 쪽 표시가 없었다. 패널이 열렸을 때 비활성 쪽 머리(제목·경로·아이콘)를 `text-tertiary`로 낮췄다(`dimmed` prop, 색만 바꾸고 자리·테두리·포커스는 그대로). 대비(2026-11-24 값 기준): 라이트 `--text-tertiary` #5F6675 on #FFFFFF 5.76:1, hover #F1F3F5 위 5.18:1, 다크 `#B4B9C0` on 바탕 8.63:1 / hover 6.71:1 — 전부 AA 통과라 제목도 tertiary로 두었다(text-secondary 대체 불필요). hover·focus 강제 variant는 IconButton 쪽 그대로. 활성 여부는 `useInactiveSide(side)`(split.ts)가 쥔다.
 - **낮음(해결):** 구분선(SH-Resizer)을 패널 DOM 맨 앞으로 옮겼다. Tab 순서는 주 화면 → 구분선 → 패널 머리 → 편집기. 히트 폭 `w-1.25`는 기존 리사이저 규격. 포커스 링은 `focusRing`(accent) 그대로이고 브라우저 확인은 computed style만 했다(스크린샷 없음).
 - **숨김 표시 검증:** 1024px에서 패널 표시, 640px에서 숨김 표시 노출, 누르면 토스트, 다시 넓히면 패널 복귀. 표시는 상태라 누르면 상태를 바꾸지 않는다(설명 토스트만).
 - **OpenDesign·Storybook 비교 생략.**
