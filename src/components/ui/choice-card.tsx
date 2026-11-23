@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import type * as React from "react";
+import { useId } from "react";
 import { focusRing, press } from "./styles";
 
 export type ChoiceCardOption<T extends string> = {
@@ -36,6 +37,7 @@ function ChoiceCards<T extends string>({
   columns = 2,
   className,
 }: ChoiceCardsProps<T>) {
+  const groupId = useId();
   return (
     <RadioGroup.Root
       aria-label={label}
@@ -49,10 +51,13 @@ function ChoiceCards<T extends string>({
         className,
       )}
     >
-      {options.map((o) => (
+      {options.map((o, i) => (
         <RadioGroup.Item
           key={o.value}
           value={o.value}
+          // 이름은 제목만, 설명은 보조 설명으로 잇는다(카드 안 글 전체가 이름이 되면 너무 길다)
+          aria-labelledby={`${groupId}-${i}-title`}
+          aria-describedby={o.description ? `${groupId}-${i}-desc` : undefined}
           data-press=""
           // Radix 라디오는 Enter를 막으므로(폼 제출 방지) 여기서 고른다. Space는 라디오 기본 동작이다
           onKeyDown={(e) => {
@@ -68,9 +73,13 @@ function ChoiceCards<T extends string>({
         >
           {o.icon ? <span className="text-primary [&_svg]:size-6">{o.icon}</span> : null}
           <span className="grid min-w-0 gap-1">
-            <span className="text-ui font-medium">{o.title}</span>
+            <span id={`${groupId}-${i}-title`} className="text-ui font-medium">
+              {o.title}
+            </span>
             {o.description ? (
-              <span className="text-caption text-secondary">{o.description}</span>
+              <span id={`${groupId}-${i}-desc`} className="text-caption text-secondary">
+                {o.description}
+              </span>
             ) : null}
           </span>
           <RadioGroup.Indicator className="absolute top-3 right-3 text-accent">
