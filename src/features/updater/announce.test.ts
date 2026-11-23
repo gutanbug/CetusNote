@@ -1,7 +1,7 @@
 import { createFakeUpdater } from "@/lib/updater/fake";
 import { isValidElement, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { INSTALL_ERROR_MESSAGE, createUpdaterStore } from "./store";
+import { INSTALL_ERROR_MESSAGE, RELAUNCH_ERROR_MESSAGE, createUpdaterStore } from "./store";
 import { UPDATE_TOAST_ID, announceUpdateToast, runInstallWithToast } from "./announce";
 
 const toastMock = vi.hoisted(() => {
@@ -56,7 +56,7 @@ describe("새 버전 토스트 (SYS-07)", () => {
       id: UPDATE_TOAST_ID,
       duration: Infinity,
       dismissible: false,
-      action: { label: "다운로드 후 업데이트" },
+      action: { label: "업데이트" },
     });
   });
 
@@ -72,7 +72,7 @@ describe("새 버전 토스트 (SYS-07)", () => {
     expect(toastMock.dismiss).toHaveBeenCalledWith(UPDATE_TOAST_ID);
   });
 
-  it("다운로드 후 업데이트를 누르면 토스트를 지우지 않고 내려받아 다시 연다", async () => {
+  it("업데이트를 누르면 토스트를 지우지 않고 내려받아 다시 연다", async () => {
     const updater = createFakeUpdater({ latest: NEW, steps: 2 });
     const store = createUpdaterStore({ updater, flush: async () => true });
     await store.getState().check();
@@ -93,16 +93,47 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     await vi.waitFor(() => expect(updater.relaunched).toBe(true));
     const messages = toastMock.mock.calls.map((c) => c[0]);
     expect(messages).toEqual(
-      expect.arrayContaining(["업데이트를 내려받고 있어요", "내려받는 중 50%", "내려받는 중 100%"]),
+      expect.arrayContaining([
+        "내려받는 중이에요",
+        "내려받는 중 50%",
+        "내려받는 중 100%",
+        "설치하고 다시 여는 중이에요",
+      ]),
     );
     for (const call of toastMock.mock.calls) {
       expect(call[1]).toMatchObject({
         id: UPDATE_TOAST_ID,
         duration: Infinity,
         dismissible: false,
+        action: undefined,
       });
-      expect(call[1]).toMatchObject({ action: undefined, cancel: undefined });
+      expect(isValidElement(call[1].cancel)).toBe(true);
     }
+  });
+
+  it("닫기를 누르면 토스트는 사라지고, 내려받기는 계속돼 다시 띄우지 않는다", async () => {
+    const updater = createFakeUpdater({ latest: NEW, steps: 2, delayMs: 5 });
+    const store = createUpdaterStore({ updater, flush: async () => true });
+    await store.getState().check();
+    runInstallWithToast(store);
+    clickCancel(lastOpts(toastMock));
+    expect(toastMock.dismiss).toHaveBeenCalledWith(UPDATE_TOAST_ID);
+    const calls = toastMock.mock.calls.length;
+    await vi.waitFor(() => expect(updater.relaunched).toBe(true));
+    expect(toastMock.mock.calls.length).toBe(calls);
+    expect(store.getState().progress).toBe(100);
+  });
+
+  it("앱을 다시 여는 데 실패하면 닫기만 남기고 다시 시도는 없다", async () => {
+    const updater = createFakeUpdater({ latest: NEW, relaunchError: "relaunch" });
+    const store = createUpdaterStore({ updater, flush: async () => true });
+    await store.getState().check();
+    runInstallWithToast(store);
+    await vi.waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    expect(toastMock.error).toHaveBeenCalledWith(RELAUNCH_ERROR_MESSAGE, expect.any(Object));
+    const opts = lastOpts(toastMock.error);
+    expect(opts).toMatchObject({ id: UPDATE_TOAST_ID, action: undefined });
+    expect(isValidElement(opts.cancel)).toBe(true);
   });
 
   it("내려받기가 실패하면 다시 시도와 닫기를 보여 준다", async () => {

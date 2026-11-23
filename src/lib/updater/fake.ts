@@ -8,6 +8,8 @@ export type FakeUpdaterOptions = {
   checkError?: string;
   /** 지정하면 내려받기가 끝난 뒤 이 메시지로 실패한다 */
   installError?: string;
+  /** 지정하면 설치는 끝났는데 앱을 다시 여는 단계(relaunch)가 이 메시지로 실패한다 */
+  relaunchError?: string;
   /** 진행률을 나눌 단계 수 (기본 4) */
   steps?: number;
   /** 단계 사이 지연(ms). 미리보기에서 진행 표시를 보이게 할 때만 쓴다 */
@@ -41,6 +43,7 @@ export function createFakeUpdater(options: FakeUpdaterOptions = {}): Updater & {
       if (o.installError) throw new Error(o.installError);
     },
     async relaunch() {
+      if (o.relaunchError) throw new Error(o.relaunchError);
       relaunched = true;
     },
   };

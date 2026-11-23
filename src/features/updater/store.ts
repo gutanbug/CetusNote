@@ -17,8 +17,10 @@ export type UpdaterState = {
   update: UpdateInfo | null;
   /** 내려받기 진행률 0–100, 모르면 null */
   progress: number | null;
-  /** 오류가 난 단계 — 다시 시도할 동작을 고른다 */
-  errorStep: "check" | "install" | null;
+  /** 내려받기가 끝나 저장·다시 열기를 하는 중(설치는 끝났다) */
+  finishing: boolean;
+  /** 오류가 난 단계 — 다시 시도할 동작을 고른다. relaunch는 설치가 끝난 뒤라 다시 시도하지 않는다 */
+  errorStep: "check" | "install" | "relaunch" | null;
   error: string | null;
   /** 마지막 확인을 시도한 시각(ms). 하루 간격 확인에 쓴다 */
   checkedAt: number | null;
@@ -38,6 +40,7 @@ export type UpdaterStore = UpdaterState & {
 
 export const CHECK_ERROR_MESSAGE = "업데이트를 확인하지 못했어요. 인터넷 연결을 확인해 주세요.";
 export const INSTALL_ERROR_MESSAGE = "업데이트를 내려받지 못했어요. 다시 시도해 주세요.";
+export const RELAUNCH_ERROR_MESSAGE = "업데이트는 설치됐어요. 앱을 직접 다시 열어 주세요.";
 export const SAVE_BEFORE_RESTART_MESSAGE =
   "저장하지 못한 변경이 있어 업데이트를 미뤘어요. 저장을 마친 뒤 다시 시도해 주세요.";
 
@@ -88,6 +91,7 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
       status: "idle",
       update: null,
       progress: null,
+      finishing: false,
       errorStep: null,
       error: null,
       checkedAt: null,
@@ -103,7 +107,13 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
       async install() {
         const info = get().update;
         if (!info || get().status === "downloading") return;
-        set({ status: "downloading", progress: null, errorStep: null, error: null });
+        set({
+          status: "downloading",
+          progress: null,
+          finishing: false,
+          errorStep: null,
+          error: null,
+        });
         try {
           await updater.downloadAndInstall((progress) => set({ progress }));
         } catch {
@@ -111,17 +121,20 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
             status: "error",
             errorStep: "install",
             progress: null,
+            finishing: false,
             error: INSTALL_ERROR_MESSAGE,
           });
           return;
         }
         // 설치는 끝났다. 남은 저장을 끝낸 뒤에만 다시 연다
+        set({ finishing: true });
         const saved = await flush().catch(() => false);
         if (!saved) {
           set({
             status: "error",
             errorStep: "install",
             progress: null,
+            finishing: false,
             error: SAVE_BEFORE_RESTART_MESSAGE,
           });
           return;
@@ -129,11 +142,13 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
         try {
           await updater.relaunch();
         } catch {
+          // 설치는 이미 끝났으므로 다시 설치하지 않고 직접 열어 달라고만 한다
           set({
             status: "error",
-            errorStep: "install",
+            errorStep: "relaunch",
             progress: null,
-            error: "업데이트는 설치됐어요. 앱을 직접 다시 열어 주세요.",
+            finishing: false,
+            error: RELAUNCH_ERROR_MESSAGE,
           });
         }
       },

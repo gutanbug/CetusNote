@@ -4,6 +4,7 @@ import { createAutoChecker } from "./schedule";
 import {
   CHECK_ERROR_MESSAGE,
   INSTALL_ERROR_MESSAGE,
+  RELAUNCH_ERROR_MESSAGE,
   SAVE_BEFORE_RESTART_MESSAGE,
   createUpdaterStore,
 } from "./store";
@@ -65,7 +66,10 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
     await store.getState().check();
     const seen: (number | null)[] = [];
     const unsub = store.subscribe((s) => {
-      if (s.status === "downloading") seen.push(s.progress);
+      // 저장 단계 표시(finishing)로 같은 진행률이 다시 올 수 있어 값이 바뀔 때만 모은다
+      if (s.status === "downloading" && s.progress !== seen[seen.length - 1]) {
+        seen.push(s.progress);
+      }
     });
     await store.getState().install();
     unsub();
@@ -98,6 +102,35 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
     expect(updateView(store.getState())).toMatchObject({
       action: "retry",
       actionLabel: "다시 시도",
+    });
+  });
+
+  it("내려받기가 끝나 저장하는 동안에는 설치 완료 문구를 보인다", async () => {
+    let during: ReturnType<typeof updateView> | null = null;
+    const { store } = make({ latest: NEW, steps: 2 }, async () => {
+      during = updateView(store.getState());
+      return true;
+    });
+    await store.getState().check();
+    await store.getState().install();
+    expect(during).toMatchObject({ message: "설치하고 다시 여는 중이에요", busy: true });
+  });
+
+  it("앱을 다시 여는 데 실패하면 relaunch 오류로 남고, 다시 설치하지 않는다", async () => {
+    const { store, updater } = make({ latest: NEW, relaunchError: "x" });
+    await store.getState().check();
+    const install = vi.spyOn(updater, "downloadAndInstall");
+    await store.getState().install();
+    expect(install).toHaveBeenCalledTimes(1);
+    expect(store.getState()).toMatchObject({
+      status: "error",
+      errorStep: "relaunch",
+      error: RELAUNCH_ERROR_MESSAGE,
+    });
+    expect(updateView(store.getState())).toMatchObject({
+      action: "none",
+      message: RELAUNCH_ERROR_MESSAGE,
+      error: true,
     });
   });
 

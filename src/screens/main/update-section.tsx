@@ -40,15 +40,17 @@ export function UpdateSection() {
           </span>
         }
       >
-        <Button
-          variant={view.action === "install" ? "primary" : "secondary"}
-          size="sm"
-          loading={view.busy}
-          disabled={view.actionDisabled}
-          onClick={onAction}
-        >
-          {view.actionLabel}
-        </Button>
+        {view.action === "none" ? null : (
+          <Button
+            variant={view.action === "install" ? "primary" : "secondary"}
+            size="sm"
+            loading={view.busy}
+            disabled={view.actionDisabled}
+            onClick={onAction}
+          >
+            {view.actionLabel}
+          </Button>
+        )}
       </SettingsRow>
       {view.progress !== null || state.status === "downloading" ? (
         <div className="pb-3">

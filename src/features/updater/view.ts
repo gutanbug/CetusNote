@@ -1,10 +1,19 @@
 import type { UpdaterState } from "./store";
 
+/**
+ * 내려받기·설치 문구. 토스트와 설정 화면이 같이 쓴다.
+ * 내려받는 중 → 「내려받는 중 n%」, 내려받기가 끝나 저장·다시 여는 중 → 「설치하고 다시 여는 중이에요」
+ */
+export function downloadMessage(progress: number | null, finishing: boolean): string {
+  if (finishing) return "설치하고 다시 여는 중이에요";
+  return progress === null ? "내려받는 중이에요" : `내려받는 중 ${progress}%`;
+}
+
 /** 설정 › 일반 › 업데이트 행이 그릴 내용. 화면은 이 값을 그대로 쓴다 */
 export type UpdateView = {
   /** 행 설명 줄 */
   message: string;
-  /** 버튼: 없음 · 확인 · 설치 · 다시 시도. busy면 로딩 표시 */
+  /** 버튼: 없음 · 확인 · 설치 · 다시 시도. busy면 로딩 표시. 없음이면 버튼을 그리지 않는다 */
   action: "none" | "check" | "install" | "retry";
   actionLabel: string;
   actionDisabled: boolean;
@@ -38,14 +47,18 @@ export function updateView(s: UpdaterState): UpdateView {
     case "downloading":
       return {
         ...base,
-        message: s.progress === null ? "내려받는 중이에요" : `내려받는 중 ${s.progress}%`,
+        message: downloadMessage(s.progress, s.finishing),
         action: "install",
-        actionLabel: "설치 중…",
+        actionLabel: "업데이트",
         actionDisabled: true,
         busy: true,
         progress: s.progress,
       };
     case "error":
+      if (s.errorStep === "relaunch") {
+        // 설치는 끝났다. 다시 설치하는 버튼 대신 직접 열어 달라는 문구만 남긴다
+        return { ...base, message: s.error ?? "", action: "none", actionLabel: "", error: true };
+      }
       return {
         ...base,
         message: s.error ?? "업데이트를 확인하지 못했어요.",

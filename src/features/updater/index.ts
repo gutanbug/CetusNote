@@ -29,7 +29,7 @@ export function useUpdater<T>(select: (s: UpdaterStore) => T): T {
   return useStore(updaterStore, select);
 }
 
-/** 새 버전 토스트 — 사라지지 않고 「다운로드 후 업데이트」 · 「닫기」 (SYS-07) */
+/** 새 버전 토스트 — 사라지지 않고 「업데이트」 · 「닫기」 (SYS-07) */
 export function announceUpdate(version: string) {
   announceUpdateToast(updaterStore, version);
 }
