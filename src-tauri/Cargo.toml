@@ -59,9 +59,9 @@ gtk = "=0.18.2"
 tempfile = "3"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+# thin LTO와 기본 codegen-units: 릴리스 빌드 시간을 줄인다(full LTO + codegen-units=1보다 조금 덜 최적화됨).
 [profile.release]
-codegen-units = 1
-lto = true
+lto = "thin"
 opt-level = 3
 panic = "abort"
 strip = true
