@@ -14,7 +14,7 @@
 내보내는 방법:
 
 1. 가져올 최상위 페이지를 열고 오른쪽 위 •••(더보기)를 눌러요.
-2. 「내보내기(Export)」를 눌러요.
+2. •••에서 「More」를 열고 「Export」를 눌러요.
 3. 형식에서 「Markdown & CSV」를 고르고, 「하위 페이지 포함(Include subpages)」을 켜요.
 4. 「내보내기」를 누르면 받는 zip 파일을 그대로 골라요.
 
@@ -40,11 +40,11 @@
 
 내보내는 방법:
 
-1. 가져올 페이지마다 •••(더보기)를 눌러 「내보내기(Export)」에서 「Markdown」을 골라요. 데이터베이스는 「CSV」로 내보내요.
+1. 가져올 페이지마다 •••(더보기)를 눌러 「Export」에서 「Markdown」을 골라요. 데이터베이스는 「CSV」로 내보내요.
 2. 받은 파일과 그림을 한 폴더에 모아 두세요. 그림은 문서 기준 상대 경로로 찾아요.
 3. 「폴더」를 누르고 그 폴더를 골라요.
 
-메뉴 이름은 버전에 따라 다를 수 있어요. 공식 문서로 확인하지 못했으니, 메뉴가 다르면 가까운 「Markdown」 내보내기를 골라 주세요.
+AppFlowy 공식 도움말에는 닿지 못했어요. 커뮤니티 공지(forum.appflowy.com)에서 페이지별 Markdown·CSV 내보내기를 확인했어요(2026-11-23). 메뉴 이름은 버전에 따라 다를 수 있어요.
 
 가져와요: Markdown·HTML 문서와 하위 문서 구조, 그림, CSV 데이터베이스(컬렉션).
 가져오지 않아요: AppFlowy 작업공간 내부 형식, 데이터베이스의 관계·수식·롤업 열.
@@ -56,14 +56,21 @@
 
 내보내는 방법:
 
-1. 문서를 열고 페이지 메뉴에서 「내보내기(Export)」 → 「Markdown」을 골라요.
+1. 문서 메뉴에서 「Markdown」 내보내기를 골라요. 공유 패널에도 같은 내보내기 메뉴가 있어요.
 2. 가져올 문서마다 반복해서 받고, 한 폴더에 모아 두세요.
 3. 「폴더」를 누르고 그 폴더를 골라요.
 
-메뉴 위치는 버전에 따라 다를 수 있어요. 공식 문서로 확인하지 못했어요.
+AFFiNE 공식 블로그(v0.27.4 기준, 2026-10-09 확인)에서 문서 메뉴의 「Markdown」 내보내기를 확인했어요. 상위 「내보내기」 메뉴 이름은 그 글에서 확인하지 못했고, 메뉴 이름은 버전에 따라 다를 수 있어요.
 
 가져와요: Markdown 문서와 그림(index.md와 assets 폴더), CSV 데이터베이스(컬렉션).
 가져오지 않아요: AFFiNE 원본 파일(.affine·.bs.zip)과 문서 스냅샷. Markdown으로 내보내 주세요. 화이트보드 내용.
+
+### 출처 (2026-11-23 확인)
+
+- Notion: 공식 도움말 「Export your content」 (notion.com/help/export-your-content). 단일 페이지는 •••·More·Export, 형식 「Markdown & CSV」, 「Include subpages」. 메일 링크 7일.
+- Obsidian: 공식 도움말 「Vault」 (obsidian.md/help/vault). 보관소는 로컬 폴더이므로 내보내기가 필요 없어요. `.obsidian` 설정 폴더 설명은 이 페이지에 없어서 확인하지 못했어요.
+- AppFlowy: 공식 문서 색인은 가져오지 못했어요. 커뮤니티 공지(forum.appflowy.com/t/…/2743 「export a document page as an .md file」)와 mintlify 미러로 확인했어요. 공식 메뉴 이름은 미확인.
+- AFFiNE: 공식 블로그 「How to Export and Share Your Online Whiteboard」(affine.pro/blog/how-to-export-and-share-your-online-whiteboard), v0.27.4 기준. 문서 메뉴와 공유 패널의 「Markdown」 항목. 상위 「내보내기」 라벨은 미확인.
 
 ## 제한
 

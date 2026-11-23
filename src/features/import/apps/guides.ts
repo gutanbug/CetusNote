@@ -3,7 +3,7 @@
  * 대화상자(import-app-dialog)가 이 데이터를 그리고, docs/product/import-guide.md가 같은 내용을 적는다.
  * 메뉴 이름은 공식 문서로 확인한 것만 적고, 확인하지 못한 것은 note에 「버전에 따라 다를 수 있어요」로 둔다.
  * 확인 기록(2026-11-23): Notion 공식 도움말(export-your-content)·Obsidian 도움말(vault)은 확인함.
- * AppFlowy·AFFiNE 공식 문서는 이 날 접근하지 못해 메뉴 이름은 확인하지 못했다(아래 note 참고).
+ * AFFiNE은 공식 블로그(Markdown 내보내기 안내)로 경로를 확인했고, AppFlowy는 공식 문서에 닿지 못해 커뮤니티 자료로만 확인했다(아래 note 참고).
  */
 
 export type ImportKind = "folder" | "zip";
@@ -38,7 +38,7 @@ export const IMPORT_GUIDES: ImportGuide[] = [
     misses: ["관계·수식·롤업 열(값으로 옮기지 않아요)", "댓글과 버전 기록"],
     steps: [
       "가져올 최상위 페이지를 열고 오른쪽 위 •••(더보기)를 눌러요.",
-      "「내보내기(Export)」를 눌러요.",
+      "•••에서 「More」를 열고 「Export」를 눌러요.",
       "형식에서 「Markdown & CSV」를 고르고, 「하위 페이지 포함(Include subpages)」을 켜요.",
       "「내보내기」를 누르면 받는 zip 파일을 그대로 골라요. 압축은 풀지 마세요.",
     ],
@@ -71,12 +71,12 @@ export const IMPORT_GUIDES: ImportGuide[] = [
     ],
     misses: ["AppFlowy 작업공간 내부 형식", "데이터베이스의 관계·수식·롤업 열"],
     steps: [
-      "가져올 페이지마다 •••(더보기)를 눌러 「내보내기(Export)」에서 「Markdown」을 골라요. 데이터베이스는 「CSV」로 내보내요.",
+      "가져올 페이지마다 •••(더보기)를 눌러 「Export」에서 「Markdown」을 골라요. 데이터베이스는 「CSV」로 내보내요.",
       "받은 파일과 그림을 한 폴더에 모아 두세요. 그림은 문서 기준 상대 경로로 찾아요.",
       "「폴더」를 누르고 그 폴더를 골라요.",
     ],
     kinds: ["folder", "zip"],
-    note: "메뉴 이름은 버전에 따라 다를 수 있어요. 공식 문서로 확인하지 못했으니 메뉴가 다르면 가까운 「Markdown」 내보내기를 골라 주세요.",
+    note: "AppFlowy 공식 도움말에는 닿지 못했어요. 커뮤니티 공지(forum.appflowy.com)에서 페이지별 Markdown·CSV 내보내기를 확인했어요(2026-11-23). 메뉴 이름은 버전에 따라 다를 수 있어요.",
   },
   {
     id: "affine",
@@ -88,12 +88,12 @@ export const IMPORT_GUIDES: ImportGuide[] = [
       "화이트보드 내용",
     ],
     steps: [
-      "문서를 열고 페이지 메뉴에서 「내보내기(Export)」 → 「Markdown」을 골라요.",
+      "문서 메뉴에서 「Markdown」 내보내기를 골라요. 공유 패널에도 같은 내보내기 메뉴가 있어요.",
       "가져올 문서마다 반복해서 받고, 한 폴더에 모아 두세요.",
       "「폴더」를 누르고 그 폴더를 골라요.",
     ],
     kinds: ["folder", "zip"],
-    note: "메뉴 위치는 버전에 따라 다를 수 있어요. 공식 문서로 확인하지 못했어요.",
+    note: "AFFiNE 공식 블로그(v0.27.4 기준, 2026-10-09 확인)에서 문서 메뉴의 「Markdown」 내보내기를 확인했어요. 상위 「내보내기」 메뉴 이름은 그 글에서 확인하지 못했고, 메뉴 이름은 버전에 따라 다를 수 있어요.",
   },
 ];
 
