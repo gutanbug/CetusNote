@@ -19,6 +19,7 @@ const COMMANDS: &[&str] = &[
     "history_delete",
     "settings_read",
     "settings_write",
+    "app_icon_set",
     "export_markdown",
     "workspace_export_markdown",
     "workspace_export_reveal",

@@ -139,6 +139,7 @@ DB를 쓰지 않으므로 "컬렉션 = 레코드를 담은 특수 페이지"로 
 | SET-04 | 에디터 — 기본 글꼴, 맞춤법 검사 등                                                                                                                                     | P1   | `PG-SettingsRow`                                    | settings.json `editor` · 구현 |
 | SET-05 | 단축키 목록 보기                                                                                                                                                       | P1   | `UI-Kbd`                                            | 완료                          |
 | SET-06 | 데이터/백업 — 백업(zip 내보내기·불러오기·자동 백업) · 가져오기·내보내기(문서 가져오기 · Markdown 모두 내보내기) · 템플릿(기본 템플릿 되살리기) 묶음으로 나눠 보여 준다 | P1   | `UI-Button`                                         | DATA-05 · 구현                |
+| SET-07 | 앱 아이콘 — 설정 > 외관에서 화이트·블랙·자동(테마 따라) 고르기. Dock(macOS)·창 아이콘(Windows·Linux)을 바꾼다. 번들 아이콘은 라이트(화이트)                            | P1   | `PG-SettingsRow` `UI-Segmented`                     | 구현 · 앱 확인 대기           |
 
 ## DATA — 저장 (로컬 파일, DB 없음)
 

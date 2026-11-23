@@ -274,6 +274,9 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async writeSettings(next) {
       settings = clone(next);
     },
+    async setAppIcon() {
+      // 브라우저 미리보기에는 Dock·창 아이콘이 없다
+    },
     async exportMarkdown(fileName, text) {
       exports.push({ fileName, text });
       return fileName;

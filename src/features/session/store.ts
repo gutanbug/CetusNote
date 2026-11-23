@@ -1,6 +1,7 @@
 import { normalizeZoom } from "@/lib/zoom";
 import { readSplit } from "./split-state";
 import type { PageFont, RecordOpenMode, Storage } from "@/lib/storage";
+import { parseAppIconPref, type AppIconPref } from "@/lib/app-icon";
 import { createStore } from "zustand/vanilla";
 import {
   forgetPositions,
@@ -32,6 +33,8 @@ export type Appearance = {
   constellation: boolean;
   /** 새 페이지를 전체 폭으로 시작 (본문 폭 설정). 페이지마다 메뉴에서 바꿀 수 있다 */
   newPageWide: boolean;
+  /** 앱 아이콘(SET-07): 자동은 테마를 따른다 */
+  appIcon: AppIconPref;
 };
 
 /** 에디터 설정 (SET-04). 모든 워크스페이스에 같다 */
@@ -87,6 +90,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   zoom: 1,
   constellation: true,
   newPageWide: false,
+  appIcon: "auto",
 };
 
 const ACCENTS: AccentPref[] = [
@@ -112,6 +116,7 @@ function readAppearance(raw: unknown): Appearance {
     zoom: normalizeZoom(a.zoom),
     constellation: a.constellation !== false,
     newPageWide: a.newPageWide === true,
+    appIcon: parseAppIconPref(a.appIcon),
   };
 }
 

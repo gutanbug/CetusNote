@@ -1,3 +1,4 @@
+mod app_icon;
 mod commands;
 #[cfg(target_os = "macos")]
 mod menu;
@@ -30,6 +31,7 @@ pub fn run() {
             commands::history_delete,
             commands::settings_read,
             commands::settings_write,
+            commands::app_icon_set,
             commands::export_markdown,
             commands::document_pick,
             commands::document_bytes,

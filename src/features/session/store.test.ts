@@ -63,6 +63,7 @@ describe("createSessionStore (SHELL-01, SHELL-05)", () => {
       zoom: 1,
       constellation: true,
       newPageWide: false,
+      appIcon: "auto",
     });
     expect(b.getState().editor).toEqual({
       newPageFont: "serif",

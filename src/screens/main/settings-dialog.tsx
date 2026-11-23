@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Segmented } from "@/components/ui/segmented";
+import type { AppIconPref } from "@/lib/app-icon";
 import { Switch } from "@/components/ui/switch";
 import { TagChip } from "@/components/ui/tag-chip";
 import { toast } from "@/components/ui/toast";
@@ -503,6 +504,12 @@ function TagSettings() {
   );
 }
 
+const APP_ICONS: { value: AppIconPref; label: string }[] = [
+  { value: "auto", label: "자동(테마 따라)" },
+  { value: "light", label: "화이트" },
+  { value: "dark", label: "블랙" },
+];
+
 const SCALES: { value: string; label: string }[] = [
   { value: "0.9", label: "작게" },
   { value: "1", label: "기본" },
@@ -519,6 +526,17 @@ function Appearance() {
       </SettingsRow>
       <SettingsRow stacked name="포인트 색" description="링크, 선택, 포커스 표시에 쓰여요.">
         <AccentSwatchGroup value={a.accent} onValueChange={(accent) => set({ accent })} />
+      </SettingsRow>
+      <SettingsRow
+        name="앱 아이콘"
+        description="Dock과 창에 보이는 아이콘이에요. 자동이면 테마를 따라요."
+      >
+        <Segmented
+          label="앱 아이콘"
+          options={APP_ICONS}
+          value={a.appIcon}
+          onValueChange={(v) => set({ appIcon: v as AppIconPref })}
+        />
       </SettingsRow>
       <SettingsRow name="글꼴 크기" description="본문과 제목에 적용돼요.">
         <Segmented

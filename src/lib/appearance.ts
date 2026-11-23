@@ -1,4 +1,6 @@
 import { applyZoom, normalizeZoom } from "./zoom";
+import { getStorage } from "./storage/default";
+import { parseAppIconPref, resolveAppIcon, type AppIconPref } from "./app-icon";
 
 /**
  * 외관 적용 (SET-03) — <html>에 data-theme · data-accent · --font-scale을 단다.
@@ -10,6 +12,8 @@ export type AppearanceInput = {
   fontScale: number;
   /** 화면 크기(SHELL-17). 없으면 100% */
   zoom?: number;
+  /** 앱 아이콘(SET-07). 없으면 자동 */
+  appIcon?: AppIconPref;
 };
 
 const CACHE_KEY = "cetusnote.appearance";
@@ -17,11 +21,27 @@ const dark = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
 
 let current: AppearanceInput | null = null;
+/** 마지막으로 보낸 앱 아이콘 — 같은 값이면 다시 보내지 않는다 */
+let lastIcon: string | null = null;
 let unlisten: (() => void) | null = null;
+
+/** 앱 아이콘을 지금 테마에 맞춰 바꾼다(SET-07). 실패하면 다음번에 다시 보낸다 */
+function syncAppIcon(a: AppearanceInput, theme: "light" | "dark") {
+  const icon = resolveAppIcon(parseAppIconPref(a.appIcon), theme);
+  if (icon === lastIcon) return;
+  lastIcon = icon;
+  getStorage()
+    .setAppIcon(icon)
+    .catch(() => {
+      lastIcon = null;
+    });
+}
 
 function paint(a: AppearanceInput) {
   const root = document.documentElement;
-  root.dataset.theme = a.theme === "system" ? (dark() ? "dark" : "light") : a.theme;
+  const theme: "light" | "dark" = a.theme === "system" ? (dark() ? "dark" : "light") : a.theme;
+  root.dataset.theme = theme;
+  syncAppIcon(a, theme);
   root.dataset.accent = a.accent;
   root.style.setProperty("--font-scale", String(a.fontScale));
   root.style.colorScheme = root.dataset.theme;
@@ -58,5 +78,6 @@ export function applyCachedAppearance() {
     accent: typeof cached.accent === "string" ? cached.accent : "blue",
     fontScale: typeof cached.fontScale === "number" ? cached.fontScale : 1,
     zoom: normalizeZoom(cached.zoom ?? 1),
+    appIcon: parseAppIconPref(cached.appIcon),
   });
 }

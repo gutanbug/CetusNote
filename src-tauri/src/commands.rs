@@ -398,6 +398,14 @@ pub fn settings_write(app: AppHandle, value: Value) -> Result<()> {
     storage::write_json(&config_dir(&app)?.join(SETTINGS_FILE), &value)
 }
 
+/// 앱 아이콘 바꾸기(SET-07): "light"(화이트) 또는 "dark"(블랙)만 받는다. Dock(macOS)·창 아이콘에 건다.
+#[tauri::command]
+pub fn app_icon_set(app: AppHandle, theme: String) -> Result<()> {
+    let bytes = crate::app_icon::png_for(&theme)
+        .ok_or_else(|| StorageError::new("invalid_icon", "아이콘은 화이트(light)나 블랙(dark)만 골라요"))?;
+    crate::app_icon::apply(&app, bytes)
+}
+
 /// Markdown 내보내기(DATA-04): 저장 대화상자 → 원자적 쓰기. 취소하면 None, 저장하면 파일 이름.
 #[tauri::command]
 pub async fn export_markdown(

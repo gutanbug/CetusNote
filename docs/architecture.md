@@ -47,6 +47,8 @@ src/
   assets/fonts/     Pretendard Variable, JetBrains Mono, Nanum Myeongjo (모두 npm 패키지로 번들)
 src-tauri/
   src/commands.rs   프론트엔드가 부르는 커맨드 (경로를 받지 않음, id만)
+  src/app_icon.rs   앱 아이콘 바꾸기(SET-07): 테마별 PNG를 바이너리에 넣고 Dock(macOS)·창 아이콘에 건다
+  icons/            번들 아이콘(icon.icns·icon.ico·PNG, 기본은 라이트=화이트). 런타임 전환용은 icons/themes/{light,dark}/icon-512.png(라이트=화이트, 다크=블랙). 1024 원본은 design/app-icon/
   src/storage/      파일 형식 검사, 원자적 쓰기, 링크 차단 — Tauri와 무관한 순수 함수 + 단위 테스트
   build.rs          커맨드 목록(AppManifest) — capabilities에서 허용한 창만 부를 수 있다
   permissions/      storage.toml: 저장 커맨드 묶음 → capabilities/default.json에서 메인 창에만
@@ -135,6 +137,7 @@ src-tauri/
 | `pages_load_all`                                             | `loadPages()`                                                            | `pages/*.json` 전부. 깨진 파일·이름과 id가 다른 파일·링크는 `errors`로 모으고 건드리지 않는다                                                                                                                                                                            |
 | `page_write`                                                 | `writePage()`                                                            | 원자적 쓰기(임시 파일 → 디스크에 내림 → rename → 폴더 내림)                                                                                                                                                                                                              |
 | `page_purge`                                                 | `purgePage()`                                                            | `trashedAt`이 있는 페이지만. 파일과 `assets/<id>`(링크면 링크만)                                                                                                                                                                                                         |
+| `app_icon_set`                                               | `setAppIcon(theme)`                                                      | 앱 아이콘 교체(SET-07). `"light"`·`"dark"`만 받는다. 미리보기(메모리 저장소)는 아무 일도 하지 않는다                                                                                                                                                                     |
 | `settings_read` / `settings_write`                           | `readSettings()` / `writeSettings()`                                     | 앱 설정 폴더 `settings.json` (`tauri-plugin-store`는 쓰지 않는다)                                                                                                                                                                                                        |
 | `workspace_export_markdown`                                  | `exportWorkspaceMarkdown()`                                              | 워크스페이스 전체 Markdown 내보내기(DATA-10, ADR-014). 폴더 대화상자 → `<워크스페이스> Markdown <날짜>` 새 폴더에 목록(manifest)대로 쓴다. 목록의 경로는 검사하고, 이미지는 `assets/`에서만 복사. 한 항목 실패는 실패 목록으로                                           |
 | `workspace_export_reveal`                                    | `revealWorkspaceExport()`                                                | 마지막 내보내기 폴더를 Finder로 연다(토스트의 「폴더 열기」)                                                                                                                                                                                                             |

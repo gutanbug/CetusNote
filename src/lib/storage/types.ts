@@ -258,6 +258,8 @@ export interface Storage {
   deleteVersions(pageId: string): Promise<void>;
   readSettings(): Promise<Record<string, unknown> | null>;
   writeSettings(settings: Record<string, unknown>): Promise<void>;
+  /** 앱 아이콘 바꾸기(SET-07): 화이트("light")·블랙("dark"). 미리보기에서는 아무 일도 없다 */
+  setAppIcon(theme: "light" | "dark"): Promise<void>;
   /** 저장 대화상자 → 파일 쓰기. 취소하면 null, 저장하면 파일 이름 */
   exportMarkdown(fileName: string, text: string): Promise<string | null>;
   /**

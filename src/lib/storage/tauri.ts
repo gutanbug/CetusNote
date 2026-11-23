@@ -62,6 +62,7 @@ export function createTauriStorage(): Storage {
     deleteVersions: (pageId) => call("history_delete", { id: pageId }),
     readSettings: () => call<Record<string, unknown> | null>("settings_read"),
     writeSettings: (value) => call("settings_write", { value }),
+    setAppIcon: (theme) => call("app_icon_set", { theme }),
     exportMarkdown: (fileName, text) => call<string | null>("export_markdown", { fileName, text }),
     exportWorkspaceMarkdown: (manifest) =>
       call<WorkspaceExportReport | null>("workspace_export_markdown", { manifest }),
