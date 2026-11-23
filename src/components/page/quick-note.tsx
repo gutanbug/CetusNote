@@ -83,7 +83,7 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
           aria-label="새 메모"
           placeholder="떠오른 것을 바로 적어 두세요"
           className={cn(
-            "min-h-16 w-full resize-y rounded-md border border-line bg-app p-2 text-ui leading-relaxed text-primary placeholder:text-tertiary",
+            "min-h-16 w-full resize-none rounded-md border border-line bg-app p-2 text-ui leading-relaxed text-primary placeholder:text-tertiary",
             "transition-[border-color,box-shadow]",
             fieldFocus,
           )}
