@@ -3,7 +3,7 @@ import { cellValue, inferColumns, parseCsv } from "./csv";
 
 describe("가져오기 CSV (DATA-11)", () => {
   it("따옴표·줄바꿈·CRLF·BOM을 읽고 빈 줄은 뺀다", () => {
-    const rows = parseCsv('﻿이름,메모\r\n"가, 나","첫 줄\n둘째 ""줄"""\r\n\r\n다,\r\n');
+    const rows = parseCsv('\uFEFF이름,메모\r\n"가, 나","첫 줄\n둘째 ""줄"""\r\n\r\n다,\r\n');
     expect(rows).toEqual([
       ["이름", "메모"],
       ["가, 나", '첫 줄\n둘째 "줄"'],

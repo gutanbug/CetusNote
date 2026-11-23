@@ -11,7 +11,7 @@ export type Column = { name: string; type: ColumnType; options: string[] };
 
 /** RFC 4180 CSV → 행 목록. BOM·CRLF·따옴표 안 줄바꿈을 다룬다. 빈 줄은 뺀다 */
 export function parseCsv(text: string): string[][] {
-  const src = text.replace(/^﻿/, "");
+  const src = text.replace(/^\uFEFF/, "");
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
