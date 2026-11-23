@@ -47,7 +47,7 @@ function SearchInput({
           aria-label={clearLabel}
           onClick={() => onValueChange("")}
           className={cn(
-            "absolute top-1/2 right-2 grid size-5 -translate-y-1/2 place-items-center rounded-pill text-tertiary before:absolute before:-inset-0.5 before:content-[''] hover:bg-hover hover:text-primary force-hover:bg-hover",
+            "absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded-pill text-tertiary hover:bg-hover hover:text-primary force-hover:bg-hover",
             focusRing,
           )}
         >
