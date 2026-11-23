@@ -1,6 +1,6 @@
 [package]
 name = "cetusnote"
-version = "0.1.0"
+version = "0.1.1"
 description = "Cetus Note — local-first note app"
 license = "MIT"
 edition = "2024"
