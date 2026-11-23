@@ -23,7 +23,8 @@ function Editable() {
       status={status}
       onStatusChange={setStatus}
       created="2026년 11월 18일"
-      updated="3분 전"
+      updated="2026년 11월 18일"
+      updatedAgo="3분 전"
     />
   );
 }

@@ -340,6 +340,7 @@ export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
                 {...recordFields(page, all)}
                 created={formatDate(page.createdAt)}
                 updated={formatDate(page.updatedAt)}
+                updatedAgo={formatAgo(page.updatedAt)}
               />
             </PageHeader>
             <div

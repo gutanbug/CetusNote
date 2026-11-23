@@ -36,7 +36,10 @@ type PropertiesProps = {
   extra?: { key: string; name: string; icon: LucideIcon; content: React.ReactNode }[];
   /** 표시용 날짜 문구. 예: "2026년 11월 19일" */
   created: string;
+  /** 수정일 — 생성일과 같은 절대 날짜로 보인다 */
   updated?: string;
+  /** 수정일의 상대 문구 (예: "3분 전"). 마우스를 올리면 칸 제목으로 보인다 */
+  updatedAgo?: string;
   className?: string;
 };
 
@@ -89,6 +92,7 @@ function Properties({
   extra,
   created,
   updated,
+  updatedAgo,
   className,
   statusOptions = DEFAULT_STATUS_OPTIONS,
 }: PropertiesProps) {
@@ -181,7 +185,9 @@ function Properties({
       </Row>
       {updated ? (
         <Row icon={Clock} name="수정일">
-          <span className={cn(valueClass, "text-secondary")}>{updated}</span>
+          <span className={cn(valueClass, "text-secondary")} title={updatedAgo}>
+            {updated}
+          </span>
         </Row>
       ) : null}
     </div>
