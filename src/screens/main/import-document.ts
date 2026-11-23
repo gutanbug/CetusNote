@@ -1,6 +1,7 @@
 import { htmlToDoc, markdownToDoc, type ImageResolver } from "@/components/editor/markdown-import";
 import { toast } from "@/components/ui/toast";
 import { docxToHtml } from "@/features/import/docx";
+import { readPdfTextWithPdfJs } from "@/features/pdf-js";
 import { parseMarkdownFile } from "@/features/import/markdown";
 import { importSummary, type ImportFailure } from "@/features/import/summary";
 import { dataUrlBytes, pdfPagesToHtml, plainTextToHtml } from "@/features/import/text";
@@ -14,6 +15,7 @@ import {
   type Page,
   type Storage,
 } from "@/lib/storage";
+import { currentPlatform } from "@/lib/platform-labels";
 import { getStorage } from "@/lib/storage/default";
 import { ancestors, createDocument, openPage } from "./actions";
 import { askImportDestination } from "./import-destination";
@@ -75,7 +77,11 @@ export async function convertDocument(
         resolve,
       );
     case "pdf": {
-      const pdf = await storage.readPdfText(file.id);
+      // macOS는 PDFKit, Windows·Linux는 pdf.js로 글자를 뽑는다 (SYS-08)
+      const pdf =
+        currentPlatform() === "mac"
+          ? await storage.readPdfText(file.id)
+          : await readPdfTextWithPdfJs(await storage.readDocumentBytes(file.id));
       return fromHtml(pdfPagesToHtml(pdf.pages), pdf.title ?? file.name, resolve);
     }
     default:
