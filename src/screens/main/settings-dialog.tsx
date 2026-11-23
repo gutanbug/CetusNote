@@ -249,91 +249,125 @@ function Data({ onRestored }: { onRestored: () => void }) {
   };
 
   return (
-    <div>
-      <SettingsRow
-        name="백업 내보내기"
-        description="페이지, 이미지, 워크스페이스 설정을 zip 파일 하나로 저장해요."
-      >
-        <Button variant="secondary" size="sm" loading={exporting} onClick={() => void exportNow()}>
-          내보내기…
-        </Button>
-      </SettingsRow>
-      <SettingsRow
-        name="자동 백업"
-        description={
-          <>
-            앱을 켤 때 하루 한 번 워크스페이스의 .backups 폴더에 저장하고, 최근 7개만 남겨요.
-            {last !== undefined ? (
-              <span className="block">
-                {last ? `마지막 자동 백업: ${last}` : "아직 자동 백업이 없어요."}
-              </span>
-            ) : null}
-          </>
-        }
-        controlId="auto-backup"
-      >
-        <Switch
-          id="auto-backup"
-          aria-describedby="auto-backup-desc"
-          checked={auto}
-          onCheckedChange={(on) => sessionStore.getState().setAutoBackup(on)}
-        />
-      </SettingsRow>
-      {canReveal() ? (
-        <SettingsRow name="자동 백업 폴더" description="백업 zip이 쌓이는 폴더를 열어요.">
+    <div className="grid gap-6">
+      <DataSection id="data-backup" title="백업">
+        <SettingsRow
+          name="백업 내보내기"
+          description="페이지, 이미지, 워크스페이스 설정을 zip 파일 하나로 저장해요."
+        >
           <Button
             variant="secondary"
             size="sm"
-            onClick={() =>
-              void getStorage()
-                .revealBackups()
-                .catch(() => toast.error("폴더를 열지 못했어요."))
-            }
+            loading={exporting}
+            onClick={() => void exportNow()}
           >
-            Finder에서 보기
+            내보내기…
           </Button>
         </SettingsRow>
-      ) : null}
-      <SettingsRow
-        name="Markdown 가져오기"
-        description=".md 파일을 골라 파일마다 새 문서로 만들어요. 같은 폴더 안의 이미지도 함께 가져와요."
-      >
-        <Button variant="secondary" size="sm" onClick={() => void importMarkdown()}>
-          가져오기…
-        </Button>
-      </SettingsRow>
-      <SettingsRow
-        name="Markdown으로 모두 내보내기"
-        description="모든 문서를 폴더 구조대로 .md 파일로 만들어요. 본문 이미지는 assets 폴더에 함께 넣어요."
-      >
-        <Button variant="secondary" size="sm" onClick={() => void exportWorkspaceMarkdown()}>
-          내보내기…
-        </Button>
-      </SettingsRow>
-      <SettingsRow
-        name="기본 템플릿 되살리기"
-        description="지운 기본 템플릿(회의록 · 일일 노트 …)을 템플릿 갤러리에 다시 넣어요. 고친 템플릿은 그대로예요."
-      >
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            const n = restoreBuiltinTemplates();
-            toast(n ? `기본 템플릿 ${n}개를 되살렸어요.` : "기본 템플릿이 모두 있어요.");
-          }}
+        <SettingsRow
+          name="백업 불러오기"
+          description="백업 파일을 새 폴더에 풀고 그 폴더를 열어요. 지금 워크스페이스는 그대로 남아요."
         >
-          되살리기
-        </Button>
-      </SettingsRow>
-      <SettingsRow
-        name="백업 불러오기"
-        description="백업 파일을 새 폴더에 풀고 그 폴더를 열어요. 지금 워크스페이스는 그대로 남아요."
-      >
-        <Button variant="secondary" size="sm" loading={restoring} onClick={() => void restore()}>
-          불러오기…
-        </Button>
-      </SettingsRow>
+          <Button variant="secondary" size="sm" loading={restoring} onClick={() => void restore()}>
+            불러오기…
+          </Button>
+        </SettingsRow>
+        <SettingsRow
+          name="자동 백업"
+          description={
+            <>
+              앱을 켤 때 하루 한 번 워크스페이스의 .backups 폴더에 저장하고, 최근 7개만 남겨요.
+              {last !== undefined ? (
+                <span className="block">
+                  {last ? `마지막 자동 백업: ${last}` : "아직 자동 백업이 없어요."}
+                </span>
+              ) : null}
+            </>
+          }
+          controlId="auto-backup"
+        >
+          <Switch
+            id="auto-backup"
+            aria-describedby="auto-backup-desc"
+            checked={auto}
+            onCheckedChange={(on) => sessionStore.getState().setAutoBackup(on)}
+          />
+        </SettingsRow>
+        {canReveal() ? (
+          <SettingsRow name="자동 백업 폴더" description="백업 zip이 쌓이는 폴더를 열어요.">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                void getStorage()
+                  .revealBackups()
+                  .catch(() => toast.error("폴더를 열지 못했어요."))
+              }
+            >
+              Finder에서 보기
+            </Button>
+          </SettingsRow>
+        ) : null}
+      </DataSection>
+      <DataSection id="data-markdown" title="Markdown">
+        <SettingsRow
+          name="Markdown 가져오기"
+          description=".md 파일을 고르고 넣을 위치를 정하면 파일마다 새 문서로 만들어요. 같은 폴더 안의 이미지도 함께 가져와요."
+        >
+          <Button variant="secondary" size="sm" onClick={() => void importMarkdown()}>
+            가져오기…
+          </Button>
+        </SettingsRow>
+        <SettingsRow
+          name="Markdown으로 모두 내보내기"
+          description="모든 문서를 폴더 구조대로 .md 파일로 만들어요. 본문 이미지는 assets 폴더에 함께 넣어요."
+        >
+          <Button variant="secondary" size="sm" onClick={() => void exportWorkspaceMarkdown()}>
+            내보내기…
+          </Button>
+        </SettingsRow>
+      </DataSection>
+      <DataSection id="data-templates" title="템플릿">
+        <SettingsRow
+          name="기본 템플릿 되살리기"
+          description="지운 기본 템플릿(회의록 · 일일 노트 …)을 템플릿 갤러리에 다시 넣어요. 고친 템플릿은 그대로예요."
+        >
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const n = restoreBuiltinTemplates();
+              toast(n ? `기본 템플릿 ${n}개를 되살렸어요.` : "기본 템플릿이 모두 있어요.");
+            }}
+          >
+            되살리기
+          </Button>
+        </SettingsRow>
+      </DataSection>
     </div>
+  );
+}
+
+/** 데이터 / 백업 화면의 묶음 — 단축키 화면과 같은 작은 제목 아래에 행을 모은다 */
+function DataSection({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section aria-labelledby={id}>
+      <h3
+        id={id}
+        className="pb-1 text-label font-semibold tracking-(--tracking-label) text-tertiary"
+      >
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }
 
