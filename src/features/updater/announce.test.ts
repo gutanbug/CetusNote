@@ -91,7 +91,15 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     await store.getState().check();
     runInstallWithToast(store);
     await vi.waitFor(() => expect(updater.relaunched).toBe(true));
-    const messages = toastMock.mock.calls.map((c) => c[0]);
+    // 내려받기 토스트 본문은 「글 + 진행률 막대」 요소다. 글만 꺼내 비교하고, 막대 값도 확인한다
+    const messages = toastMock.mock.calls.map((c) =>
+      typeof c[0] === "string" ? c[0] : c[0].props.children[0].props.children,
+    );
+    const bar50 = toastMock.mock.calls.find(
+      (c) =>
+        typeof c[0] !== "string" && c[0].props.children[0].props.children === "내려받는 중 50%",
+    );
+    expect(bar50?.[0].props.children[1].props.value).toBe(50);
     expect(messages).toEqual(
       expect.arrayContaining([
         "내려받는 중이에요",

@@ -1,10 +1,26 @@
 import { createElement } from "react";
+import { Progress } from "@/components/ui/progress";
 import { toast, ToastCancelButton } from "@/components/ui/toast";
 import type { UpdaterStoreApi } from "./store";
 import { downloadMessage } from "./view";
 
 /** 업데이트 토스트 하나가 알림·내려받기 진행률·오류를 이어서 보여 준다 */
 export const UPDATE_TOAST_ID = "app-update";
+
+/**
+ * 내려받기 토스트 본문: 글 한 줄 + 가는 진행률 막대(UI-Progress, role=progressbar).
+ * 크기를 모르면(null) 막대 없이 글만 둔다 — 가짜 값을 그리지 않는다.
+ */
+function downloadBody(text: string, progress: number | null) {
+  return createElement(
+    "span",
+    { className: "grid w-40 gap-1.5" },
+    createElement("span", null, text),
+    progress === null
+      ? null
+      : createElement(Progress, { value: progress, "aria-label": "내려받기 진행률" }),
+  );
+}
 
 /** 닫기 버튼 — 토스트를 밀어서 치울 수 없으므로(dismissible: false) 버튼으로만 닫는다 */
 function closeButton(onClose: () => void = () => toast.dismiss(UPDATE_TOAST_ID)) {
@@ -59,7 +75,7 @@ export function runInstallWithToast(store: UpdaterStoreApi) {
     toast.dismiss(UPDATE_TOAST_ID);
   };
   const showProgress = (s: { progress: number | null; finishing: boolean }) => {
-    toast(downloadMessage(s.progress, s.finishing), {
+    toast(downloadBody(downloadMessage(s.progress, s.finishing), s.finishing ? null : s.progress), {
       id: UPDATE_TOAST_ID,
       duration: Infinity,
       dismissible: false,

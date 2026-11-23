@@ -3,6 +3,7 @@ import type * as React from "react";
 import { useEffect } from "react";
 import { Row, Sheet } from "@/debug/specimen";
 import { Button } from "./button";
+import { Progress } from "./progress";
 import { toast, Toaster, ToastCancelButton } from "./toast";
 
 const meta = {
@@ -98,17 +99,24 @@ export const Persistent: Story = {
 export const Downloading: Story = {
   render: function Render() {
     useEffect(() => {
-      toast("내려받는 중 40%", {
-        toasterId: "story-downloading",
-        id: "story-downloading-toast",
-        duration: Infinity,
-        dismissible: false,
-        cancel: (
-          <ToastCancelButton onClick={() => toast.dismiss("story-downloading-toast")}>
-            닫기
-          </ToastCancelButton>
-        ),
-      });
+      // 실제 업데이트 토스트와 같은 본문: 글 + 가는 진행률 막대(UI-Progress)
+      toast(
+        <span className="grid w-40 gap-1.5">
+          <span>내려받는 중 40%</span>
+          <Progress value={40} aria-label="내려받기 진행률" />
+        </span>,
+        {
+          toasterId: "story-downloading",
+          id: "story-downloading-toast",
+          duration: Infinity,
+          dismissible: false,
+          cancel: (
+            <ToastCancelButton onClick={() => toast.dismiss("story-downloading-toast")}>
+              닫기
+            </ToastCancelButton>
+          ),
+        },
+      );
     }, []);
     return (
       <ToastBox>
