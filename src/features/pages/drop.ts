@@ -1,6 +1,7 @@
 import type { DropPosition } from "@/components/shell/drop-indicator";
 import type { PageNode } from "@/components/shell/page-tree";
-import { canContain, type Page } from "@/lib/storage";
+import { canContain } from "@/lib/storage";
+import type { PageMeta } from "./store";
 
 /** 놓으면 바뀌는 것: 새 부모와 그 부모 아래 순서 */
 export type DropPlan = { parentId: string | null; ids: string[] };
@@ -10,7 +11,7 @@ export type DropPlan = { parentId: string | null; ids: string[] };
  * tree는 화면에 그린 트리(buildPageTree)다. 순서는 그 트리의 형제 순서를 바탕으로 만든다.
  */
 export function planDrop(
-  pages: Record<string, Page>,
+  pages: Record<string, PageMeta>,
   tree: PageNode[],
   id: string,
   targetId: string,

@@ -85,7 +85,7 @@ export function openEditorLink(href: string) {
 
 /** 태그 (SHELL-07) — 워크스페이스의 모든 태그, 이 페이지 태그(색 포함), 붙이기 */
 export function usePageTags(page: Page) {
-  const all = usePages((s) => s.pages);
+  const all = usePages((s) => s.structure);
   const tagColors = useMeta((s) => s.meta?.tags);
   // 워크스페이스의 모든 태그: workspace.json의 색 목록 + 페이지에 붙은 이름(색 없이 남은 것 포함)
   const allTags = React.useMemo(() => {

@@ -64,6 +64,7 @@ import { isCommandQuery, matchCommands, paletteItems, visibleIds } from "./palet
 import { closeTabAt, newTab } from "./tabs";
 import { useMainUi } from "./ui-store";
 import { PageIcon } from "@/components/ui/page-icon";
+import type { Page } from "@/lib/storage";
 
 const ic = { strokeWidth: 1.5 } as const;
 
@@ -114,9 +115,11 @@ const THEMES: { value: ThemePref; title: string; icon: LucideIcon; keywords: str
   },
 ];
 
+const NO_PAGES: Record<string, Page> = {};
+
 /** 팔레트에서 실행할 명령 (SRCH-02). 지금 상태에 맞는 것만 — 이미 켜진 테마는 빼고, 페이지 명령은 열린 페이지가 있을 때만 */
 function useCommands(): Command[] {
-  const pages = usePages((s) => s.pages);
+  const pages = usePages((s) => s.structure);
   const activeId = useSession((s) => s.activeId);
   const theme = useSession((s) => s.appearance.theme);
   const collapsed = useSession((s) => s.sidebarCollapsed);
@@ -364,7 +367,8 @@ function focusBody() {
 export function CommandPalette() {
   const open = useMainUi((s) => s.paletteOpen);
   const setOpen = useMainUi((s) => s.setPaletteOpen);
-  const pages = usePages((s) => s.pages);
+  // 팔레트가 닫혀 있으면 본문 변경(타이핑)에 다시 그리지 않는다 (SYS-10)
+  const pages = usePages((s) => (open ? s.pages : NO_PAGES));
   const [query, setQuery] = React.useState("");
   /** 지금 강조된 행 — 아래 Enter 힌트가 "열기"인지 "만들기"인지 정한다 */
   const [active, setActive] = React.useState("");

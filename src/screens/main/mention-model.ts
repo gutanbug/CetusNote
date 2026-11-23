@@ -2,6 +2,7 @@ import type { MentionTarget } from "@/components/editor/page-mention";
 import { normalize } from "@/features/search";
 import { displayTitle } from "@/features/pages/title";
 import type { Page } from "@/lib/storage";
+import type { PageMeta } from "@/features/pages";
 import { visibleIds } from "./palette-model";
 
 const LIMIT = 8;
@@ -14,7 +15,11 @@ function candidates(pages: Record<string, Page>, exceptId?: string): Page[] {
 }
 
 // 이름 없는 컬렉션 등도 멘션에 같은 이름으로 보인다
-const toTarget = (p: Page): MentionTarget => ({ id: p.id, title: displayTitle(p), icon: p.icon });
+const toTarget = (p: PageMeta): MentionTarget => ({
+  id: p.id,
+  title: displayTitle(p),
+  icon: p.icon,
+});
 
 /**
  * `@` 제안 (EDIT-13). 검색어가 없으면 최근에 연 순서 → 최근에 고친 순.
@@ -52,7 +57,7 @@ export function searchMentions(
 }
 
 /** 멘션 대상 — 지워졌거나 휴지통(조상 포함)이면 null(깨진 링크) */
-export function resolveMention(pages: Record<string, Page>, id: string): MentionTarget | null {
+export function resolveMention(pages: Record<string, PageMeta>, id: string): MentionTarget | null {
   const p = pages[id];
   if (!p || p.kind === "folder" || p.trashedAt || p.template) return null;
   for (let at = p.parentId; at; at = pages[at]?.parentId ?? null)

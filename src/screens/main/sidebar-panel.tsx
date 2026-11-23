@@ -92,7 +92,8 @@ function defaultSidebarWidth(): number {
 
 /** 메인 화면 사이드바 — 워크스페이스, 페이지 트리(폴더 포함), 휴지통·저장 상태 (SHELL-01, 05, 08, 14) */
 export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
-  const pages = usePages((s) => s.pages);
+  // 사이드바는 구조만 쓴다 — 본문 입력마다 트리를 다시 만들지 않는다 (SYS-10)
+  const pages = usePages((s) => s.structure);
   const saveState = usePages((s) => s.saveState);
   const folderName = useWorkspace((s) => s.workspace?.name ?? "");
   const workspacePath = useWorkspace((s) => s.workspace?.path ?? "");

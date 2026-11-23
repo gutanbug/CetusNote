@@ -11,9 +11,17 @@ import { createStore } from "zustand/vanilla";
 import { createSaveQueue, type SaveState } from "./save-queue";
 import { createHistoryRecorder, fingerprint, type HistoryRecorder } from "../history/recorder";
 
+/**
+ * 구조 스냅샷 — 본문(content)과 수정 시각(updatedAt)을 뺀 페이지 정보 (SYS-10).
+ * 본문만 바뀐 페이지는 이 객체가 같은 참조로 남아, 트리·사이드바처럼 구조만 보는 곳이 다시 계산하지 않는다.
+ */
+export type PageMeta = Omit<Page, "content" | "updatedAt">;
+
 export type PagesState = {
   loaded: boolean;
   pages: Record<string, Page>;
+  /** id → 구조 스냅샷. 구조 필드가 바뀔 때만 객체가 새로 만들어진다 (SYS-10) */
+  structure: Record<string, PageMeta>;
   /** 읽지 못한 파일 — 앱은 건드리지 않고 알리기만 한다 */
   loadErrors: LoadError[];
   /** SH-SaveStatus에 그대로 넘긴다 (DATA-02) */
@@ -61,6 +69,50 @@ export type PagesState = {
   history: HistoryRecorder;
 };
 
+/** 본문과 수정 시각을 뺀 구조 스냅샷 (SYS-10) */
+function metaOf(page: Page): PageMeta {
+  const meta: Partial<Page> = { ...page };
+  delete meta.content;
+  delete meta.updatedAt;
+  return meta as PageMeta;
+}
+
+/** 본문·수정 시각을 빼고 구조 필드가 모두 같은지 본다. 필드 객체도 참조로 비교한다(불변 갱신 전제) */
+function sameMeta(a: Page, b: Page): boolean {
+  for (const key of Object.keys(b) as (keyof Page)[]) {
+    if (key === "content" || key === "updatedAt") continue;
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+/**
+ * 바뀐 id만 구조 스냅샷을 고친다 (SYS-10). 구조가 그대로면 입력 객체를 그대로 돌려줘서
+ * 본문만 고친 편집은 structure 참조를 바꾸지 않는다.
+ */
+function withMeta(
+  structure: Record<string, PageMeta>,
+  prev: Record<string, Page>,
+  next: Record<string, Page>,
+  ids: Iterable<string>,
+): Record<string, PageMeta> {
+  let out: Record<string, PageMeta> | null = null;
+  for (const id of ids) {
+    const page = next[id];
+    if (!page) {
+      if (!(id in structure)) continue;
+      out ??= { ...structure };
+      delete out[id];
+      continue;
+    }
+    const before = prev[id];
+    if (before && sameMeta(before, page)) continue;
+    out ??= { ...structure };
+    out[id] = metaOf(page);
+  }
+  return out ?? structure;
+}
+
 type Options = {
   delay?: number;
   /** 지금 시각 (테스트용) */
@@ -86,7 +138,10 @@ export function createPagesStore(
     });
 
     const put = (page: Page) => {
-      set((s) => ({ pages: { ...s.pages, [page.id]: page } }));
+      set((s) => {
+        const pages = { ...s.pages, [page.id]: page };
+        return { pages, structure: withMeta(s.structure, s.pages, pages, [page.id]) };
+      });
       queue.schedule(page);
     };
 
@@ -94,6 +149,7 @@ export function createPagesStore(
       history,
       loaded: false,
       pages: {},
+      structure: {},
       loadErrors: [],
       saveState: "saved",
       async load() {
@@ -101,6 +157,7 @@ export function createPagesStore(
         set({
           loaded: true,
           pages: Object.fromEntries(pages.map((p) => [p.id, p])),
+          structure: Object.fromEntries(pages.map((p) => [p.id, metaOf(p)])),
           loadErrors: errors,
         });
       },
@@ -129,7 +186,10 @@ export function createPagesStore(
           next[id] = { ...page, ...patch };
           queue.schedule(next[id]!);
         }
-        set({ pages: next });
+        set((s) => ({
+          pages: next,
+          structure: withMeta(s.structure, current, next, Object.keys(patches)),
+        }));
       },
       trash(id) {
         // 휴지통으로 가기 전 내용을 남긴다 (DATA-09). 실패해도 휴지통 이동은 막지 않는다
@@ -153,7 +213,7 @@ export function createPagesStore(
         set((s) => {
           const pages = { ...s.pages };
           delete pages[id];
-          return { pages };
+          return { pages, structure: withMeta(s.structure, s.pages, pages, [id]) };
         });
       },
       flushPage: (id) => queue.flushPage(id),
@@ -182,7 +242,8 @@ export function createPagesStore(
         const applied: string[] = [];
         const gone: string[] = [];
         const conflicts: string[] = [];
-        const pages = { ...get().pages };
+        const before = get().pages;
+        const pages = { ...before };
         const rev = { ...get().externalRev };
         const busy = (id: string) => queue.isUnsaved(id) || (!!base && base[id] !== pages[id]);
         for (const page of incoming) {
@@ -206,7 +267,12 @@ export function createPagesStore(
             gone.push(id);
           }
         }
-        if (applied.length || gone.length) set({ pages, externalRev: rev });
+        if (applied.length || gone.length)
+          set({
+            pages,
+            externalRev: rev,
+            structure: withMeta(get().structure, before, pages, [...applied, ...gone]),
+          });
         return { applied, removed: gone, conflicts };
       },
       flushAll: () => queue.flush(),

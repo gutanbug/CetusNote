@@ -95,11 +95,13 @@ function zoomBy(dir: -1 | 0 | 1) {
  */
 export function MainScreen() {
   const loaded = usePages((s) => s.loaded);
-  const pages = usePages((s) => s.pages);
   const activeId = useSession((s) => s.activeId);
-  const visible = React.useMemo(() => visibleIds(pages), [pages]);
+  // 구조만 보고 트리·표시 여부를 정한다. 본문 입력은 이 참조를 바꾸지 않는다 (SYS-10)
+  const structure = usePages((s) => s.structure);
+  const visible = React.useMemo(() => visibleIds(structure), [structure]);
+  // 열린 페이지 객체는 id로 따로 구독한다 — 다른 페이지 변경에는 이 화면을 다시 그리지 않는다
+  const active = usePages((s) => (activeId ? s.pages[activeId] : undefined));
   // 템플릿(PAGE-14)은 트리에 없지만 편집할 때는 연다
-  const active = activeId ? pages[activeId] : undefined;
   const page = active && (visible.has(active.id) || isTemplate(active)) ? active : undefined;
   const focusMode = useMainUi((s) => s.focusMode);
   const contentEpoch = useMainUi((s) => s.contentEpoch);
@@ -113,9 +115,9 @@ export function MainScreen() {
   const splitWidth = useSession((s) => s.splitWidth);
   const splitArea = useMainUi((s) => s.splitArea);
   const activeSide = useMainUi((s) => s.activeSide);
-  const panePage = splitId ? pages[splitId] : undefined;
+  const panePage = usePages((s) => (splitId ? s.pages[splitId] : undefined));
   const paneExternalRev = usePages((s) => (splitId ? (s.externalRev[splitId] ?? 0) : 0));
-  const paneAlive = !!panePage && resolveMention(pages, panePage.id) !== null;
+  const paneAlive = !!panePage && resolveMention(structure, panePage.id) !== null;
   const paneVisible = paneAlive && !focusMode && canSplit(splitArea);
   const paneW = clampPaneWidth(splitWidth, splitArea);
   const areaRef = React.useRef<HTMLDivElement>(null);
@@ -131,8 +133,8 @@ export function MainScreen() {
   // 패널 페이지가 사라졌으면(휴지통·영구 삭제·복원 전 저장값) 패널을 닫는다 — 워크스페이스를 연 뒤에도 본다
   React.useEffect(() => {
     if (!loaded || !sessionLoaded || !splitId) return;
-    if (!resolveMention(pages, splitId)) closeSplit();
-  }, [loaded, sessionLoaded, splitId, pages]);
+    if (!resolveMention(structure, splitId)) closeSplit();
+  }, [loaded, sessionLoaded, splitId, structure]);
 
   // 탭 (SHELL-11): 화면 → 지금 탭 동기화를 한 번 걸고, 워크스페이스를 열 때마다 저장된 탭을 편다
   // (시작 화면 SET-02도 여기서 따른다)

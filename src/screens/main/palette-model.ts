@@ -2,6 +2,7 @@ import { displayTitle } from "@/features/pages/title";
 import { buildPageTree } from "@/features/pages/tree";
 import type { SearchIndex } from "@/features/search";
 import { isChoseong, toChoseong } from "@/lib/hangul";
+import type { PageMeta } from "@/features/pages";
 import type { Page } from "@/lib/storage";
 
 /**
@@ -9,7 +10,7 @@ import type { Page } from "@/lib/storage";
  * 트리는 컬렉션의 레코드(보드 카드)를 그리지 않지만, 레코드도 문서다 —
  * 컬렉션이 보이고 레코드가 휴지통에 없으면 보이는 것으로 넣는다(검색·멘션·할 일·태그·페이지로 열기).
  */
-export function visibleIds(pages: Record<string, Page>): Set<string> {
+export function visibleIds(pages: Record<string, PageMeta>): Set<string> {
   const ids = new Set<string>();
   const walk = (nodes: ReturnType<typeof buildPageTree>) =>
     nodes.forEach((n) => {
@@ -26,14 +27,18 @@ export function visibleIds(pages: Record<string, Page>): Set<string> {
 }
 
 /** 최근 항목 — 문서·컬렉션·컬렉션의 레코드(보드 카드). 폴더와 보이지 않는 것은 뺀다 */
-export function recentPages(ids: string[], pages: Record<string, Page>, visible: Set<string>) {
+export function recentPages<T extends PageMeta>(
+  ids: string[],
+  pages: Record<string, T>,
+  visible: Set<string>,
+) {
   return ids
     .map((id) => pages[id])
-    .filter((p): p is Page => !!p && p.kind !== "folder" && visible.has(p.id));
+    .filter((p): p is T => !!p && p.kind !== "folder" && visible.has(p.id));
 }
 
 /** "업무 / 회의" — 부모들 (가까운 것이 오른쪽) */
-export function pagePath(page: Page, pages: Record<string, Page>): string {
+export function pagePath(page: PageMeta, pages: Record<string, PageMeta>): string {
   const names: string[] = [];
   const seen = new Set([page.id]);
   for (let p = page.parentId ? pages[page.parentId] : undefined; p && !seen.has(p.id);) {

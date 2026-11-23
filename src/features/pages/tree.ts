@@ -1,5 +1,6 @@
 import type { PageNode } from "@/components/shell/page-tree";
-import { canContain, type Page } from "@/lib/storage";
+import { canContain } from "@/lib/storage";
+import type { PageMeta } from "./store";
 
 /**
  * 페이지 → SH-PageTree 트리 (SHELL-05, SHELL-14).
@@ -9,15 +10,15 @@ import { canContain, type Page } from "@/lib/storage";
  * - 순서: workspace.json의 order[부모 id | "root"]에 적힌 순서 → 나머지는 폴더 먼저, 만든 순.
  */
 export function buildPageTree(
-  pages: Iterable<Page>,
+  pages: Iterable<PageMeta>,
   order: Record<string, string[]> = {},
 ): PageNode[] {
-  const byId = new Map<string, Page>();
+  const byId = new Map<string, PageMeta>();
   for (const p of pages) byId.set(p.id, p);
 
   /** 실제로 붙일 부모 id. 루트면 null, 휴지통 쪽이면 undefined(숨김) */
   const parentOf = new Map<string, string | null | undefined>();
-  const resolve = (page: Page): string | null | undefined => {
+  const resolve = (page: PageMeta): string | null | undefined => {
     if (parentOf.has(page.id)) return parentOf.get(page.id);
     parentOf.set(page.id, null); // 고리 방지: 계산 중에는 루트로 본다
     let result: string | null | undefined;
@@ -32,9 +33,9 @@ export function buildPageTree(
     parentOf.set(page.id, result);
     return result;
   };
-  const isAncestor = (id: string, from: Page): boolean => {
+  const isAncestor = (id: string, from: PageMeta): boolean => {
     const seen = new Set<string>();
-    for (let cur: Page | undefined = from; cur && !seen.has(cur.id);) {
+    for (let cur: PageMeta | undefined = from; cur && !seen.has(cur.id);) {
       if (cur.id === id) return true;
       seen.add(cur.id);
       cur = cur.parentId ? byId.get(cur.parentId) : undefined;
@@ -42,7 +43,7 @@ export function buildPageTree(
     return false;
   };
 
-  const groups = new Map<string, Page[]>();
+  const groups = new Map<string, PageMeta[]>();
   for (const page of byId.values()) {
     const parent = resolve(page);
     if (parent === undefined) continue;
@@ -50,7 +51,7 @@ export function buildPageTree(
     groups.set(key, [...(groups.get(key) ?? []), page]);
   }
 
-  const sortGroup = (key: string, list: Page[]) => {
+  const sortGroup = (key: string, list: PageMeta[]) => {
     const rank = new Map((order[key] ?? []).map((id, i) => [id, i]));
     return [...list].sort((a, b) => {
       const ra = rank.get(a.id) ?? Infinity;

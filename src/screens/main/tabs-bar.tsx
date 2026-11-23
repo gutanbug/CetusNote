@@ -12,7 +12,8 @@ export function TabsBar() {
   const tabs = useSession((s) => s.tabs);
   const active = useSession((s) => s.activeTab);
   const collapsed = useSession((s) => s.sidebarCollapsed);
-  const pages = usePages((s) => s.pages);
+  // 탭 이름은 구조(제목·종류)만 쓴다 (SYS-10)
+  const pages = usePages((s) => s.structure);
   if (!visible) return null;
 
   const item = (t: Tab, i: number): PageTabItem => {

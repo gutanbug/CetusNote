@@ -4,7 +4,7 @@ import { toast } from "@/components/ui/toast";
 import { exportPageMarkdown } from "@/features/export";
 import { metaStore } from "@/features/meta";
 import type { DropPosition } from "@/components/shell/drop-indicator";
-import { pagesStore, planDrop } from "@/features/pages";
+import { pagesStore, planDrop, type PageMeta } from "@/features/pages";
 import { buildPageTree } from "@/features/pages/tree";
 import { sessionStore } from "@/features/session";
 import {
@@ -28,10 +28,11 @@ import { useMainUi } from "./ui-store";
  */
 
 const pages = () => pagesStore.getState().pages;
+const structure = () => pagesStore.getState().structure;
 
 /** 조상 id들(가까운 순) */
-export function ancestors(id: string, all: Record<string, Page> = pages()): Page[] {
-  const out: Page[] = [];
+export function ancestors(id: string, all: Record<string, PageMeta> = structure()): PageMeta[] {
+  const out: PageMeta[] = [];
   const seen = new Set([id]);
   for (let p = all[id]?.parentId; p && all[p] && !seen.has(p); p = all[p]!.parentId) {
     seen.add(p);
@@ -73,7 +74,7 @@ export function isRecord(id: string) {
 }
 
 /** 레코드면 그 컬렉션 이름 (최근 항목에 "어느 보드의 카드인지" 적는다), 아니면 undefined */
-export function recordHome(page: Page, all: Record<string, Page>): string | undefined {
+export function recordHome(page: PageMeta, all: Record<string, PageMeta>): string | undefined {
   const parent = page.parentId ? all[page.parentId] : undefined;
   return page.kind === "page" && parent?.kind === "collection" ? displayTitle(parent) : undefined;
 }
