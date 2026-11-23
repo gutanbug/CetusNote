@@ -92,6 +92,8 @@
 
 > **선택 행 대비 보정 (2026-11-24, 사용자 승인 · WCAG AA, bg-active 위):** 선택된 행(`--bg-active`) 위에서 `--text-tertiary`가 AA에 못 미쳐 글자색만 옮겼다. 라이트 `#676E7C` → `#5F6675`(bg-active `#E6E9ED` 위 4.21 → 4.73:1), 다크 `#A2A7AF` → `#B4B9C0`(bg-active `#3A3E44` 위 4.45 → 5.45:1). 명도 위계는 유지한다: 라이트에서 tertiary는 `--text-secondary` `#4B535F`보다 여전히 연하고, 다크에서는 `--text-secondary` `#BCC1C7`보다 여전히 어둡다. 상태: **tokens.md · tokens.css 반영, OpenDesign 프로토타입 반영 대기**(open-design MCP 연결 실패로 이번에는 OpenDesign 미수정).
 
+> **2026-11-24 이름 변경:** 코드 블록 배경 색 별칭 `--color-code`(→ Tailwind `bg-code`)를 `--color-code-surface`(`bg-code-surface`)로 바꿨다. `text-code`는 코드 글자 크기(`--text-code`, 13.5px · 행간 1.65)만 가리킨다. 두 이름이 같은 클래스로 겹치면 색이 크기를 덮어써 코드가 16px로 그려졌다.
+
 ## 2. 색상 — 소프트 컬러 9종 (태그 · 콜아웃 · 하이라이트)
 
 | 이름   | Light bg / fg         | Dark bg / fg          |

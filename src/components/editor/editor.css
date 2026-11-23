@@ -219,7 +219,7 @@
 
   /* ── 코드 블록 (ED-CodeBlock) ── */
   & .sn-codeblock {
-    @apply my-2 overflow-hidden rounded-lg border border-line bg-code;
+    @apply my-2 overflow-hidden rounded-lg border border-line bg-code-surface;
   }
   & .sn-codeblock-bar {
     @apply flex items-center gap-2 border-b border-line py-1 pr-1 pl-2;

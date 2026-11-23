@@ -64,7 +64,7 @@
   --color-sky-glow: var(--sky-glow);
   --color-sky-core: var(--sky-core);
   --color-scrim: var(--scrim);
-  --color-code: var(--code-bg);
+  --color-code-surface: var(--code-bg);
   --color-inline-code: var(--inline-code-bg);
   --color-inline-code-fg: var(--inline-code-fg);
   /* 소프트 컬러 9종 */
