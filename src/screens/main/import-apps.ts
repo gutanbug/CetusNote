@@ -14,7 +14,18 @@ import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
 import { sessionStore } from "@/features/session";
 import { nextTagColor } from "./tag-colors";
-import { StorageError, type AppImportPick, type Page, type Storage } from "@/lib/storage";
+import { SOFT_COLORS } from "@/components/ui/tag-chip";
+import { BUILTIN_NAMES, newFieldId, withValue } from "@/features/collection/model";
+import { cellValue, type Column } from "@/features/import/apps/csv";
+import { FIELDS_MAX } from "@/lib/storage/schema";
+import {
+  StorageError,
+  type AppImportPick,
+  type FieldDef,
+  type FieldId,
+  type Page,
+  type Storage,
+} from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
 import { ancestors, createDocument, openPage } from "./actions";
 import { askImportDestination } from "./import-destination";
@@ -81,6 +92,8 @@ export async function writeImport(
 
   // 1) 모양 만들기: 부모를 먼저 만든다
   const made = new Map<string, string>();
+  /** 가져온 컬렉션: 속성 id와 열(레코드 값을 채울 때 쓴다) */
+  const collections = new Map<string, { ids: FieldId[]; columns: Column[] }>();
   const ensure = (node: ImportNode): string => {
     const done = made.get(node.key);
     if (done) return done;
@@ -89,9 +102,16 @@ export async function writeImport(
     const parentIsFolder =
       parentPageId === containerId ? container.kind === "folder" : isFolderPage(parentPageId);
     const asFolder = node.kind === "folder" && parentIsFolder;
+    // 컬렉션은 폴더 아래에만 둔다. 문서 아래라면 같은 이름의 문서로 만든다(레코드 값은 버린다)
+    const asCollection = node.kind === "collection" && parentIsFolder;
     const page = asFolder
       ? pagesStore.getState().create({ kind: "folder", title: node.title, parentId: parentPageId })
-      : createDocument(parentPageId);
+      : asCollection
+        ? pagesStore
+            .getState()
+            .create({ kind: "collection", title: node.title, parentId: parentPageId })
+        : createDocument(parentPageId);
+    if (asCollection) collections.set(node.key, defineFields(page, node));
     if (!asFolder) pagesStore.getState().update(page.id, { title: node.title });
     made.set(node.key, page.id);
     ids.set(node.key, page.id);
@@ -125,7 +145,7 @@ export async function writeImport(
       const latest = pagesStore.getState().pages[page.id]!;
       pagesStore.getState().update(page.id, {
         title: title ?? node.title,
-        props: { ...latest.props, tags: node.tags },
+        props: valuesOf(node, { ...latest.props, tags: node.tags }, collections),
         content: doc as Page["content"],
       });
       for (const tag of node.tags)
@@ -177,4 +197,55 @@ function imageResolver(
     if (!paths.has(path)) throw new StorageError("not_found", "그림 파일이 없어요");
     return storage.writeAsset(pageId, await storage.readAppImportBytes(path));
   };
+}
+
+/** 컬렉션에 가져온 속성을 붙인다(기본 속성 뒤에). 이름이 겹치면 " 2"를 붙인다 */
+function defineFields(page: Page, node: ImportNode): { ids: FieldId[]; columns: Column[] } {
+  const base = page.collection;
+  const columns = (node.columns ?? []).slice(0, FIELDS_MAX);
+  if (!base || !columns.length) return { ids: [], columns: [] };
+  const taken = new Set<string>(base.fields.map((f) => f.id));
+  const names = new Set<string>(Object.values(BUILTIN_NAMES));
+  const ids: FieldId[] = [];
+  const defs: FieldDef[] = [];
+  for (const col of columns) {
+    const id = newFieldId(taken);
+    taken.add(id);
+    ids.push(id);
+    let name = col.name;
+    for (let n = 2; names.has(name); n++) name = `${col.name} ${n}`;
+    names.add(name);
+    defs.push({
+      id,
+      name,
+      type: col.type,
+      options: col.options.map((o, k) => ({
+        name: o,
+        color: SOFT_COLORS[k % SOFT_COLORS.length]!,
+      })),
+    });
+  }
+  pagesStore.getState().update(page.id, {
+    collection: {
+      ...base,
+      fields: [...base.fields, ...defs],
+      properties: [...base.properties, ...ids.map((key) => ({ key, hidden: false, card: false }))],
+    },
+  });
+  return { ids, columns };
+}
+
+/** 레코드의 CSV 칸을 속성 값으로 넣는다. 컬렉션 밖이거나 칸이 없으면 그대로 */
+function valuesOf(
+  node: ImportNode,
+  props: Page["props"],
+  collections: Map<string, { ids: FieldId[]; columns: Column[] }>,
+): Page["props"] {
+  const info = node.parentKey ? collections.get(node.parentKey) : undefined;
+  if (!info || !node.cells) return props;
+  let out = props;
+  info.columns.forEach((col, i) => {
+    out = withValue(out, info.ids[i]!, cellValue(col, node.cells![i]));
+  });
+  return out;
 }

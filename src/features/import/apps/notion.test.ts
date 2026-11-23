@@ -53,13 +53,30 @@ describe("Notion 내보내기 가져오기 (DATA-11)", () => {
     expect(note.markdown).toContain("<p>둘째 줄</p>");
   });
 
-  it("CSV(데이터베이스)는 건너뛴 목록에 남긴다", () => {
+  it("CSV(데이터베이스)는 컬렉션이 되고, 같은 제목의 문서는 레코드로, 나머지 줄은 새 레코드로 만든다", () => {
+    const csv = 'Name,완료,태그\n첫 줄,Yes,"독서, 메모"\n둘째,No,메모';
     const { nodes, skipped } = convertNotion([
-      { path: `표 ${ID}_all.csv`, text: "a,b" },
-      { path: "글.md", text: "x" },
+      { path: `할 일 ${ID}_all.csv`, text: csv },
+      { path: `할 일 ${ID}/첫 줄 ${ID}.md`, text: "# 첫 줄\n본문" },
+      { path: "할 일 " + ID + "/하나 더.md", text: "# 하나 더" },
     ]);
-    expect(skipped).toEqual([`표 ${ID}_all.csv`]);
-    expect(nodes).toHaveLength(1);
+    expect(skipped).toEqual([]);
+    const coll = nodes.find((n) => n.kind === "collection")!;
+    expect(coll.title).toBe("할 일");
+    expect(coll.columns?.map((c) => c.type)).toEqual(["checkbox", "multi"]);
+    const records = nodes.filter((n) => n.parentKey === coll.key);
+    expect(records.map((r) => r.title).sort()).toEqual(["둘째", "첫 줄", "하나 더"]);
+    const first = records.find((r) => r.title === "첫 줄")!;
+    expect(first.markdown).toContain("본문");
+    expect(first.cells).toEqual(["Yes", "독서, 메모"]);
+  });
+
+  it("같은 이름의 문서가 있으면 CSV는 건너뛴다", () => {
+    const { skipped } = convertNotion([
+      { path: "표.md", text: "# 표" },
+      { path: "표.csv", text: "a\nb" },
+    ]);
+    expect(skipped).toEqual(["표.csv"]);
   });
 });
 

@@ -1,3 +1,5 @@
+import type { Column } from "./csv";
+
 /**
  * 다른 앱에서 가져오기(DATA-11) 공통 도구: 경로 검사 · 이름 정리 · 계층 배치 · 링크 찾기.
  * 순수 함수만 둔다(파일 I/O 없음). 파일 목록은 Rust가 읽어서 넘겨 준다.
@@ -10,7 +12,7 @@ export type SourceFile = { path: string; text: string };
 export type ImportNode = {
   key: string;
   parentKey: string | null;
-  kind: "page" | "folder";
+  kind: "page" | "folder" | "collection";
   title: string;
   tags: string[];
   /** 문서 본문(Markdown + 이 앱의 HTML 조각). 폴더는 빈 문자열 */
@@ -19,6 +21,10 @@ export type ImportNode = {
   assetPaths: string[];
   /** markdown이면 Markdown 글, html이면 HTML 글 그대로(가져오는 쪽이 htmlToDoc으로 바꾼다). 기본 markdown */
   format?: "markdown" | "html";
+  /** collection이면 속성 열(제목 열 뺀 나머지) */
+  columns?: Column[];
+  /** 레코드(문서)의 CSV 칸 — columns와 같은 순서. 없으면 속성 값 없음 */
+  cells?: string[];
 };
 
 /** 목록의 경로가 안전한지 검사한다(zip-slip·절대 경로·역슬래시·`..`). 안전하면 조각 목록, 아니면 null */

@@ -6,6 +6,7 @@
  * - `<aside>이모지 글</aside>` → 콜아웃 블록.
  * - CSV(데이터베이스)는 이 단계에서 가져오지 않고 건너뛴 목록에 남긴다 (컬렉션 변환은 별도 작업).
  */
+import { inferColumns, parseCsv } from "./csv";
 import {
   escapeHtml,
   decodeSafe,
@@ -41,6 +42,7 @@ export function convertMarkdownTree(
 ): NotionResult {
   const skipped: string[] = [];
   const safe: SourceFile[] = [];
+  const csvs: SourceFile[] = [];
   for (const f of files) {
     const segs = safeSegments(f.path);
     if (!segs) {
@@ -50,11 +52,23 @@ export function convertMarkdownTree(
     const path = segs.join("/");
     if (stemOf(path, PAGE_EXTS) !== null || stemOf(path, HTML_EXTS) !== null) {
       safe.push({ path, text: f.text });
-    } else if (/\.csv$/i.test(path)) skipped.push(path);
+    } else if (/\.csv$/i.test(path)) csvs.push({ path, text: f.text });
   }
 
   const stems = safe.map((f) => (stemOf(f.path, PAGE_EXTS) ?? stemOf(f.path, HTML_EXTS))!);
-  const placed = placeNodes(stems, clean);
+  // 데이터베이스: `X.csv`(또는 `X_all.csv`, 우선)는 `X` 이름의 컬렉션이 된다. 같은 이름의 문서가 있으면 건너뛴다
+  const dbs = new Map<string, SourceFile>();
+  for (const c of csvs) {
+    const stem = c.path.replace(/\.csv$/i, "").replace(/_all$/, "");
+    if (stems.includes(stem)) {
+      skipped.push(c.path);
+      continue;
+    }
+    const prev = dbs.get(stem);
+    if (!prev || /_all\.csv$/i.test(c.path)) dbs.set(stem, c);
+  }
+  const dbStems = [...dbs.keys()];
+  const placed = placeNodes([...stems, ...dbStems], clean);
   const byKey = new Map(placed.map((n) => [n.key, n]));
   const nodes: ImportNode[] = [];
 
@@ -101,6 +115,46 @@ export function convertMarkdownTree(
         markdown: "",
         assetPaths: [],
       });
+  }
+  // 데이터베이스 → 컬렉션: 열 종류를 짐작하고, 같은 제목의 문서는 그 레코드로, 나머지 줄은 새 레코드로 만든다
+  for (const [stem, csv] of dbs) {
+    const node = byKey.get(`p:${stem}`)!;
+    const rows = parseCsv(csv.text);
+    const header = rows[0] ?? [""];
+    const body = rows.slice(1);
+    const columns = inferColumns(header, body);
+    const key = `c:${stem}`;
+    // 레코드(같은 폴더의 문서)는 컬렉션 아래로 옮긴다
+    for (const n of nodes) if (n.parentKey === `p:${stem}`) n.parentKey = key;
+    nodes.push({
+      key,
+      parentKey: node.parentKey,
+      kind: "collection",
+      title: node.title,
+      tags: [],
+      markdown: "",
+      assetPaths: [],
+      columns,
+    });
+    body.forEach((row, i) => {
+      const cells = columns.map((_, k) => row[k + 1] ?? "");
+      const title = (row[0] ?? "").trim() || "제목 없음";
+      const child = nodes.find(
+        (n) => n.parentKey === key && n.kind === "page" && !n.cells && n.title === title,
+      );
+      if (child) child.cells = cells;
+      else
+        nodes.push({
+          key: `r:${stem}#${i}`,
+          parentKey: key,
+          kind: "page",
+          title,
+          tags: [],
+          markdown: "",
+          assetPaths: [],
+          cells,
+        });
+    });
   }
   return { nodes, skipped };
 }
