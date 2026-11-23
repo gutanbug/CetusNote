@@ -13,17 +13,26 @@ import { loadWorkspaceInOrder } from "./open-order";
  * 워크스페이스가 열리면 그 폴더를 읽는다 (SYS-09: 한 번에 한 단계씩).
  * 페이지 목록(검색 인덱스·트리의 출발점)·화면 상태·workspace.json을 순서대로 읽어 권한 요청이 겹치지 않게 한다.
  */
+/** 순서대로 읽는 일이 끝난 워크스페이스 경로. 자동 백업·바깥 변경 확인은 이 뒤에만 폴더를 읽는다 */
+let launchReadyPath: string | null = null;
+const launchReadyListeners = new Set<() => void>();
+
 export function useLoadWorkspaceOnOpen() {
   useEffect(() => {
     let loadedFor: string | null = null;
     const load = (path: string | undefined) => {
       if (!path || path === loadedFor) return;
       loadedFor = path;
+      launchReadyPath = null;
       void loadWorkspaceInOrder(path, [
         () => pagesStore.getState().load(),
         (p) => sessionStore.getState().load(p),
         () => metaStore.getState().load(),
-      ]);
+      ]).then(() => {
+        if (loadedFor !== path) return;
+        launchReadyPath = path;
+        launchReadyListeners.forEach((f) => f());
+      });
     };
     load(workspaceStore.getState().workspace?.path);
     return workspaceStore.subscribe((s) => load(s.workspace?.path));
@@ -41,6 +50,7 @@ export function useAutoBackupOnOpen() {
       const s = sessionStore.getState();
       const path = workspaceStore.getState().workspace?.path;
       if (!s.loaded || !path || s.workspace !== path || doneFor === path || !s.autoBackup) return;
+      if (launchReadyPath !== path) return;
       doneFor = path;
       // 첫 화면을 그리는 일과 겹치지 않게 조금 뒤에
       setTimeout(() => {
@@ -53,9 +63,11 @@ export function useAutoBackupOnOpen() {
     check();
     const a = sessionStore.subscribe(check);
     const b = workspaceStore.subscribe(check);
+    launchReadyListeners.add(check);
     return () => {
       a();
       b();
+      launchReadyListeners.delete(check);
     };
   }, []);
 }
@@ -72,7 +84,8 @@ export function useExternalChanges() {
     let busy = false;
     const scan = async () => {
       if (busy || document.visibilityState !== "visible") return;
-      if (!workspaceStore.getState().workspace || !pagesStore.getState().loaded) return;
+      const path = workspaceStore.getState().workspace?.path;
+      if (!path || launchReadyPath !== path) return;
       busy = true;
       try {
         await checkExternalChanges();
