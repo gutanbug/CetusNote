@@ -139,6 +139,8 @@ export function createExtensions({
         if (node.type.name === "heading") return `제목 ${node.attrs.level}`;
         if (node.type.name === "detailsSummary") return "토글 제목";
         if (node.type.name === "image") return ""; // 캡션 안내는 노드 뷰가 그린다
+        // 코드 블록에서는 / 메뉴가 열리지 않고, 안내가 언어 고르기 줄과 겹친다
+        if (node.type.name === "codeBlock") return "";
         return placeholder;
       },
     }),
