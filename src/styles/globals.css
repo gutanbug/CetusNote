@@ -267,6 +267,8 @@
     animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    /* 눌림 축소(active:scale-98)는 Tailwind v4가 scale 속성으로 쓰므로 transform과 따로 끈다 */
+    scale: none !important;
   }
   [data-press] {
     transform: none !important;
@@ -282,6 +284,7 @@
   animation-name: fade !important;
   animation-delay: 0s !important;
   transition-duration: 0.01ms !important;
+  scale: none !important;
 }
 [data-reduced-motion] [data-press] {
   transform: none !important;
