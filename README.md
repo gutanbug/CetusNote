@@ -58,6 +58,27 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 
 앱 안의 Debug 화면(`#/debug`)에서 모든 컴포넌트 견본과 디자인 토큰을 라이트·다크로 볼 수 있어요.
 
+## 설치 · 업데이트 · 릴리스
+
+### 설치 (macOS)
+
+- [릴리스 페이지](https://github.com/gutanbug/CetusNote/releases)에서 최신 `.dmg`를 받아요.
+- 서명과 공증을 아직 하지 않아서, 처음 실행하면 macOS가 막을 수 있어요. 앱을 우클릭 › 열기로 열어 주세요(또는 시스템 설정 › 개인정보 보호 및 보안에서 허용).
+
+### 업데이트
+
+- 앱을 켤 때와 켜 둔 동안 하루에 한 번 새 버전이 있는지 확인해요. 새 버전이 나오면 토스트로 알려 드려요.
+- 설치는 **업데이트를 누를 때만** 해요. 내려받은 뒤 편집 중인 내용을 모두 저장하고 앱을 다시 열어요.
+- 설정 › 일반 › 업데이트에서 현재 버전을 보고 "업데이트 확인"을 누를 수 있어요. ⌘K에서 "업데이트 확인"도 돼요. "자동으로 업데이트 확인"을 끄면 자동 확인을 멈춰요.
+
+### 릴리스 (메인테이너)
+
+1. 버전 맞추기: `node scripts/version.mjs 0.2.0` — package.json · Cargo.toml · tauri.conf.json · Cargo.lock을 함께 바꿔요. 이어서 `cd src-tauri && cargo check`로 Cargo.lock을 확인해요.
+2. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal 앱을 빌드해서 GitHub Release에 `.dmg`, 업데이트 파일(`.app.tar.gz`·`.sig`)과 `latest.json`을 공개해요. 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
+3. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 그리고 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --body ""`(키에 비밀번호를 걸지 않았으면 빈 값).
+4. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
+5. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
+
 ## 프로젝트 구조
 
 ```
