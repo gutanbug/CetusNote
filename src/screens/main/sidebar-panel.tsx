@@ -209,7 +209,7 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
           icon={<Trash2 {...ic} />}
           onSelect={() => moveToTrash(node.id)}
         >
-          “{node.title || "이름 없는 폴더"}” 휴지통으로
+          휴지통으로 옮기기
         </DropdownMenuItem>
       </>
     ) : (
@@ -245,7 +245,7 @@ export function SidebarPanel({ hidden = false }: { hidden?: boolean }) {
           icon={<Trash2 {...ic} />}
           onSelect={() => moveToTrash(node.id)}
         >
-          “{displayTitle({ title: node.title, kind: node.kind ?? "page" })}” 휴지통으로
+          휴지통으로 옮기기
         </DropdownMenuItem>
       </>
     );

@@ -180,8 +180,14 @@ export function PageMenu({
         <>
           <DropdownMenuSeparator />
           {/* 글자 수·읽는 시간 (PAGE-11) — 누를 수 없는 정보 줄 */}
-          <DropdownMenuLabel className="font-normal tracking-normal tabular-nums">
-            {formatDocStats(docStats(page.content))}
+          {/* 머리글(라벨) + 값 — 메뉴 항목처럼 보이지 않게 흐린 글자로 */}
+          <DropdownMenuLabel className="grid gap-0.5 font-normal tracking-normal tabular-nums">
+            <span className="text-label font-semibold tracking-(--tracking-label) text-tertiary">
+              글 정보
+            </span>
+            <span className="text-caption text-secondary">
+              {formatDocStats(docStats(page.content))}
+            </span>
           </DropdownMenuLabel>
         </>
       ) : null}
@@ -191,7 +197,7 @@ export function PageMenu({
         icon={<Trash2 {...ic} />}
         onSelect={() => moveToTrash(page.id)}
       >
-        휴지통으로
+        휴지통으로 옮기기
       </DropdownMenuItem>
     </>
   );
