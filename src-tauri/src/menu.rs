@@ -16,6 +16,7 @@ pub const FIND: &str = "find";
 pub const FIND_REPLACE: &str = "find-replace";
 pub const OUTLINE: &str = "outline";
 pub const IMPORT_DOCUMENT: &str = "import-document";
+pub const IMPORT_APP: &str = "import-app";
 pub const EXPORT_WORKSPACE_MARKDOWN: &str = "export-workspace-markdown";
 const CLOSE_WINDOW: &str = "close-window";
 
@@ -59,6 +60,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
                 true,
                 None::<&str>,
             )?,
+            // 다른 앱에서 가져오기 (DATA-11) — 프런트엔드가 앱과 zip·폴더 고르기부터 한다
+            &MenuItem::with_id(app, IMPORT_APP, "다른 앱에서 가져오기…", true, None::<&str>)?,
             // 워크스페이스 전체 Markdown 내보내기 (DATA-10) — 프런트엔드가 폴더 고르기부터 한다
             &MenuItem::with_id(
                 app,
@@ -146,6 +149,7 @@ pub fn handle<R: Runtime>(app: &AppHandle<R>, id: &str) {
         | FIND_REPLACE
         | OUTLINE
         | IMPORT_DOCUMENT
+        | IMPORT_APP
         | EXPORT_WORKSPACE_MARKDOWN => {
             let _ = app.emit("app-menu", id);
         }

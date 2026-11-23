@@ -29,6 +29,8 @@ import { TagMenu } from "./tag-menu";
 import { VersionHistoryDialog } from "./version-history-dialog";
 import { onAppMenu } from "@/lib/storage/app-menu";
 import { importDocuments } from "./import-document";
+import { ImportAppDialog } from "./import-app-dialog";
+import { openImportAppPicker } from "./import-app-picker";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { toast } from "@/components/ui/toast";
 import { stepZoom, zoomKey } from "@/lib/zoom";
@@ -152,6 +154,7 @@ export function MainScreen() {
         openFind(item === "find" ? "find" : "replace");
       else if (item === "outline") toggleOutline();
       else if (item === "import-document") void importDocuments();
+      else if (item === "import-app") openImportAppPicker();
       else if (item === "export-workspace-markdown") void exportWorkspaceMarkdown();
       else zoomBy(item === "zoom-in" ? 1 : item === "zoom-out" ? -1 : 0);
     }).then((f) => {
@@ -310,6 +313,7 @@ export function MainScreen() {
       <SettingsDialog />
       <TemplateDialog />
       <ImportDestinationDialog />
+      <ImportAppDialog />
       <VersionHistoryDialog />
       <PdfExportDialog />
       <PrintView />

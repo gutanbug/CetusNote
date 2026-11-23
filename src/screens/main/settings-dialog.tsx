@@ -27,6 +27,7 @@ import { getStorage } from "@/lib/storage/default";
 import { UpdateSection } from "./update-section";
 import { restoreBuiltinTemplates } from "./actions";
 import { importDocuments } from "./import-document";
+import { openImportAppPicker } from "./import-app-picker";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { canReveal, revealInFinder } from "@/lib/storage/open-link";
 import { currentPlatform, revealLabel } from "@/lib/platform-labels";
@@ -319,6 +320,14 @@ function Data({ onRestored }: { onRestored: () => void }) {
         >
           <Button variant="secondary" size="sm" onClick={() => void importDocuments()}>
             가져오기…
+          </Button>
+        </SettingsRow>
+        <SettingsRow
+          name="다른 앱에서 가져오기"
+          description="Notion, Obsidian, AppFlowy, AFFiNE에서 내보낸 zip 파일이나 폴더를 가져와요. 문서 구조와 링크를 살려요."
+        >
+          <Button variant="secondary" size="sm" onClick={() => openImportAppPicker()}>
+            고르기…
           </Button>
         </SettingsRow>
         <SettingsRow

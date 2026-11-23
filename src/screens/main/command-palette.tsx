@@ -58,6 +58,7 @@ import {
   openQuickNote,
 } from "./actions";
 import { importDocuments } from "./import-document";
+import { openImportAppPicker } from "./import-app-picker";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { isCommandQuery, matchCommands, paletteItems, visibleIds } from "./palette-model";
 import { closeTabAt, newTab } from "./tabs";
@@ -206,6 +207,23 @@ function useCommands(): Command[] {
         ],
         icon: FileDown,
         run: () => void importDocuments(),
+      },
+      {
+        id: "import-app",
+        title: "다른 앱에서 가져오기…",
+        keywords: [
+          "import",
+          "notion",
+          "obsidian",
+          "appflowy",
+          "affine",
+          "가져오기",
+          "노션",
+          "옵시디언",
+          "앱",
+        ],
+        icon: FileDown,
+        run: () => openImportAppPicker(),
       },
       {
         id: "export-workspace-markdown",
