@@ -1083,7 +1083,12 @@ pub async fn backup_auto(
     created_at: String,
 ) -> Result<Option<String>> {
     let root = workspace_root(&state)?;
-    storage::backup::auto_backup(&root, &today, &created_at)
+    // 압축은 워크스페이스가 크면 수백 ms 걸리므로 비동기 워커를 붙잡지 않도록 블로킹 풀에서 돌린다 (SYS-10)
+    tauri::async_runtime::spawn_blocking(move || {
+        storage::backup::auto_backup(&root, &today, &created_at)
+    })
+    .await
+    .map_err(|e| StorageError::new("io", e.to_string()))?
 }
 
 /// 자동 백업 목록(최근 것이 앞)
