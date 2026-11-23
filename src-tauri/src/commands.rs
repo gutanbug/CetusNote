@@ -1008,7 +1008,7 @@ pub async fn pdf_page(
         .with_webview(move |webview| {
             let done_tx = tx.clone();
             let target = part.clone();
-            let started = crate::pdf::capture_page(webview.inner(), rect, move |result| {
+            let started = crate::pdf::capture_page(webview, rect, move |result| {
                 let outcome = result.and_then(|bytes| {
                     std::fs::write(&target, bytes).map_err(|_| "쪽 PDF를 쓰지 못했어요".to_string())
                 });

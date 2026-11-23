@@ -19,7 +19,7 @@ pub struct PageRect {
 /// 웹뷰의 rect 한 쪽을 PDF 바이트로 만든다. 메인 스레드에서 부른다. 결과는 `done`으로 나중에 온다(막지 않는다).
 #[cfg(target_os = "macos")]
 pub fn capture_page(
-    webview: *mut std::ffi::c_void,
+    webview: tauri::webview::PlatformWebview,
     rect: PageRect,
     done: impl Fn(Result<Vec<u8>, String>) + 'static,
 ) -> Result<(), String> {
@@ -28,6 +28,7 @@ pub fn capture_page(
     use objc2_foundation::{NSData, NSError, NSPoint, NSRect, NSSize};
     use objc2_web_kit::{WKPDFConfiguration, WKWebView};
 
+    let webview = webview.inner();
     if webview.is_null() {
         return Err("미리보기를 만들 화면이 없어요".into());
     }
@@ -118,7 +119,7 @@ pub fn render_page_png(_path: &std::path::Path, _index: usize, _width: f64) -> R
 
 #[cfg(not(target_os = "macos"))]
 pub fn capture_page(
-    _webview: *mut std::ffi::c_void,
+    _webview: tauri::webview::PlatformWebview,
     _rect: PageRect,
     _done: impl Fn(Result<Vec<u8>, String>) + 'static,
 ) -> Result<(), String> {

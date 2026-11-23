@@ -33,6 +33,9 @@ url = "=2.5.8"
 tauri-plugin-updater = "=2.14.1"
 tauri-plugin-process = "=2.4.0"
 # PDF 내보내기(DATA-06): 메인 WKWebView의 createPDF로 쪽을 찍고 PDFKit으로 한 파일에 합친다(pdf.rs). objc2는 tauri·wry가 쓰는 판과 같다
+# 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
+tauri-plugin-mcp-bridge = "0.13"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"
 objc2-foundation = "=0.3.2"
@@ -41,9 +44,6 @@ objc2-pdf-kit = { version = "=0.3.2", features = ["std", "PDFDocument", "PDFPage
 # 미리보기 쪽 그림(PNG, DATA-06): PDFKit 썸네일을 비트맵으로 바꾼다. objc2-web-kit이 쓰는 판과 같다
 objc2-app-kit = { version = "=0.3.2", features = ["std", "NSApplication", "NSImage", "NSBitmapImageRep"] }
 block2 = "=0.6.2"
-
-# 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
-tauri-plugin-mcp-bridge = "0.13"
 
 # Windows PDF 내보내기(DATA-06·SYS-08): WebView2 PrintToPdf. wry·tauri가 쓰는 판과 같다
 [target.'cfg(windows)'.dependencies]
