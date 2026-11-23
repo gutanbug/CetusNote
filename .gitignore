@@ -51,3 +51,7 @@ GEMINI.md
 scripts/od-mcp.sh
 graphify-out/
 docs/design-prompt.md
+
+# 업데이트 서명 개인 키 (SYS-07). 원본은 ~/.tauri에 두고, 실수로 옮겨 와도 올라가지 않게 막는다
+*.key
+*.key.password
