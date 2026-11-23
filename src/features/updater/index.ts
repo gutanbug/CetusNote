@@ -5,6 +5,7 @@ import { sessionStore } from "@/features/session";
 import { createUpdater } from "@/lib/updater";
 import { useEffect } from "react";
 import { useStore } from "zustand";
+import { announceUpdateToast, runInstallWithToast } from "./announce";
 import { createAutoChecker } from "./schedule";
 import { createUpdaterStore, type UpdaterStore } from "./store";
 
@@ -28,43 +29,14 @@ export function useUpdater<T>(select: (s: UpdaterStore) => T): T {
   return useStore(updaterStore, select);
 }
 
-const TOAST_ID = "app-update";
-/** 내려받기 중 토스트는 사용자가 닫을 때까지 두되, 0이 되지 않도록 긴 시간을 쓴다 */
-const LONG_MS = 10 * 60 * 1000;
-
-/** "새 버전 x.y.z이 나왔어요 · 업데이트" 토스트 */
+/** 새 버전 토스트 — 사라지지 않고 「다운로드 후 업데이트」 · 「닫기」 (SYS-07) */
 export function announceUpdate(version: string) {
-  toast(`새 버전 ${version}이 나왔어요`, {
-    id: TOAST_ID,
-    duration: 12_000,
-    action: { label: "업데이트", onClick: () => installWithToast() },
-  });
+  announceUpdateToast(updaterStore, version);
 }
 
-/** 토스트 한 개가 내려받기 진행률과 오류를 이어서 보여 준다. 끝나면 앱을 다시 연다 */
+/** 같은 토스트에서 내려받기 진행률·오류를 보이고, 끝나면 앱을 다시 연다 */
 export function installWithToast() {
-  if (!updaterStore.getState().update) {
-    toast.dismiss(TOAST_ID);
-    return;
-  }
-  toast("업데이트를 내려받고 있어요", { id: TOAST_ID, duration: LONG_MS });
-  const unsub = updaterStore.subscribe((s, prev) => {
-    if (
-      s.status === "downloading" &&
-      (s.progress !== prev.progress || prev.status !== "downloading")
-    ) {
-      toast(s.progress === null ? "내려받는 중이에요" : `내려받는 중 ${s.progress}%`, {
-        id: TOAST_ID,
-        duration: LONG_MS,
-      });
-    } else if (s.status === "error" && s.error) {
-      toast.error(s.error, { id: TOAST_ID, duration: 8_000 });
-    }
-  });
-  void updaterStore
-    .getState()
-    .install()
-    .finally(() => unsub());
+  runInstallWithToast(updaterStore);
 }
 
 /** ⌘K「업데이트 확인」 — 결과를 토스트로 알린다 */
