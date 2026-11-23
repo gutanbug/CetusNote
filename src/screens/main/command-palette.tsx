@@ -366,6 +366,8 @@ export function CommandPalette() {
   const setOpen = useMainUi((s) => s.setPaletteOpen);
   const pages = usePages((s) => s.pages);
   const [query, setQuery] = React.useState("");
+  /** 지금 강조된 행 — 아래 Enter 힌트가 "열기"인지 "만들기"인지 정한다 */
+  const [active, setActive] = React.useState("");
   /** ⌥⌘Enter · ⌥⌘클릭으로 고른 결과를 오른쪽 패널에 연다 (SHELL-19) */
   const paneNext = React.useRef(false);
   const palettePane = useMainUi((s) => s.palettePane);
@@ -440,6 +442,7 @@ export function CommandPalette() {
       onSelect={create}
       icon={<FilePlus2 {...ic} />}
       right={<Kbd keys={q ? ["⌘", "↵"] : ["⌘", "N"]} />}
+      title={q ? `“${q}” 페이지 만들기` : "새 페이지"}
     >
       {q ? `“${q}” 페이지 만들기` : "새 페이지"}
     </CommandItem>
@@ -451,6 +454,8 @@ export function CommandPalette() {
       onOpenChange={(o) => (o ? setOpen(true) : close(true))}
       shouldFilter={false}
       label="명령 팔레트"
+      value={active}
+      onValueChange={setActive}
     >
       <CommandInput
         value={query}
@@ -506,6 +511,7 @@ export function CommandPalette() {
                     </>
                   ) : undefined
                 }
+                title={it.title || "제목 없음"}
               >
                 <Marked
                   text={it.title || "제목 없음"}
@@ -528,6 +534,7 @@ export function CommandPalette() {
               onSelect={() => runCommand(c)}
               icon={<c.icon {...ic} />}
               right={c.keys ? <Kbd keys={c.keys} /> : undefined}
+              title={c.title}
             >
               {c.title}
             </CommandItem>
@@ -540,7 +547,8 @@ export function CommandPalette() {
           <ArrowDownUp {...ic} className="size-4" aria-hidden /> 이동
         </span>
         <span>
-          <CornerDownLeft {...ic} className="size-4" aria-hidden /> 열기
+          <CornerDownLeft {...ic} className="size-4" aria-hidden />{" "}
+          {active === "__create" ? "만들기" : "열기"}
         </span>
         <span>
           <Kbd keys={["Esc"]} /> 닫기
