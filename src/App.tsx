@@ -6,10 +6,9 @@ import { Toaster } from "@/components/ui/toast";
 import {
   useAutoBackupOnOpen,
   useExternalChanges,
-  useLoadPagesOnOpen,
+  useLoadWorkspaceOnOpen,
   useSaveOnClose,
 } from "@/features/app/lifecycle";
-import { metaStore } from "@/features/meta";
 import { sessionStore } from "@/features/session";
 import { useAutoUpdateChecks } from "@/features/updater";
 import { useWorkspace, workspaceStore } from "@/features/workspace";
@@ -45,16 +44,6 @@ function useDebugShortcut() {
   }, []);
 }
 
-/** 워크스페이스가 열리면 그 폴더의 화면 상태(열린 페이지·펼친 트리)와 workspace.json을 불러온다 */
-function useSessionLoad() {
-  const path = useWorkspace((s) => s.workspace?.path);
-  useEffect(() => {
-    if (!path) return;
-    void sessionStore.getState().load(path);
-    void metaStore.getState().load();
-  }, [path]);
-}
-
 /** 외관 설정을 문서에 적용한다 (SET-03). Debug 화면은 자기 툴바로 따로 칠한다 */
 function useAppearance(debug: boolean) {
   const appearance = useStore(sessionStore, (s) => s.appearance);
@@ -75,12 +64,11 @@ export default function App() {
   const hash = useHash();
   useDebugShortcut();
   useWorkspaceInit();
-  useLoadPagesOnOpen();
+  useLoadWorkspaceOnOpen();
   useSaveOnClose();
   useAutoBackupOnOpen();
   useAutoUpdateChecks();
   useExternalChanges();
-  useSessionLoad();
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));
   const phase = useWorkspace((s) => s.phase);
   const reduced = useReducedMotion();

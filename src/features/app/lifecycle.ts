@@ -7,15 +7,23 @@ import { runAutoBackup } from "@/features/backup";
 import { getStorage, isTauri } from "@/lib/storage/default";
 import { onWindowCloseRequested } from "@/lib/storage/window";
 import { useEffect } from "react";
+import { loadWorkspaceInOrder } from "./open-order";
 
-/** 워크스페이스가 열리면 페이지를 읽는다 (검색 인덱스·트리의 출발점) */
-export function useLoadPagesOnOpen() {
+/**
+ * 워크스페이스가 열리면 그 폴더를 읽는다 (SYS-09: 한 번에 한 단계씩).
+ * 페이지 목록(검색 인덱스·트리의 출발점)·화면 상태·workspace.json을 순서대로 읽어 권한 요청이 겹치지 않게 한다.
+ */
+export function useLoadWorkspaceOnOpen() {
   useEffect(() => {
     let loadedFor: string | null = null;
     const load = (path: string | undefined) => {
       if (!path || path === loadedFor) return;
       loadedFor = path;
-      void pagesStore.getState().load();
+      void loadWorkspaceInOrder(path, [
+        () => pagesStore.getState().load(),
+        (p) => sessionStore.getState().load(p),
+        () => metaStore.getState().load(),
+      ]);
     };
     load(workspaceStore.getState().workspace?.path);
     return workspaceStore.subscribe((s) => load(s.workspace?.path));

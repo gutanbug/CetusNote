@@ -117,6 +117,56 @@ fn push_recent(recent: Vec<PathBuf>, root: &std::path::Path) -> Vec<PathBuf> {
     out
 }
 
+/// app-state.json의 경로 → 표시 이름 맵 (연 순간에 적어 둔다)
+fn recent_names(saved: Option<&Value>) -> serde_json::Map<String, Value> {
+    saved
+        .and_then(|v| v.get("recentNames"))
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// 워크스페이스 표시 이름: workspace.json의 이름(없으면 폴더 이름). 이미 연 폴더에서만 부른다
+fn workspace_display_name(root: &std::path::Path) -> String {
+    storage::read_json_opt(&root.join(storage::WORKSPACE_FILE))
+        .ok()
+        .flatten()
+        .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string))
+        .filter(|n| !n.trim().is_empty())
+        .unwrap_or_else(|| {
+            root.file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        })
+}
+
+/// 저장된 최근 목록을 그대로 만든다. 폴더는 읽지 않는다(SYS-09): 없어진 폴더 확인은 고를 때 한다.
+fn recent_list(saved: Option<&Value>, current: Option<&std::path::Path>) -> Vec<RecentWorkspace> {
+    let names = recent_names(saved);
+    recent_paths(saved)
+        .into_iter()
+        .map(|p| {
+            let path = p.to_string_lossy().into_owned();
+            let name = names
+                .get(&path)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|n| !n.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    p.file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                });
+            RecentWorkspace {
+                name,
+                current: current == Some(p.as_path()),
+                path,
+            }
+        })
+        .collect()
+}
+
 /// 새 워크스페이스 이름 검사 — 폴더 이름이 된다. 빈 이름·경로 문자·숨김 이름은 거절
 fn valid_workspace_name(name: &str) -> Option<String> {
     let name = name.trim();
@@ -134,9 +184,16 @@ fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Res
     let state_file = config_dir(app)?.join(APP_STATE_FILE);
     let saved = storage::read_json_opt(&state_file).ok().flatten();
     let recent = push_recent(recent_paths(saved.as_ref()), &ws.root);
+    // 목록 이름은 연 순간에 적어 둔다. 목록을 그릴 때는 폴더를 읽지 않으려고(SYS-09)
+    let mut names = recent_names(saved.as_ref());
+    names.insert(
+        ws.root.to_string_lossy().into_owned(),
+        json!(workspace_display_name(&ws.root)),
+    );
+    names.retain(|k, _| recent.iter().any(|p| p.to_string_lossy() == k.as_str()));
     storage::write_json(
         &state_file,
-        &json!({ "workspace": ws.root, "recent": recent }),
+        &json!({ "workspace": ws.root, "recent": recent, "recentNames": names }),
     )?;
     let out = info(&ws);
     *state
@@ -236,7 +293,8 @@ pub struct RecentWorkspace {
     current: bool,
 }
 
-/// 최근 연 워크스페이스 (SHELL-15). 없어진 폴더는 뺀다.
+/// 최근 연 워크스페이스 (SHELL-15). 저장된 목록만 돌려주고 폴더는 읽지 않는다(SYS-09).
+/// 메뉴를 열 때만 부르고, 없어진 폴더는 `workspace_switch`에서 고를 때 확인한다.
 #[tauri::command]
 pub fn workspace_recent(app: AppHandle, state: State<AppState>) -> Result<Vec<RecentWorkspace>> {
     let saved = storage::read_json_opt(&config_dir(&app)?.join(APP_STATE_FILE))
@@ -248,26 +306,7 @@ pub fn workspace_recent(app: AppHandle, state: State<AppState>) -> Result<Vec<Re
         .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?
         .as_ref()
         .map(|ws| ws.root.clone());
-    Ok(recent_paths(saved.as_ref())
-        .into_iter()
-        .filter(|p| p.is_dir())
-        .map(|p| {
-            let meta_name = storage::read_json_opt(&p.join(storage::WORKSPACE_FILE))
-                .ok()
-                .flatten()
-                .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string))
-                .filter(|n| !n.trim().is_empty());
-            let folder = p
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            RecentWorkspace {
-                name: meta_name.unwrap_or(folder),
-                path: p.to_string_lossy().into_owned(),
-                current: current.as_ref() == Some(&p),
-            }
-        })
-        .collect())
+    Ok(recent_list(saved.as_ref(), current.as_deref()))
 }
 
 /// 최근 목록에 있는 워크스페이스로 바꾼다 (SHELL-15). 목록 밖 경로는 받지 않는다.
@@ -1409,6 +1448,34 @@ mod tests {
         assert_eq!(out, vec![a.clone(), c.clone()]);
         // 없는 경로면 그대로
         assert_eq!(forget_recent(out.clone(), &PathBuf::from("/x")), out);
+    }
+
+    #[test]
+    fn recent_list_skips_folder_checks_and_uses_saved_names() {
+        // 없는 폴더도 목록에 그대로 둔다 — 목록을 그릴 때는 폴더를 보지 않는다 (SYS-09)
+        let saved = json!({
+            "recent": ["/no/such/Desktop/점검", "/no/such/Documents/CetusNote"],
+            "recentNames": { "/no/such/Desktop/점검": "점검 노트" }
+        });
+        let current = PathBuf::from("/no/such/Documents/CetusNote");
+        let out = recent_list(Some(&saved), Some(current.as_path()));
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].name, "점검 노트");
+        assert!(!out[0].current);
+        // 이름이 없으면 폴더 이름을 쓰고, 지금 연 폴더만 current
+        assert_eq!(out[1].name, "CetusNote");
+        assert!(out[1].current);
+        assert!(recent_list(None, None).is_empty());
+    }
+
+    #[test]
+    fn workspace_display_name_prefers_workspace_json() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("폴더");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(workspace_display_name(&dir), "폴더");
+        std::fs::write(dir.join(storage::WORKSPACE_FILE), r#"{"name": "내 노트"}"#).unwrap();
+        assert_eq!(workspace_display_name(&dir), "내 노트");
     }
 
     #[test]
