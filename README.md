@@ -86,7 +86,7 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 
 ### 릴리스 (메인테이너)
 
-0. 세 OS가 모두 빌드되는지는 `.github/workflows/ci.yml`(PR·수동 실행, 릴리스 없음)이 먼저 알려 줘요. 실제 Windows·Linux 설치는 릴리스 뒤에 직접 확인해요.
+0. Windows·Linux가 빌드되는지는 `.github/workflows/ci.yml`(PR·수동 실행, 릴리스 없음)이 먼저 알려 줘요. macOS는 개발 Mac에서 직접 확인해요. 실제 Windows·Linux 설치는 릴리스 뒤에 직접 확인해요.
 1. 버전 맞추기: `node scripts/version.mjs 0.2.0` — package.json · Cargo.toml · tauri.conf.json · Cargo.lock을 함께 바꿔요. 이어서 `cd src-tauri && cargo check`로 Cargo.lock을 확인해요.
 2. 커밋한 뒤 `v` 태그를 올려요(예: `git tag v0.2.0`, `git push origin v0.2.0`). 워크플로(`.github/workflows/release.yml`)가 macOS universal(`.dmg`·`.app.tar.gz`), Windows(`-setup.exe`), Linux(`.AppImage`·`.deb`)를 빌드해 GitHub Release에 올리고, 각 업데이트 파일의 `.sig`를 모아 `latest.json` 하나를 만들어요(`scripts/make-latest-json.mjs`, 세 플랫폼이 모두 있어야 성공). 태그와 버전 파일이 다르면 빌드 전에 멈춰요.
 3. 저장소 시크릿이 필요해요(한 번만): `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/cetusnote.key`, 그리고 `gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --body ""`(키에 비밀번호를 걸지 않았으면 빈 값).

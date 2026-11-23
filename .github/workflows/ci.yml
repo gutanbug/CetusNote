@@ -1,5 +1,6 @@
-# 빌드 검사 (SYS-08): 세 OS에서 Rust 앱이 컴파일·링크되고 저장 계층 테스트가 도는지 본다. 릴리스는 만들지 않는다.
+# 빌드 검사 (SYS-08): Windows·Linux에서 Rust 앱이 컴파일·링크되고 저장 계층 테스트가 도는지 본다. 릴리스는 만들지 않는다.
 # PR과 수동 실행(workflow_dispatch)에서 돈다. 태그·Release는 release.yml이 맡는다.
+# macOS는 개발 Mac에서 직접 확인하므로 여기서 빌드하지 않는다(macOS 러너가 가장 느리고 비싸다).
 # Linux는 WebKitGTK 개발 패키지(webkit2gtk-4.1)가 있어야 링크된다. Windows는 코드 서명 없이 빌드만 한다.
 name: CI
 
@@ -44,8 +45,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-22.04]
+        os: [windows-latest, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
+    # 디버그 정보(debuginfo)를 끈다: 컴파일·링크·캐시 저장이 빨라진다. 이 검사는 디버거를 쓰지 않는다.
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
     steps:
       - name: 저장소 가져오기
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -58,17 +62,6 @@ jobs:
             build-essential curl file pkg-config libssl-dev libxdo-dev \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: pnpm 준비
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.6.1
-
-      - name: Node 준비
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: 22
-          cache: pnpm
-
       - name: Rust 준비 (stable)
         uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
 
@@ -77,11 +70,13 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: 의존성 설치
-        run: pnpm install --frozen-lockfile
-
-      - name: 프런트엔드 빌드 (Tauri가 dist를 찾는다)
-        run: pnpm build
+      # Tauri의 generate_context!는 ../dist가 있어야 컴파일된다. 검사는 화면을 보지 않으므로
+      # 빈 자리표시자만 둔다(Node·pnpm·의존성 설치 없이 Rust만 검사).
+      - name: 프런트엔드 자리표시자 (dist/index.html)
+        shell: bash
+        run: |
+          mkdir -p dist
+          printf '<!doctype html>\n<html><body></body></html>\n' > dist/index.html
 
       - name: 앱 빌드 (디버그, 링크까지)
         working-directory: src-tauri
