@@ -9,9 +9,9 @@ import { TEMPLATE_CATEGORIES } from "@/features/templates";
 import { Properties } from "@/components/page/properties";
 import { Breadcrumb } from "@/components/shell/breadcrumb";
 import { TopBar } from "@/components/shell/top-bar";
-import { Constellation } from "@/components/ui/constellation";
 import { useAssetUrl } from "@/features/assets";
 import { useMeta } from "@/features/meta";
+import { SkyMark } from "@/screens/main/sky-mark";
 import { findBacklinks, pagesStore, usePages } from "@/features/pages";
 import { sessionStore, useSession } from "@/features/session";
 import { formatAgo, formatDate } from "@/lib/format-date";
@@ -130,7 +130,6 @@ export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
   const setOutlineOpen = (open: boolean) => useMainUi.getState().setOutlineOpen(open, side);
   // 고른 제목 — 메뉴가 닫힌 뒤(포커스 가둠이 풀린 뒤)에 그리로 간다
   const picked = React.useRef<Heading | null>(null);
-  const sky = useSession((s) => s.appearance.constellation);
   const [scrolled, setScrolled] = React.useState(false);
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const { update } = pagesStore.getState();
@@ -311,17 +310,9 @@ export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
         >
           {/* 페이지 머리는 커버를 꽉 채우려고 본문 폭·여백을 스스로 잡는다. 에디터만 같은 폭으로 감싼다 */}
           <article className="@container relative pb-[30vh]">
-            {/* 배경 별자리(concept.md §3): 머리 오른쪽 여백에 옅게. 여백이 모자라거나 전체 폭이면 숨긴다 */}
-            {sky && !page.layout.fullWidth && !page.cover ? (
-              <Constellation
-                size="lg"
-                tone="faint"
-                twinkle={false}
-                aria-hidden
-                className="pointer-events-none absolute top-8 right-6 hidden @6xl:block"
-              />
-            ) : null}
+            {/* 고래자리는 제목 줄 오른쪽 여백에 둔다(concept.md §3). 커버 아래라 겹치지 않고, 여백이 모자라거나 전체 폭이면 숨긴다 */}
             <PageHeader
+              aside={page.layout.fullWidth ? undefined : <SkyMark className="hidden @6xl:block" />}
               title={page.title}
               onTitleChange={(title) => update(page.id, { title })}
               onTitleExit={focusEditor}

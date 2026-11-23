@@ -554,8 +554,8 @@ function Appearance() {
         />
       </SettingsRow>
       <SettingsRow
-        name="배경 별자리"
-        description="페이지 오른쪽 여백에 고래자리를 옅게 그려요."
+        name="고래자리 보여주기"
+        description="홈, 페이지, 템플릿, 빈 화면에 고래자리를 그려요. 끄면 어디에도 나오지 않아요."
         controlId="sky"
       >
         <Switch

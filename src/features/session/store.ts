@@ -28,7 +28,7 @@ export type Appearance = {
   fontScale: FontScale;
   /** 화면 크기 0.8~1.5 (SHELL-17, ⌘+ ⌘− ⌘0) */
   zoom: number;
-  /** 본문 옆 배경 별자리 (concept.md §3) */
+  /** 고래자리 — 홈·페이지·빈 화면에 그린다 (concept.md §3, SET-03). 끄면 모든 화면에서 숨긴다 */
   constellation: boolean;
   /** 새 페이지를 전체 폭으로 시작 (본문 폭 설정). 페이지마다 메뉴에서 바꿀 수 있다 */
   newPageWide: boolean;

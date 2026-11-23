@@ -37,6 +37,8 @@ type PageHeaderProps = {
   onOpenTemplates?: () => void;
   /** 전체 폭 (본문 폭 설정) */
   wide?: boolean;
+  /** 제목 줄 오른쪽 여백에 두는 장식(고래자리). 커버 아래 제목 줄 기준이라 커버와 겹치지 않는다 */
+  aside?: React.ReactNode;
   /** 제목 아래 — PG-Properties */
   children?: React.ReactNode;
   className?: string;
@@ -61,6 +63,7 @@ function PageHeader({
   onRemoveCover,
   onOpenTemplates,
   wide,
+  aside,
   children,
   className,
 }: PageHeaderProps) {
@@ -169,11 +172,19 @@ function PageHeader({
 
       <div
         className={cn(
-          "mx-auto w-full px-12",
+          "relative mx-auto w-full px-12",
           wide ? "max-w-full px-16" : "max-w-(--content-w)",
           cover ? "pt-4" : "pt-8",
         )}
       >
+        {aside ? (
+          <div
+            data-slot="page-header-aside"
+            className={cn("pointer-events-none absolute left-full ml-6", cover ? "top-4" : "top-8")}
+          >
+            {aside}
+          </div>
+        ) : null}
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
           {icon ? (
             <PopoverTrigger

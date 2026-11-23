@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Constellation } from "@/components/ui/constellation";
 import { Kbd } from "@/components/ui/kbd";
 import { pagesStore, usePages } from "@/features/pages";
 import { sessionStore, useSession } from "@/features/session";
 import { hasOverlayTitleBar } from "@/lib/platform";
+import { SkyMark } from "@/screens/main/sky-mark";
 import { FilePlus } from "lucide-react";
 import { isTemplate } from "@/features/templates";
 import * as React from "react";
@@ -332,7 +332,7 @@ function NoPage() {
         <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-(--topbar-h)" />
       ) : null}
       <div className="grid justify-items-center gap-4">
-        <Constellation size="md" tone="strong" twinkle={false} />
+        <SkyMark />
         <h1 id="no-page-title" className="text-h3 font-semibold text-primary">
           열린 페이지가 없어요
         </h1>

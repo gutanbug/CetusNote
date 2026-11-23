@@ -3,10 +3,10 @@ import { TodayTodos, type TodayTodo } from "@/components/page/today-todos";
 import { Breadcrumb } from "@/components/shell/breadcrumb";
 import { TopBar } from "@/components/shell/top-bar";
 import { Button } from "@/components/ui/button";
-import { Constellation } from "@/components/ui/constellation";
 import { TagChip } from "@/components/ui/tag-chip";
 import { focusRing } from "@/components/ui/styles";
 import { useBottomTail } from "@/screens/main/use-bottom-tail";
+import { SkyMark } from "@/screens/main/sky-mark";
 import { useMeta } from "@/features/meta";
 import { useAssetUrl } from "@/features/assets";
 import { assetRefs, usePages } from "@/features/pages";
@@ -168,13 +168,8 @@ export function HomeView() {
                 열린 할 일 {allOpen.length}개 · 페이지 {docs.length}개
               </p>
             </div>
-            {/* 홈은 별자리를 또렷하게(concept.md §3). 좁으면 숨긴다 */}
-            <Constellation
-              size="md"
-              tone="strong"
-              glow="radiant"
-              className="hidden w-40 shrink-0 @3xl:block"
-            />
+            {/* 좁으면 숨긴다(concept.md §3). 모양·빛은 SkyMark가 정한다 */}
+            <SkyMark className="hidden @3xl:block" />
           </div>
 
           <section aria-labelledby="home-recent" className="mt-12">
