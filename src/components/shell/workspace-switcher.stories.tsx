@@ -31,10 +31,14 @@ export const CardOnly: Story = {
 /** 긴 이름 — 말줄임 */
 export const LongName: Story = { args: { name: "회사 프로젝트 문서 보관함 (2026)" } };
 
-/** 열림 */
+// 열린 메뉴는 Radix가 스토리 루트를 aria-hidden으로 가린다 — 그 안의 트리거 포커스만 예외로 둔다
+const menuOpenA11y = { a11y: { config: { rules: [{ id: "aria-hidden-focus", enabled: false }] } } };
+
+/** 열림 — open을 켜 둬 메뉴가 바로 보인다(트리거 클릭에 기대지 않는다) */
 export const Open: Story = {
-  play: async ({ canvasElement, args }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /워크스페이스/ }));
+  args: { open: true, onOpenChange: fn() },
+  parameters: menuOpenA11y,
+  play: async ({ args }) => {
     const menu = await within(document.body).findByRole("menu");
     await waitFor(() => expect(menu).toBeVisible());
     // 워크스페이스 행: 이름 + 폴더 위치·문서 수, 지금 것에 체크
@@ -52,15 +56,17 @@ const onRemoveOther = fn();
 
 /** 목록에서 빼기 (SHELL-16) — ×를 누르거나 행에서 Delete. 전환으로 번지지 않고, 지금 열린 행에는 없다 */
 export const RemoveFromList: Story = {
+  parameters: menuOpenA11y,
   args: {
+    open: true,
+    onOpenChange: fn(),
     workspaces: SAMPLE_WORKSPACES.map((w) =>
       w.current ? w : { ...w, onSelect: onSelectOther, onRemove: onRemoveOther },
     ),
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ args }) => {
     onSelectOther.mockClear();
     onRemoveOther.mockClear();
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /워크스페이스/ }));
     const menu = await within(document.body).findByRole("menu");
     await waitFor(() => expect(menu).toBeVisible());
     const current = within(menu).getByRole("menuitem", { name: /지금 열림/ });
@@ -78,8 +84,8 @@ export const RemoveFromList: Story = {
     await userEvent.keyboard("{Delete}");
     await expect(onRemoveOther).toHaveBeenCalledTimes(2);
     await expect(onSelectOther).not.toHaveBeenCalled();
-    // 빼도 메뉴는 열린 채 — Esc로 닫는다
+    // 빼도 메뉴는 열린 채 — Esc는 닫기 요청(onOpenChange(false))만 보낸다
     await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(within(document.body).queryByRole("menu")).toBeNull());
+    await expect(args.onOpenChange).toHaveBeenCalledWith(false);
   },
 };
