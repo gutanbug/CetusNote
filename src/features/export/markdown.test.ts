@@ -290,3 +290,44 @@ describe("복사용 글자 (EDIT-26)", () => {
     );
   });
 });
+
+describe("목차 블록 (ED-TableOfContents)", () => {
+  const toc = { type: "tableOfContents" };
+  const h = (level: number, text: string) => ({
+    type: "heading",
+    attrs: { level },
+    content: [t(text)],
+  });
+  /** 맨 끝 블록(목차 목록)만 본다 */
+  const last = (out: string) => out.split("\n\n").pop();
+
+  it("H1–H3를 들여쓴 링크 목록으로 쓴다", () => {
+    const out = doc(h(1, "시작"), h(2, "배경"), h(3, "세부"), h(2, "결론"), toc);
+    expect(last(out)).toBe(
+      ["- [시작](#시작)", "  - [배경](#배경)", "    - [세부](#세부)", "  - [결론](#결론)"].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("건너뛴 수준도 한 단계 아래로 들여쓴다", () => {
+    expect(last(doc(h(1, "가"), h(3, "나"), toc))).toBe("- [가](#가)\n  - [나](#나)");
+  });
+
+  it("같은 제목은 앵커에 -1, -2를 붙인다", () => {
+    expect(last(doc(h(2, "메모"), h(2, "메모"), toc))).toBe("- [메모](#메모)\n- [메모](#메모-1)");
+  });
+
+  it("제목이 없으면 아무것도 쓰지 않는다", () => {
+    expect(doc(p(t("본문")), toc)).toBe("본문");
+  });
+
+  it("목차 블록 자신과 빈 제목은 목록에 없다", () => {
+    expect(last(doc(h(1, "   "), h(1, "있음"), toc))).toBe("- [있음](#있음)");
+  });
+
+  it("복사(글자 그대로)에서도 같은 목록을 쓴다", () => {
+    const out = docToMarkdown({ type: "doc", content: [h(1, "가*나"), toc] }, { escape: false });
+    expect(out.split("\n\n").pop()).toBe("- [가*나](#가나)");
+  });
+});

@@ -1,6 +1,7 @@
 import { emojiOf } from "@/lib/page-icon";
 import type { Page } from "@/lib/storage";
 import { detectLanguage } from "@/lib/code-language";
+import { collectHeadings } from "@/lib/toc";
 import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
 
 /**
@@ -25,6 +26,9 @@ export type MdNode = {
 /** 본문 글자의 Markdown 기호를 이스케이프한다 */
 /** 복사(클립보드 글자)에서는 끈다 — 다른 앱에 붙였을 때 \_ \* 같은 역슬래시가 보이지 않게 */
 let escaping = true;
+
+/** 목차 블록이 훑을 문서(또는 조각). 내보내는 동안만 있다 */
+let tocRoot: MdNode | undefined;
 
 function escapeText(text: string): string {
   if (!escaping) return text;
@@ -271,6 +275,8 @@ function block(node: MdNode): string {
         "</details>",
       ].join("\n");
     }
+    case "tableOfContents":
+      return tocList();
     case "table":
       return table(node);
     case "text":
@@ -285,6 +291,16 @@ function block(node: MdNode): string {
   }
 }
 
+/**
+ * 목차 블록 (ED-TableOfContents): 본문 H1–H3를 들여쓴 목록으로, 앵커는 GitHub 방식.
+ * 제목이 하나도 없으면 아무것도 쓰지 않는다(블록이 빠진다).
+ */
+function tocList(): string {
+  return collectHeadings(tocRoot)
+    .map((h) => `${"  ".repeat(h.depth)}- [${inline(h.node.content, "heading")}](#${h.slug})`)
+    .join("\n");
+}
+
 // ── 페이지 ─────────────────────────────────────────────
 
 /**
@@ -297,11 +313,13 @@ export function docToMarkdown(
 ): string {
   escaping = options.escape ?? true;
   mentionTitle = options.titleOf;
+  tocRoot = doc;
   try {
     return blocks(doc.content);
   } finally {
     escaping = true;
     mentionTitle = undefined;
+    tocRoot = undefined;
   }
 }
 
@@ -316,6 +334,7 @@ export function pageToMarkdown(page: Page, titleOf?: (id: string) => string | un
     return pageMarkdown(page);
   } finally {
     mentionTitle = undefined;
+    tocRoot = undefined;
   }
 }
 
@@ -335,6 +354,8 @@ function pageMarkdown(page: Page): string {
   // 아이콘·이미지 아이콘(PAGE-10)은 글로 옮길 수 없어 이모지만 넣는다
   const emoji = emojiOf(page.icon);
   const heading = `# ${emoji ? `${emoji} ` : ""}${escapeText(title)}`;
+  // 목차는 본문에 실제로 내보내는 제목만 가리킨다(머리로 합친 첫 H1은 빼고)
+  tocRoot = { content: sameTitle ? rest : nodes };
   const body = blocks(sameTitle ? rest : nodes);
   return [heading, body].filter(Boolean).join("\n\n") + "\n";
 }

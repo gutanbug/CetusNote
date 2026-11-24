@@ -5,7 +5,7 @@ const ids = (q: string) => filterSlashItems(q).map((it) => it.id);
 
 describe("SLASH_ITEMS 데이터", () => {
   it("16개 항목, id는 서로 다르다", () => {
-    expect(SLASH_ITEMS).toHaveLength(16);
+    expect(SLASH_ITEMS).toHaveLength(17);
     expect(new Set(SLASH_ITEMS.map((it) => it.id)).size).toBe(SLASH_ITEMS.length);
   });
 
@@ -63,6 +63,9 @@ describe("filterSlashItems", () => {
     expect(ids("H1")).toEqual(["heading1"]);
     expect(ids("  TODO ")).toEqual(["taskList"]);
     expect(ids("LaTeX")).toEqual(["blockMath"]);
+    expect(ids("목차")).toEqual(["tableOfContents"]);
+    expect(ids("TOC")).toEqual(["tableOfContents"]);
+    expect(ids("차례")).toEqual(["tableOfContents"]);
   });
 
   it("제목 검색은 제목 1·2·3, 단축 입력은 #의 개수로 좁혀진다", () => {

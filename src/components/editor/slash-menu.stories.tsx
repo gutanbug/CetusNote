@@ -139,6 +139,7 @@ const CHECK: Record<string, (e: Editor) => Promise<void> | void> = {
     expect(headers).toBe(3);
   },
   callout: (e) => expect(e.isActive("callout")).toBe(true),
+  tableOfContents: (e) => expect(contains(e, "tableOfContents"), "목차 블록 노드").toBe(true),
   pageMention: async (e) => {
     expect(e.state.doc.textContent).toContain("@");
     await body().findByRole("listbox", { name: "페이지 멘션" });
@@ -175,7 +176,7 @@ const Full = () => (
   />
 );
 
-/** 16개 명령 전부 — 이름으로 찾아 ↓로 고르고 Enter. 선택 표시·aria-activedescendant·실행 결과·`/` 지움 */
+/** 17개 명령 전부 — 이름으로 찾아 ↓로 고르고 Enter. 선택 표시·aria-activedescendant·실행 결과·`/` 지움 */
 export const EveryCommandEnter: Story = {
   render: Full,
   play: async ({ canvasElement }) => {
@@ -204,7 +205,7 @@ export const EveryCommandEnter: Story = {
   },
 };
 
-/** 16개 명령 전부 — `/`만 쳐서 열린 전체 목록에서 마우스로 누른다. 포커스는 에디터에 남는다 */
+/** 17개 명령 전부 — `/`만 쳐서 열린 전체 목록에서 마우스로 누른다. 포커스는 에디터에 남는다 */
 export const EveryCommandClick: Story = {
   render: Full,
   play: async ({ canvasElement }) => {

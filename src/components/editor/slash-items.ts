@@ -11,6 +11,7 @@ import {
   List,
   ListOrdered,
   ListTodo,
+  ListTree,
   type LucideIcon,
   Minus,
   Quote,
@@ -169,6 +170,22 @@ export const SLASH_ITEMS: SlashItem[] = [
     hint: ":::",
     keywords: ["callout", "강조", "메모"],
     run: (e, r) => chain(e, r).setCallout().run(),
+  },
+  {
+    id: "tableOfContents",
+    title: "목차",
+    description: "문서의 제목 목록으로 이동",
+    icon: ListTree,
+    group: "고급",
+    keywords: ["toc", "contents", "table of contents", "차례", "목차"],
+    // 빈 문단이면 그 자리를, 글이 있으면 다음 자리를 목차 블록으로 채운다 (수식 블록과 같은 방식)
+    run: (e, r) => {
+      chain(e, r).run();
+      const { $from } = e.state.selection;
+      const empty = $from.parent.content.size === 0;
+      const range = empty ? { from: $from.before(), to: $from.after() } : $from.after();
+      e.chain().insertContentAt(range, { type: "tableOfContents" }).run();
+    },
   },
   {
     id: "pageMention",
