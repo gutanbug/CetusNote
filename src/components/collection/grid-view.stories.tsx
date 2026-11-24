@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { GridView, type GridViewProps } from "./grid-view";
 import { AddPropertyMenu, PropertyMenu, PropertyValueCell } from "./property";
 import { SAMPLE_ASSIGNEES, SAMPLE_ENTRIES, SAMPLE_PROPERTIES, SAMPLE_RECORDS } from "./sample";
+import type { RecordItem } from "./fields";
 import { IconButton } from "@/components/ui/icon-button";
 import { Plus } from "lucide-react";
 
@@ -74,10 +75,44 @@ export const Empty: Story = {
   },
 };
 
-/** 50행을 넘으면 "더 보기" */
-export const More: Story = {
-  args: {
-    pageSize: 3,
+/** 레코드 n개 견본 — 큰 목록 스토리용 (SYS-11) */
+function manyItems(n: number): RecordItem[] {
+  const statuses = ["할 일", "진행 중", "검토", "완료"] as const;
+  return Array.from({ length: n }, (_, i) => ({
+    id: `m${i}`,
+    title: `레코드 ${i + 1} 회의록`,
+    status: statuses[i % 4],
+    statusColor: "gray" as const,
+    assignee: SAMPLE_ASSIGNEES[i % SAMPLE_ASSIGNEES.length],
+    due: { date: "2026-11-24", text: "11월 24일", late: false },
+    tags: [{ name: "회의", color: "blue" as const }],
+  }));
+}
+
+const tenThousand = manyItems(10_000);
+
+/**
+ * 1만 행: 화면에 보이는 행과 여유 행만 DOM에 그린다. aria-rowcount는 전체 수, 키보드로 멀리 내려가면 따라간다 (SYS-11)
+ */
+export const TenThousandRows: Story = {
+  // 큰 데이터는 args로 두지 않는다 — 테스트 채널의 메시지 크기를 넘는다
+  args: { items: [] },
+  render: (args) => <Live {...args} items={tenThousand} />,
+  play: async ({ canvasElement, args }) => {
+    const table = canvasElement.querySelector<HTMLTableElement>('table[role="grid"]');
+    if (!table) throw new Error("grid table not found");
+    await expect(table).toHaveAttribute("aria-rowcount", "10001");
+    const drawn = table.querySelectorAll('tbody tr[role="row"]').length;
+    await expect(drawn).toBeLessThan(80);
+    const first = table.querySelector<HTMLElement>('td[data-row="0"][data-col="0"] button');
+    first?.focus();
+    for (let i = 0; i < 120; i++) await userEvent.keyboard("{ArrowDown}");
+    await waitFor(async () => {
+      // 셀의 키보드 대상은 셀 안 첫 버튼이다 (focusOf)
+      const cell = canvasElement.querySelector<HTMLElement>('td[data-row="120"][data-col="0"]');
+      await expect(cell?.querySelector("button")).toHaveFocus();
+    });
+    await expect(args.onOpen).not.toHaveBeenCalled();
   },
 };
 

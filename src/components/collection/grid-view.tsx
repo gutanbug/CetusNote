@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { focusRing } from "@/components/ui/styles";
@@ -15,6 +14,7 @@ import {
   type RecordItem,
 } from "./fields";
 import { PropertyIcon } from "./property";
+import { GRID_ROW_HEIGHT, gridRowRange } from "./grid-rows";
 import type { BuiltinKey, PropertyEntry } from "./property-types";
 import { valueButton } from "./styles";
 import type { Status, StatusOption } from "@/components/ui/status-chip";
@@ -38,8 +38,14 @@ const BUILTIN_COLUMNS: GridColumn[] = [
   { key: "tags", name: "태그", kind: "tags" },
 ];
 
-/** 한 번에 그리는 행 수 — 넘으면 "더 보기" */
-export const GRID_PAGE = 50;
+/** 스크롤이 일어나는 가장 가까운 조상. 없으면 창(window) */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY;
+    if (oy === "auto" || oy === "scroll") return p;
+  }
+  return null;
+}
 
 type GridViewProps = {
   items: RecordItem[];
@@ -59,8 +65,6 @@ type GridViewProps = {
   onNew: () => void;
   /** 레코드가 하나도 없을 때 표 안에 보일 안내 (필터 결과 0개 포함) */
   empty?: React.ReactNode;
-  /** 처음 보이는 행 수 (기본 50) */
-  pageSize?: number;
   /** 제목 뒤 열 — 보이는 속성만, 순서대로. 없으면 기본 4개 */
   columns?: GridColumn[];
   /** 머리 맨 끝 "속성 추가" (CL-AddProperty) */
@@ -99,15 +103,20 @@ function GridView({
   tagEditor,
   onNew,
   empty,
-  pageSize = GRID_PAGE,
   columns = BUILTIN_COLUMNS,
   addColumn,
   className,
 }: GridViewProps) {
-  const [limit, setLimit] = React.useState(pageSize);
   const [scrolled, setScrolled] = React.useState(false);
   const [active, setActive] = React.useState({ row: 0, col: 0 });
   const tableRef = React.useRef<HTMLTableElement>(null);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLTableSectionElement>(null);
+  /** 스크롤 위치(top·높이)와 tbody가 스크롤 내용에서 있는 높이(offset). 창을 여기서 계산한다 */
+  const [view, setView] = React.useState({ top: 0, height: 0, offset: 0 });
+  /** 키보드로 옮긴 셀 — 아직 그려지지 않았으면 그려진 뒤에 포커스한다 */
+  const pendingFocus = React.useRef<{ row: number; col: number } | undefined>(undefined);
+  const scrollerRef = React.useRef<HTMLElement | Window | null>(null);
   const span = columns.length + 1 + (addColumn ? 1 : 0);
   const builtinCell = (key: BuiltinKey, r: RecordItem, name: string) =>
     key === "status" ? (
@@ -130,16 +139,92 @@ function GridView({
     ) : (
       <TagCell item={r} name={name} editor={tagEditor?.(r.id)} />
     );
-  const shown = items.slice(0, limit);
-  const rest = items.length - shown.length;
-
   // 셀 이동 (role=grid): 탭 정지점은 한 곳(활성 셀의 첫 버튼)만 둔다. 나머지는 tabIndex -1.
-  const lastRow = Math.max(shown.length - 1, 0);
+  const count = items.length;
+  const lastRow = Math.max(count - 1, 0);
   const lastCol = columns.length;
   const cur = { row: Math.min(active.row, lastRow), col: Math.min(active.col, lastCol) };
+
+  /** 그릴 행 구간 [first, last) — 보이는 구간 + 여유 (grid-rows.ts, ADR-021과 같은 방식) */
+  const { first, last } = gridRowRange(view, count);
+  const drawn = items.slice(first, last);
+
+  /** 스크롤 영역과 tbody 위치를 다시 잰다 (스크롤·크기 변화·행 수 변화 뒤) */
+  const measure = React.useCallback(() => {
+    const root = rootRef.current;
+    const body = bodyRef.current;
+    if (!root || !body) return;
+    const scroller = scrollParent(root);
+    const bodyTop = body.getBoundingClientRect().top;
+    const next = scroller
+      ? {
+          top: scroller.scrollTop,
+          height: scroller.clientHeight,
+          offset: bodyTop - scroller.getBoundingClientRect().top + scroller.scrollTop,
+        }
+      : { top: window.scrollY, height: window.innerHeight, offset: bodyTop + window.scrollY };
+    scrollerRef.current = scroller ?? window;
+    setView((prev) =>
+      prev.top === next.top && prev.height === next.height && prev.offset === next.offset
+        ? prev
+        : next,
+    );
+  }, []);
+  React.useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const scroller = scrollParent(root);
+    const target: HTMLElement | Window = scroller ?? window;
+    target.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    const observer = new ResizeObserver(measure);
+    if (scroller) observer.observe(scroller);
+    observer.observe(root);
+    measure();
+    return () => {
+      target.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+      observer.disconnect();
+    };
+  }, [measure]);
+  // 행이 늘거나 줄거나 위쪽 내용 높이가 바뀌면 다시 잰다 (값이 같으면 다시 그리지 않는다)
+  React.useLayoutEffect(() => {
+    measure();
+  });
+
+  /** 행 하나가 스크롤 영역 안에 보이도록 최소한으로 스크롤한다 */
+  const revealRow = (row: number) => {
+    const body = bodyRef.current;
+    const scroller = scrollerRef.current;
+    if (!body || !scroller) return;
+    const isWin = scroller === window;
+    const el = scroller as HTMLElement;
+    const height = isWin ? window.innerHeight : el.clientHeight;
+    const top0 = isWin ? window.scrollY : el.scrollTop;
+    const offset = view.offset;
+    const rowTop = offset + row * GRID_ROW_HEIGHT;
+    let nextTop = top0;
+    if (rowTop < top0) nextTop = rowTop;
+    else if (rowTop + GRID_ROW_HEIGHT > top0 + height) nextTop = rowTop + GRID_ROW_HEIGHT - height;
+    if (nextTop === top0) return;
+    if (isWin) window.scrollTo({ top: nextTop });
+    else el.scrollTop = nextTop;
+  };
+  /** 셀의 키보드 대상 — 셀 안 첫 버튼 (없으면 셀 자체) */
+  const focusOf = (cell: HTMLElement) => cell.querySelector<HTMLElement>("button") ?? cell;
   React.useLayoutEffect(() => {
     const t = tableRef.current;
     if (!t) return;
+    const want = pendingFocus.current;
+    if (want) {
+      const cell = t.querySelector<HTMLTableCellElement>(
+        `tbody td[data-row="${want.row}"][data-col="${want.col}"]`,
+      );
+      if (cell) {
+        pendingFocus.current = undefined;
+        focusOf(cell).focus();
+      }
+    }
     t.querySelectorAll<HTMLTableCellElement>("tbody td[data-row]").forEach((cell) => {
       const on = Number(cell.dataset.row) === cur.row && Number(cell.dataset.col) === cur.col;
       const buttons = cell.querySelectorAll<HTMLElement>("button");
@@ -152,8 +237,6 @@ function GridView({
       });
     });
   });
-  /** 셀의 키보드 대상 — 셀 안 첫 버튼 (없으면 셀 자체) */
-  const focusOf = (cell: HTMLElement) => cell.querySelector<HTMLElement>("button") ?? cell;
   const cellAt = (r: number, c: number) =>
     tableRef.current?.querySelector<HTMLTableCellElement>(
       `tbody td[data-row="${r}"][data-col="${c}"]`,
@@ -191,10 +274,10 @@ function GridView({
         break;
       case "Enter":
         // Enter는 셀 안 버튼이 한다(제목은 열기, 값 칸은 편집). Shift+Enter는 페이지로 열기
-        if (e.shiftKey && c === 0 && shown[r]) {
+        if (e.shiftKey && c === 0 && items[r]) {
           e.preventDefault();
           e.stopPropagation();
-          onOpenPage(shown[r].id);
+          onOpenPage(items[r].id);
         }
         return;
       case "F2": {
@@ -217,7 +300,14 @@ function GridView({
     e.preventDefault();
     e.stopPropagation();
     const target = cellAt(nr, nc);
-    if (target) focusOf(target).focus();
+    if (target) {
+      focusOf(target).focus();
+      return;
+    }
+    // 아직 그려지지 않은 행: 보이도록 스크롤하고, 그려지면 포커스한다 (아래 layout effect)
+    pendingFocus.current = { row: nr, col: nc };
+    setActive({ row: nr, col: nc });
+    revealRow(nr);
   };
   /** 셀에 포커스가 들어오면 활성 셀을 맞춘다 (마우스 클릭·메뉴 닫힘 복귀 포함) */
   const onFocus = (e: React.FocusEvent<HTMLTableElement>) => {
@@ -228,7 +318,7 @@ function GridView({
   };
 
   return (
-    <div data-slot="collection-grid" className={className}>
+    <div ref={rootRef} data-slot="collection-grid" className={className}>
       <div
         className="group/grid overflow-x-auto rounded-lg border border-line"
         onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
@@ -295,7 +385,7 @@ function GridView({
               ) : null}
             </tr>
           </thead>
-          <tbody role="rowgroup">
+          <tbody ref={bodyRef} role="rowgroup">
             {!items.length && empty ? (
               <tr role="row" aria-rowindex={2}>
                 <td role="gridcell" colSpan={span} className="px-3 py-8">
@@ -303,14 +393,21 @@ function GridView({
                 </td>
               </tr>
             ) : null}
-            {shown.map((r, ri) => {
+            {first > 0 ? (
+              <tr aria-hidden="true" style={{ height: first * GRID_ROW_HEIGHT }} />
+            ) : null}
+            {drawn.map((r, di) => {
+              const ri = first + di;
               const name = r.title || "제목 없음";
               return (
                 <tr
                   key={r.id}
                   role="row"
                   aria-rowindex={ri + 2}
-                  className="group/row h-9 transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover last:[&>td]:border-b-0"
+                  className={cn(
+                    "group/row h-9 transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
+                    ri === count - 1 && "[&>td]:border-b-0",
+                  )}
                 >
                   <td
                     role="gridcell"
@@ -363,6 +460,9 @@ function GridView({
                 </tr>
               );
             })}
+            {last < count ? (
+              <tr aria-hidden="true" style={{ height: (count - last) * GRID_ROW_HEIGHT }} />
+            ) : null}
           </tbody>
         </table>
         {!items.length && empty ? null : (
@@ -382,13 +482,6 @@ function GridView({
           </button>
         )}
       </div>
-      {rest > 0 ? (
-        <div className="flex justify-center py-3">
-          <Button variant="secondary" size="sm" onClick={() => setLimit((n) => n + pageSize)}>
-            더 보기 ({rest}개 남음)
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
