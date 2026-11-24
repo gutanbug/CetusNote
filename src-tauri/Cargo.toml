@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["image-png"] }
+tauri = { version = "2", features = ["image-png", "protocol-asset"] }
 tauri-plugin-opener = "2"
 # 폴더 선택·저장 대화상자. Rust 커맨드 안에서만 띄운다(프론트엔드 권한 없음).
 tauri-plugin-dialog = "2"
@@ -32,6 +32,8 @@ ureq = "=3.5.1"
 url = "=2.5.8"
 tauri-plugin-updater = "=2.14.1"
 tauri-plugin-process = "=2.4.0"
+# 날짜 칩 알림(EDIT-37, ADR-025 알림 항목). 앱이 켜져 있을 때만 OS 알림을 띄운다. 2.7.0은 2026-10-14 공개, tauri ^2.12와 호환
+tauri-plugin-notification = "=2.7.0"
 # PDF 내보내기(DATA-06): 메인 WKWebView의 createPDF로 쪽을 찍고 PDFKit으로 한 파일에 합친다(pdf.rs). objc2는 tauri·wry가 쓰는 판과 같다
 # 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
 tauri-plugin-mcp-bridge = "0.13"

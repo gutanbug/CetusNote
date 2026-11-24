@@ -1,6 +1,14 @@
 import { normalizePage, normalizeWorkspace } from "./schema";
 import {
+  attachmentKind,
+  limitFor,
+  oversizeMessage,
+  type AttachmentKind,
+} from "../attachments/limits";
+import {
   StorageError,
+  type AttachmentInfo,
+  type AttachmentPickKind,
   type DocumentFile,
   type AppImportPick,
   type DocumentPick,
@@ -9,7 +17,7 @@ import {
   type WorkspaceInfo,
   type WorkspaceMeta,
 } from "./types";
-import { isValidId } from "./ulid";
+import { isValidId, ulid } from "./ulid";
 
 type MemoryOptions = {
   pages?: Page[];
@@ -34,6 +42,12 @@ type MemoryOptions = {
   importImages?: Record<string, Uint8Array>;
   /** fetchAsset이 부르는 fetch (테스트용) */
   fetchAsset?: (url: string) => Promise<Response>;
+  /** 파일 첨부 고르기 결과 흉내. 없으면 브라우저 파일 선택 */
+  pickAttachment?: (
+    kind: AttachmentPickKind,
+  ) => { name: string; bytes: Uint8Array; mime?: string } | null;
+  /** importFile이 읽을 파일 (끌어 놓기 경로 → 이름·바이트). 없으면 not_found */
+  importAttachments?: Record<string, { name: string; bytes: Uint8Array; mime?: string }>;
   /** 처음부터 있는 이미지 (경로 → 바이트) */
   assets?: Record<string, Uint8Array>;
   /** 백업 불러오기 결과 흉내 (기본: 취소) */
@@ -116,6 +130,14 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
   /** 문서 가져오기로 고른 파일(번호 → 파일) — readDocumentBytes가 읽는다 */
   const picked = new Map<string, File>();
   let assetSeq = 0;
+  /** 파일 첨부의 원래 이름·형식 (경로 → 값). 바이트는 assets 맵에 있다 */
+  const attachmentMeta = new Map<string, { name: string; mime: string }>();
+  const attachmentUrls = new Map<string, string>();
+  const storeAttachment = (
+    pageId: string,
+    picked: { name: string; bytes: Uint8Array; mime?: string },
+    kind: AttachmentPickKind,
+  ) => storeAttachmentImpl(pageId, picked, kind, assets, attachmentMeta);
 
   /** 최근 워크스페이스(맨 앞이 최근). 메모리 구현은 열 때마다 앞에 둔다 */
   const recent: WorkspaceInfo[] = info ? [{ ...info }] : [];
@@ -211,6 +233,8 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
         throw new StorageError("not_trashed", "휴지통에 있는 페이지만 영구 삭제할 수 있어요");
       pages.delete(id);
       for (const path of assets.keys()) if (path.startsWith(`assets/${id}/`)) assets.delete(path);
+      for (const path of attachmentMeta.keys())
+        if (path.startsWith(`assets/${id}/`)) attachmentMeta.delete(path);
       history.delete(id);
     },
     async saveVersion(page) {
@@ -276,6 +300,53 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async pickAsset(pageId) {
       const bytes = options.pickAsset ? options.pickAsset() : await pickFile();
       return bytes ? this.writeAsset(pageId, bytes) : null;
+    },
+    async pickFile(pageId, o) {
+      need();
+      const kind = o?.kind ?? "file";
+      const picked = options.pickAttachment
+        ? options.pickAttachment(kind)
+        : await pickAttachmentFile(kind);
+      return picked ? storeAttachment(pageId, picked, kind) : null;
+    },
+    async importFile(pageId, path, o) {
+      need();
+      const src = options.importAttachments?.[path];
+      if (!src) throw new StorageError("not_found", `파일이 없어요: ${path}`);
+      return storeAttachment(pageId, src, o?.kind ?? "file");
+    },
+    async revealAsset() {
+      throw new StorageError("unsupported", "브라우저 미리보기에서는 Finder에서 보여 줄 수 없어요");
+    },
+    async openAsset() {
+      throw new StorageError("unsupported", "브라우저 미리보기에서는 기본 앱으로 열 수 없어요");
+    },
+    async saveAssetAs(path) {
+      need();
+      const bytes = assets.get(path);
+      const meta = attachmentMeta.get(path);
+      if (!bytes || !meta) throw new StorageError("not_found", `파일 없음: ${path}`);
+      if (typeof document === "undefined")
+        throw new StorageError("unsupported", "저장 대화상자를 쓸 수 없어요");
+      const url = URL.createObjectURL(new Blob([bytes.slice()], { type: meta.mime }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = meta.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      return meta.name;
+    },
+    async resolveAssetSrc(path) {
+      need();
+      const bytes = assets.get(path);
+      const meta = attachmentMeta.get(path);
+      if (!bytes || !meta) throw new StorageError("not_found", `파일 없음: ${path}`);
+      let url = attachmentUrls.get(path);
+      if (!url) {
+        url = URL.createObjectURL(new Blob([bytes.slice()], { type: meta.mime }));
+        attachmentUrls.set(path, url);
+      }
+      return url;
     },
     async fetchAsset(pageId, url) {
       if (!/^https?:\/\//i.test(url))
@@ -482,6 +553,63 @@ function pickDocumentFiles(picked: Map<string, File>): Promise<DocumentPick | nu
 
 const TEXT_EXTS = ["md", "markdown", "txt", "html", "htm"];
 const DOCUMENT_EXTS = [...TEXT_EXTS, "docx", "pdf"];
+
+/** 파일 첨부 저장 (Rust `attachments::import_at`과 같은 규칙: 종류·상한 검사, 안전한 이름) */
+async function storeAttachmentImpl(
+  pageId: string,
+  picked: { name: string; bytes: Uint8Array; mime?: string },
+  kind: AttachmentPickKind,
+  assets: Map<string, Uint8Array>,
+  meta: Map<string, { name: string; mime: string }>,
+): Promise<AttachmentInfo> {
+  if (!isValidId(pageId)) throw new StorageError("invalid_id", `잘못된 페이지 id: ${pageId}`);
+  const mime = picked.mime || "application/octet-stream";
+  const k: AttachmentKind = attachmentKind(picked.name, mime);
+  if (kind === "pdf" && k !== "pdf")
+    throw new StorageError("wrong_kind", "PDF 파일만 넣을 수 있어요");
+  if (kind === "media" && k !== "video" && k !== "audio")
+    throw new StorageError("wrong_kind", "영상·소리 파일만 넣을 수 있어요");
+  if (picked.bytes.length > limitFor(k)) throw new StorageError("too_large", oversizeMessage(k));
+  const safe =
+    picked.name
+      .replace(/[^A-Za-z0-9._-]/g, "_")
+      .replace(/^\.+/, "")
+      .slice(0, 73) || "file";
+  const path = `assets/${pageId}/${ulid()}-${safe}`;
+  assets.set(path, picked.bytes.slice());
+  meta.set(path, { name: picked.name, mime });
+  return { path, name: picked.name, size: picked.bytes.length, mime, kind: k };
+}
+
+/** 파일 첨부용 브라우저 파일 선택 (이름·형식까지 돌려준다) */
+function pickAttachmentFile(
+  kind: AttachmentPickKind,
+): Promise<{ name: string; bytes: Uint8Array; mime: string } | null> {
+  if (typeof document === "undefined") return Promise.resolve(null);
+  const accept =
+    kind === "pdf" ? "application/pdf,.pdf" : kind === "media" ? "video/*,audio/*" : "";
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    if (accept) input.accept = accept;
+    input.hidden = true;
+    document.body.append(input);
+    const done = () => input.remove();
+    input.addEventListener("change", () => {
+      done();
+      const file = input.files?.[0];
+      if (!file) return resolve(null);
+      void file
+        .arrayBuffer()
+        .then((b) => resolve({ name: file.name, bytes: new Uint8Array(b), mime: file.type }));
+    });
+    input.addEventListener("cancel", () => {
+      done();
+      resolve(null);
+    });
+    input.click();
+  });
+}
 
 function pickFile(): Promise<Uint8Array | null> {
   if (typeof document === "undefined") return Promise.resolve(null);

@@ -13,6 +13,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::workspace_current,
@@ -48,6 +49,12 @@ pub fn run() {
             commands::asset_read,
             commands::asset_pick,
             commands::asset_fetch,
+            commands::asset_pick_file,
+            commands::asset_import_file,
+            commands::asset_reveal,
+            commands::asset_open,
+            commands::asset_save_as,
+            commands::asset_src_path,
             commands::backup_export,
             commands::backup_auto,
             commands::backup_list,

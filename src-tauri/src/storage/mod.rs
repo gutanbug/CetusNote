@@ -4,6 +4,7 @@
 //! 워크스페이스 경로는 Rust 쪽 상태에만 있다. 그래서 폴더 밖으로 나가는 요청을 만들 수 없다.
 //! 이 모듈은 Tauri에 의존하지 않는 순수 함수만 둔다(단위 테스트 대상).
 
+pub mod attachments;
 pub mod backup;
 pub mod export;
 pub mod history;

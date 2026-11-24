@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { normalizePage, normalizeWorkspace, SchemaError } from "./schema";
 import {
   StorageError,
@@ -16,6 +16,7 @@ import {
   type RecentWorkspace,
   type WorkspaceInfo,
   type WorkspaceStatus,
+  type AttachmentInfo,
 } from "./types";
 
 /** Rust 커맨드 호출. Rust의 StorageError({ code, message })를 StorageError로 바꾼다. */
@@ -112,6 +113,15 @@ export function createTauriStorage(): Storage {
     },
     readAsset: async (path) => new Uint8Array(await call<ArrayBuffer>("asset_read", { path })),
     pickAsset: (pageId) => call<string | null>("asset_pick", { pageId }),
+    pickFile: (pageId, o) =>
+      writeCall<AttachmentInfo | null>("asset_pick_file", { pageId, kind: o?.kind ?? null }),
+    importFile: (pageId, path, o) =>
+      writeCall<AttachmentInfo>("asset_import_file", { pageId, path, kind: o?.kind ?? null }),
+    revealAsset: (path) => call<void>("asset_reveal", { path }),
+    openAsset: (path) => call<void>("asset_open", { path }),
+    saveAssetAs: (path) => call<string | null>("asset_save_as", { path }),
+    // Rust가 절대 경로를 돌려주고, 웹뷰 주소로 바꾼다(워크스페이스 assets만 열려 있다)
+    resolveAssetSrc: async (path) => convertFileSrc(await call<string>("asset_src_path", { path })),
     fetchAsset: (pageId, url, o) =>
       call<string>("asset_fetch", { pageId, url, publicOnly: o?.publicOnly ?? false }),
     exportBackup: (fileName, createdAt) =>

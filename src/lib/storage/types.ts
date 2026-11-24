@@ -1,3 +1,4 @@
+import type { AttachmentKind } from "../attachments/limits";
 /**
  * 저장 형식 타입 (docs/architecture.md §3, ADR-001).
  * 형식을 바꾸면 schemaVersion을 올리고 schema.ts에 마이그레이션을 더한다.
@@ -175,6 +176,18 @@ export type WorkspaceStatus = {
 
 export type LoadError = { file: string; message: string };
 
+/** 파일 첨부 고르기 종류: 아무 파일 · PDF · 영상·소리 */
+export type AttachmentPickKind = "file" | "pdf" | "media";
+
+/** 첨부 파일 정보. path는 워크스페이스 기준 상대 경로(assets/<페이지 id>/…) */
+export type AttachmentInfo = {
+  path: string;
+  name: string;
+  size: number;
+  mime: string;
+  kind: AttachmentKind;
+};
+
 export type StorageErrorCode =
   | "no_workspace"
   | "stale_workspace"
@@ -189,6 +202,7 @@ export type StorageErrorCode =
   | "permission_denied"
   | "disk_full"
   | "invalid_asset"
+  | "wrong_kind"
   | "unsupported_image"
   | "too_large"
   | "fetch_failed"
@@ -297,6 +311,25 @@ export interface Storage {
   readAsset(path: string): Promise<Uint8Array>;
   /** 이미지 선택 대화상자 → writeAsset. 취소하면 null */
   pickAsset(pageId: string): Promise<string | null>;
+  /**
+   * 파일 첨부 선택 대화상자 → 그 페이지 assets로 복사 (EDIT-31~33, ADR-025). 취소하면 null.
+   * 크기 상한을 넘으면 too_large, 종류가 맞지 않으면 wrong_kind.
+   */
+  pickFile(pageId: string, options?: { kind?: AttachmentPickKind }): Promise<AttachmentInfo | null>;
+  /** 끌어 놓기·붙여 넣기로 받은 파일 경로를 pickFile과 같은 규칙으로 복사한다 */
+  importFile(
+    pageId: string,
+    path: string,
+    options?: { kind?: AttachmentPickKind },
+  ): Promise<AttachmentInfo>;
+  /** Finder·탐색기에서 보기 */
+  revealAsset(path: string): Promise<void>;
+  /** OS 기본 앱으로 열기 */
+  openAsset(path: string): Promise<void>;
+  /** 저장 대화상자 → 복사. 취소하면 null, 저장했으면 저장한 경로 */
+  saveAssetAs(path: string): Promise<string | null>;
+  /** 웹뷰가 읽는 주소 (asset 프로토콜). 미리보기 웹에서는 blob URL */
+  resolveAssetSrc(path: string): Promise<string>;
   /** 이미지 링크(http·https)를 내려받아 writeAsset (PAGE-10) */
   /** publicOnly: 내부망 주소(루프백·사설 등)는 거절한다 — 붙여 넣은 웹 이미지(EDIT-24) */
   fetchAsset(pageId: string, url: string, options?: { publicOnly?: boolean }): Promise<string>;

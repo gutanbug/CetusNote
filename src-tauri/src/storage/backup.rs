@@ -4,8 +4,8 @@
 //! 복원은 이 목록에 맞는 항목만 푼다 — 경로 탈출(`../`), 절대 경로, 숨김 파일, 다른 파일은 받지 않는다.
 
 use super::{
-    ASSET_MAX_BYTES, ASSETS_DIR, PAGES_DIR, Result, StorageError, WORKSPACE_FILE, atomic_write,
-    is_valid_id, parse_asset_path,
+    ASSETS_DIR, PAGES_DIR, Result, StorageError, WORKSPACE_FILE, atomic_write, is_valid_id,
+    parse_asset_path,
 };
 use serde_json::{Value, json};
 use std::fs::{self, File};
@@ -119,7 +119,9 @@ fn allowed(name: &str) -> Option<u64> {
             .is_some_and(is_valid_id)
             .then_some(JSON_MAX_BYTES);
     }
-    parse_asset_path(name).ok().map(|_| ASSET_MAX_BYTES as u64)
+    parse_asset_path(name)
+        .ok()
+        .map(|(_, file)| super::attachments::max_bytes_for_asset(file))
 }
 
 /// 백업 표지 읽기 — CetusNote 백업이 아니거나 더 새 형식이면 오류

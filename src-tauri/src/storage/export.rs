@@ -3,7 +3,7 @@
 //! 사용자가 고른 폴더 안에 **새로 만든** `<이름> Markdown <날짜>` 폴더에만 쓴다.
 //! 기존 파일은 덮어쓰지 않고, 이미지는 워크스페이스 `assets/` 안에서만 복사한다.
 
-use super::{ASSET_MAX_BYTES, ASSETS_DIR, Result, StorageError, atomic_write, parse_asset_path};
+use super::{ASSETS_DIR, Result, StorageError, atomic_write, parse_asset_path};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
@@ -142,8 +142,8 @@ pub fn copy_asset(ws_root: &Path, src: &str, dest: &Path) -> Result<()> {
     if !meta.is_file() {
         return Err(StorageError::new("not_found", "이미지 파일이 없어요"));
     }
-    if meta.len() > ASSET_MAX_BYTES as u64 {
-        return Err(StorageError::new("too_large", "이미지가 25MB보다 커요"));
+    if meta.len() > super::attachments::max_bytes_for_asset(name) {
+        return Err(StorageError::new("too_large", "파일이 상한보다 커요"));
     }
     fs::copy(&file, dest)?;
     Ok(())

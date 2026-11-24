@@ -284,7 +284,15 @@ fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Res
     )?;
     ws.token = state.issue_token();
     let out = info(&ws);
+    let new_root = ws.root.clone();
+    let old_root = state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?
+        .as_ref()
+        .map(|w| w.root.clone());
     state.store(ws)?;
+    sync_asset_scope(app, old_root.as_deref(), &new_root);
     Ok(out)
 }
 
@@ -1016,6 +1024,161 @@ pub async fn asset_pick(
     }
     let bytes = std::fs::read(&path)?;
     with_workspace(&state, |ws| ws.write_asset(&page_id, &bytes)).map(Some)
+}
+
+// ---- 파일 첨부 (EDIT-31~33, ADR-025) -------------------------------------------------
+
+use storage::attachments::{self, Attachment, AttachmentKind};
+use tauri_plugin_opener::OpenerExt;
+
+/// 종류 인자: "file"(아무 파일) · "pdf" · "media"(영상·소리). 모르는 값은 거절
+fn attachment_kind_arg(kind: Option<&str>) -> Result<Option<AttachmentKind>> {
+    match kind {
+        None => Ok(None),
+        Some(k) => AttachmentKind::from_arg(k)
+            .ok_or_else(|| StorageError::new("wrong_kind", "알 수 없는 첨부 종류예요")),
+    }
+}
+
+/// 현재 워크스페이스의 루트 (토큰이 맞을 때만). 잠금은 바로 푼다
+fn root_with_token(state: &AppState, token: u64) -> Result<PathBuf> {
+    with_workspace_token(state, token, |ws| Ok(ws.root.clone()))
+}
+
+/// 현재 워크스페이스의 루트 (토큰 검사 없음, 읽기 전용 동작)
+fn current_root(state: &State<AppState>) -> Result<PathBuf> {
+    with_workspace(state, |ws| Ok(ws.root.clone()))
+}
+
+/// 파일 첨부 대화상자 → 그 페이지의 assets로 복사. 취소하면 None.
+/// `kind`: "file" · "pdf" · "media". 크기 상한은 종류별로 검사한다(25MB · 영상·소리 200MB).
+#[tauri::command]
+pub async fn asset_pick_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    page_id: String,
+    kind: Option<String>,
+    ws_token: u64,
+) -> Result<Option<Attachment>> {
+    let want = attachment_kind_arg(kind.as_deref())?;
+    let root = root_with_token(&state, ws_token)?;
+    let mut dialog = app.dialog().file().set_title("파일 첨부");
+    dialog = match want {
+        Some(AttachmentKind::Pdf) => dialog.add_filter("PDF", &["pdf"]),
+        Some(AttachmentKind::Video) => dialog.add_filter(
+            "영상·소리",
+            &[
+                "mp4", "m4v", "mov", "webm", "mkv", "avi", "mp3", "m4a", "wav", "ogg", "oga",
+                "flac", "aac", "opus",
+            ],
+        ),
+        _ => dialog,
+    };
+    if let Ok(dir) = app.path().document_dir() {
+        dialog = dialog.set_directory(dir);
+    }
+    let Some(picked) = dialog.blocking_pick_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    // 큰 파일을 복사하는 동안 워크스페이스 잠금을 잡지 않는다
+    attachments::import_at(&root, &page_id, &path, want, attachments::DEFAULT_LIMITS).map(Some)
+}
+
+/// 끌어 놓기·붙여 넣기로 받은 파일 경로를 첨부한다 (asset_pick_file과 같은 규칙).
+/// 일반 파일만 받는다(폴더·링크 거절). 경로를 받는 유일한 저장 커맨드이므로 호출 쪽이 경로 출처를 확인해야 한다.
+#[tauri::command]
+pub fn asset_import_file(
+    state: State<AppState>,
+    path: String,
+    page_id: String,
+    kind: Option<String>,
+    ws_token: u64,
+) -> Result<Attachment> {
+    let want = attachment_kind_arg(kind.as_deref())?;
+    let root = root_with_token(&state, ws_token)?;
+    attachments::import_at(
+        &root,
+        &page_id,
+        Path::new(&path),
+        want,
+        attachments::DEFAULT_LIMITS,
+    )
+}
+
+/// 첨부 파일을 Finder·탐색기에서 보여 준다
+#[tauri::command]
+pub fn asset_reveal(app: AppHandle, state: State<AppState>, path: String) -> Result<()> {
+    let root = current_root(&state)?;
+    let file = attachments::attachment_file_at(&root, &path)?;
+    app.opener()
+        .reveal_item_in_dir(file)
+        .map_err(|e| StorageError::new("io", e.to_string()))
+}
+
+/// 첨부 파일을 OS 기본 앱으로 연다
+#[tauri::command]
+pub fn asset_open(app: AppHandle, state: State<AppState>, path: String) -> Result<()> {
+    let root = current_root(&state)?;
+    let file = attachments::attachment_file_at(&root, &path)?;
+    app.opener()
+        .open_path(file.to_string_lossy(), None::<&str>)
+        .map_err(|e| StorageError::new("io", e.to_string()))
+}
+
+/// 다른 이름으로 저장: 저장 대화상자 → 첨부 파일 복사. 취소하면 None, 저장했으면 저장한 경로
+#[tauri::command]
+pub async fn asset_save_as(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Option<String>> {
+    let root = current_root(&state)?;
+    let file = attachments::attachment_file_at(&root, &path)?;
+    // 파일 이름은 `<첨부 id>-<이름>`이므로 id 뒤쪽을 기본 이름으로 쓴다
+    let default_name = file
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .and_then(|n| n.split_once('-').map(|(_, rest)| rest.to_string()))
+        .unwrap_or_else(|| "file".to_string());
+    let Some(dest) = app
+        .dialog()
+        .file()
+        .set_title("다른 이름으로 저장")
+        .set_file_name(default_name)
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let dest = dest
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    std::fs::copy(&file, &dest)?;
+    Ok(Some(dest.to_string_lossy().into_owned()))
+}
+
+/// 첨부 파일의 절대 경로. 프론트엔드가 `convertFileSrc`로 웹뷰 주소를 만든다.
+/// 워크스페이스 assets 폴더만 asset 프로토콜에 열려 있다(set_workspace에서 맞춘다).
+#[tauri::command]
+pub fn asset_src_path(app: AppHandle, state: State<AppState>, path: String) -> Result<String> {
+    let root = current_root(&state)?;
+    let file = attachments::attachment_file_at(&root, &path)?;
+    // 범위가 어긋났을 때를 대비해 한 번 더 열어 둔다(이미 열려 있으면 그대로)
+    let _ = app
+        .asset_protocol_scope()
+        .allow_directory(attachments::assets_dir(&root), true);
+    Ok(file.to_string_lossy().into_owned())
+}
+
+/// 워크스페이스를 바꿀 때 asset 프로토콜 범위를 옮긴다: 이전 워크스페이스 assets는 막고, 새 것은 연다
+fn sync_asset_scope(app: &AppHandle, old: Option<&Path>, new: &Path) {
+    let scope = app.asset_protocol_scope();
+    if let Some(old) = old {
+        let _ = scope.forbid_directory(attachments::assets_dir(old), true);
+    }
+    let _ = scope.allow_directory(attachments::assets_dir(new), true);
 }
 
 /// 이미지 링크 내려받기 (PAGE-10 업로드 탭 · EDIT-24 붙여 넣은 웹 이미지) → 그 페이지의 assets에 저장.

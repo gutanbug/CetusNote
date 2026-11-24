@@ -213,7 +213,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 - `tauri-plugin-mcp-bridge`는 `#[cfg(debug_assertions)]`에서만 등록한다. 권한(`mcp-bridge:default`)도 `tauri.dev.conf.json`의 개발 전용 capability에만 둔다(2026-11-19). 릴리스에는 등록도 권한도 없다(크레이트가 의존성이라 권한 이름 문자열만 바이너리에 남는다).
 - Debug 화면 코드도 개발 빌드에서만 번들에 들어가게 한다(`import.meta.env.DEV` 조건부 동적 import).
 
-### CSP (ADR-007, 2026-11-19)
+### CSP (ADR-007, 2026-11-19 · 첨부 보완 2026-11-24, ADR-025)
 
 `tauri.conf.json`의 `app.security.csp`(릴리스)와 `devCsp`(개발). 외부 출처는 하나도 허용하지 않는다.
 
@@ -299,7 +299,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
   - 이 측정은 합성 데이터와 노드 하네스 기준이다. Tauri 앱 실행과 브라우저(Aside) 확인은 하지 않았다.
 - **후속 후보:** LRU 본문 캐시, 탭·최근 문서 프리페치, 요약을 Rust 쪽 색인 파일로 옮기기(JS가 본문을 읽지 않고 백링크·할 일을 얻게).
 
-### ADR-025 — 파일 첨부 · 미디어 저장 (상태: 제안, 2026-11-24)
+### ADR-025 — 파일 첨부 · 미디어 저장 (상태: 확정, 2026-11-24 · 백엔드·서비스 구현)
 
 - **배경:** EDIT-31(파일 첨부), EDIT-32(PDF), EDIT-33(비디오·오디오)은 이미지(ADR-008·010, `asset_write`·`asset_pick`·`asset_fetch`)보다 큰 파일을 다룬다. 이미지는 `features/assets`가 바이트를 읽어 blob URL로 그리는데, 수백 MB 영상에는 맞지 않는다.
 - **제안:**
@@ -307,7 +307,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
   2. **노드 속성:** `{ path: "assets/…", name, size, mime, kind }` — `kind`는 `file` · `pdf` · `video` · `audio`. 경로는 워크스페이스 기준 상대 경로라 워크스페이스를 옮겨도 깨지지 않는다.
   3. **Rust 커맨드:** 기존 `asset_pick`은 이미지만 받는다. 파일 첨부용 `asset_pick_file`(대화상자 → 그 페이지 assets에 복사, 크기 상한 검사, 취소 시 null)을 추가하고, `asset_write`의 형식 검사는 파일 첨부 경로에서만 넓힌다.
   4. **렌더링:** PDF·영상·소리는 바이트 대신 `convertFileSrc(절대 경로)`로 웹뷰가 직접 읽는다. 자산 프로토콜 범위는 워크스페이스 `assets/`로 제한한다. CSP(ADR-007)는 `'self'` + Tauri IPC/asset만 허용하므로 외부 출처는 늘리지 않는다. 자산 프로토콜 허용 범위 설정은 구현 때 확인한다.
-  5. **크기 상한(제안):** 파일 첨부 100MB, 영상·소리 별도 상한은 결정 필요. 넘으면 저장 전에 거절한다(EDIT-14의 25MB 이미지 상한과 구분).
+  5. **크기 상한(확정, 사용자 결정 2026-11-24):** 파일 첨부 25MB, 영상·소리 200MB. 넘으면 저장 전에 거절한다(`too_large`). 값은 `src/lib/attachments/limits.ts`와 `src-tauri/src/storage/attachments.rs`에 두고, `limits-sync.test.ts`가 둘이 같은지 본다.
   6. **Markdown 내보내기:** 첨부는 `[이름](assets/…)` 링크, 영상·소리·PDF도 링크로 내보낸다. 파일은 함께 내보내지 않는다(이미지 규칙과 같음). 경로 블록은 텍스트, 날짜 칩은 `YYYY-MM-DD`.
   7. **백업·삭제:** 백업 zip에는 `assets/`가 들어간다(기존 규칙). 휴지통 이동은 파일을 지우지 않고, 영구 삭제 때 `assets/<pageId>`와 함께 지운다.
   8. **알림(EDIT-37):** 알림 시각을 어디에 저장할지(페이지 블록 속성 또는 설정 파일)는 이 ADR이 아니라 EDIT-37 결정 때 정한다.
@@ -318,3 +318,10 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
   - **크기 상한 상수:** `src/lib/attachments/limits.ts` — 파일 25MB, 영상·소리 200MB(사용자 결정). 2단계의 Rust 검사(`asset_pick_file`)도 같은 값을 쓴다.
   - **2단계 필요 사항:** 노드 속성(`path`·`name`·`size`·`mime`·`kind`)을 컴포넌트 props에 그대로 넘기고, `resolveSrc`는 `convertFileSrc`로 구현한다. 콜백(`onOpen`·`onReveal`·`onDownload`·`onReplace`·`onRemove`)은 Rust 커맨드로 잇는다.
   - **미확인:** PDF 글자 층(검색·선택)은 넣지 않았다(선택 사항 · 1차 범위 밖). 쪽 높이는 첫 쪽 비율로 잡아, 쪽마다 크기가 다른 문서는 그릴 때 한 번 바뀐다.
+  - **확정 구현 (2026-11-24, 백엔드·서비스):**
+    - Rust `storage/attachments.rs`: `import_at`(대화상자 밖에서 복사 — 큰 파일 동안 워크스페이스 잠금을 잡지 않는다), 종류·상한 검사를 복사 중에도 다시 한다, 임시 파일 후 rename. 커맨드: `asset_pick_file`·`asset_import_file`·`asset_reveal`·`asset_open`·`asset_save_as`·`asset_src_path`(모두 워크스페이스 토큰 또는 현재 워크스페이스 범위).
+    - **asset 프로토콜:** `tauri.conf.json`의 `assetProtocol.enable = true`(범위는 비움). `set_workspace`가 이전 워크스페이스의 `assets/`를 `forbid_directory`하고 새 것을 `allow_directory`한다. 열어 둘 디렉터리는 워크스페이스 `assets/` 하나뿐이다.
+    - **CSP(ADR-007 보완):** `asset: http://asset.localhost`를 `img-src`·`media-src`·`connect-src`(pdf.js가 파일을 읽는다)에 더했고, `worker-src 'self' blob:`를 명시했다. `object-src`·`frame-src`는 그대로다. 외부 출처는 없다.
+    - **백업·내보내기:** 복원 허용 크기와 Markdown 내보내기 복사는 파일 이름으로 상한을 고른다(`img-…` 25MB, 그 밖의 첨부 200MB). 영구 삭제는 기존 `assets/<id>` 삭제가 그대로 맞는다.
+    - **알림 (EDIT-37):** `tauri-plugin-notification` **=2.7.0**(Rust·JS 둘 다, 2026-10-14 공개, tauri ^2.12 호환). `notification:default` 권한. 스케줄러(`features/reminders/scheduler.ts`)는 앱이 켜져 있을 때만 울리고, 시각이 되면 OS 알림 → 실패·권한 없음이면 앱 안 알림으로 대신한다. 꺼져 있던 동안 지난 알림은 다음 실행 때 놓친 목록으로 한 번 보여 준다(보낸 표시는 `localStorage`, 이 기기 기준). 데스크톱 플러그인은 알림 클릭 이벤트를 주지 않아 "클릭하면 페이지 열기"는 지원하지 않는다.
+  - **미확인(실제 앱에서 봐야 함):** 알림 권한 대화상자, WKWebView의 asset 프로토콜 재생(영상·소리 코덱), pdf.js 워커·글꼴 로드.
