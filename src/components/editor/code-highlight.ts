@@ -1,6 +1,7 @@
 import type { createLowlight } from "lowlight";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
+import { ReplaceStep } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 type Lowlight = ReturnType<typeof createLowlight>;
@@ -59,6 +60,18 @@ function blockDecorations(
   return out;
 }
 
+/** 편집이 한 텍스트 블록 안의 글자만 바꾸는지 (각 단계의 범위가 같은 부모 블록 안이고, 넣는 것이 글자뿐) */
+function onlyInlineEdits(tr: Transaction): boolean {
+  return tr.steps.every((step, i) => {
+    if (!(step instanceof ReplaceStep)) return false;
+    const before = tr.docs[i]!;
+    const $from = before.resolve(step.from);
+    const $to = before.resolve(step.to);
+    if (!$from.parent.isTextblock || !$from.sameParent($to)) return false;
+    return step.slice.content.content.every((child) => child.isText);
+  });
+}
+
 type Options = {
   /** 코드 블록 노드 이름 (CodeBlock) */
   name: string;
@@ -73,21 +86,26 @@ type Options = {
  * 결과는 기본 플러그인과 같다(바뀐 블록은 같은 규칙으로, 안 바뀐 블록은 이전 결과를 유지).
  */
 export function incrementalLowlight({ name, lowlight, defaultLanguage }: Options): Plugin {
+  /** 문서 전체의 장식 (처음 상태와 구조가 바뀐 편집의 기준) */
+  const allDecorations = (doc: PMNode) => {
+    const decorations: Decoration[] = [];
+    doc.descendants((node, pos) => {
+      if (node.type.name !== name) return true;
+      decorations.push(...blockDecorations(lowlight, defaultLanguage, node, pos));
+      return false;
+    });
+    return DecorationSet.create(doc, decorations);
+  };
   return new Plugin({
     key: KEY,
     state: {
-      init: (_, { doc }) => {
-        const decorations: Decoration[] = [];
-        doc.descendants((node, pos) => {
-          if (node.type.name !== name) return true;
-          decorations.push(...blockDecorations(lowlight, defaultLanguage, node, pos));
-          return false;
-        });
-        return DecorationSet.create(doc, decorations);
-      },
+      init: (_, { doc }) => allDecorations(doc),
       apply: (tr, set) => {
         if (!tr.docChanged) return set;
         const doc = tr.doc;
+        // 블록 구조가 바뀌는 편집(문단과 코드 블록을 잇거나 가르는 삭제, 블록 붙여넣기, 노드 속성 변경)은
+        // 장식 위치를 옮겨 봐야 낡은 글자가 남으므로 전체를 다시 칠한다. 한 블록 안의 글자 편집만 증분으로 처리한다.
+        if (!onlyInlineEdits(tr)) return allDecorations(doc);
         // 바뀐 범위(새 문서 좌표)를 모은다
         const ranges: [number, number][] = [];
         tr.mapping.maps.forEach((map, i) => {

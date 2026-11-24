@@ -1,4 +1,5 @@
 import { Schema, type Node as PMNode } from "@tiptap/pm/model";
+import { joinBackward } from "@tiptap/pm/commands";
 import { EditorState, TextSelection, type Transaction } from "@tiptap/pm/state";
 import type { DecorationSet } from "@tiptap/pm/view";
 import { createLowlight, common } from "lowlight";
@@ -135,5 +136,98 @@ describe("incrementalLowlight — 증분 하이라이트", () => {
     const before = list(plugin.getState(state) as DecorationSet, doc);
     const moved = state.apply(state.tr.setSelection(TextSelection.create(doc, 3)));
     expect(list(plugin.getState(moved) as DecorationSet, doc)).toEqual(before);
+  });
+});
+
+/** 코드 블록 밖에 걸린 장식 수 (옛 하이라이트가 문단에 남았는지 본다) */
+function decorationsOutsideCode(state: EditorState) {
+  const set = plugin.getState(state) as DecorationSet;
+  return set
+    .find(0, state.doc.content.size)
+    .filter((d) => state.doc.resolve(d.from).parent.type.name !== "codeBlock").length;
+}
+
+describe("incrementalLowlight — 블록 구조가 바뀌는 편집 (SYS-11 회귀)", () => {
+  it("Backspace로 코드 블록을 문단에 잇면 옛 하이라이트가 문단에 남지 않는다", () => {
+    const doc = schema.nodes.doc.create(null, [para("hello"), code("const a = 1;")]);
+    const state = start(doc);
+    // 코드 블록 시작(8)에서 Backspace = joinBackward
+    const at = state.apply(state.tr.setSelection(TextSelection.create(doc, 8)));
+    let joined: EditorState | null = null;
+    expect(joinBackward(at, (tr) => (joined = at.apply(tr)))).toBe(true);
+    expect(decorationsOutsideCode(joined!)).toBe(0);
+    expect(list(plugin.getState(joined!) as DecorationSet, joined!.doc)).toEqual(
+      fullStateOf(joined!.doc),
+    );
+  });
+
+  it("문단과 코드 블록에 걸친 범위 삭제 뒤에도 전체 재계산과 같다", () => {
+    const doc = schema.nodes.doc.create(null, [para("abc"), code("let q = 3;")]);
+    const state = start(doc);
+    const next = expectSameAsFull(state, state.tr.delete(2, 9));
+    expect(decorationsOutsideCode(next)).toBe(0);
+  });
+
+  it("코드 블록 중간에 코드 블록을 붙여 넣어 나누면 전체 재계산과 같다", () => {
+    const doc = schema.nodes.doc.create(null, [code("const a = 1; let b = 22;")]);
+    const state = start(doc);
+    expectSameAsFull(state, state.tr.replaceWith(9, 9, code("color: red;", "css")));
+  });
+
+  it("무작위 편집 100회 × 30단계도 매번 전체 재계산과 같다 (고정 시드)", () => {
+    const LANGS = [null, "typescript", "python", "css", "nope-lang"];
+    const WORDS = ["const ", "function ", "'s' ", "// c\n", "return ", "{ a: 1 } ", "x", "\n"];
+    for (let seed = 1; seed <= 100; seed++) {
+      let s = seed * 2654435761;
+      const r = () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+      const pick = <T>(xs: T[]) => xs[Math.floor(r() * xs.length)]!;
+      const text = () =>
+        Array.from({ length: 1 + Math.floor(r() * 3) }, () => pick(WORDS)).join("");
+      const block = () => (r() < 0.5 ? para(text()) : code(text(), pick(LANGS)));
+      let state = start(
+        schema.nodes.doc.create(null, [block(), block(), block(), block(), block()]),
+      );
+      for (let step = 0; step < 30; step++) {
+        const doc = state.doc;
+        const textblocks: number[] = [];
+        doc.descendants((node, pos) => {
+          if (node.isTextblock) textblocks.push(pos);
+          return !node.isTextblock;
+        });
+        const k = r();
+        let tr: Transaction | null = null;
+        try {
+          if (k < 0.3) {
+            const tb = pick(textblocks);
+            const pos = tb + 1 + Math.floor(r() * doc.nodeAt(tb)!.content.size);
+            tr = state.tr.insertText(text(), pos);
+          } else if (k < 0.45) {
+            const a = Math.floor(r() * doc.content.size);
+            const b = Math.min(doc.content.size, a + 1 + Math.floor(r() * 12));
+            tr = state.tr.delete(a, b);
+          } else if (k < 0.6) {
+            const at = pick(textblocks) + 1;
+            const sel = state.apply(state.tr.setSelection(TextSelection.create(doc, at)));
+            joinBackward(sel, (t) => (tr = t));
+          } else if (k < 0.8) {
+            const a = Math.floor(r() * doc.content.size);
+            tr = state.tr.replaceWith(a, a, block());
+          } else {
+            const at = pick(textblocks);
+            const node = doc.nodeAt(at);
+            if (node?.type.name === "codeBlock") {
+              tr = state.tr.setNodeMarkup(at, undefined, { language: pick(LANGS) });
+            }
+          }
+        } catch {
+          tr = null;
+        }
+        if (!tr || !tr.docChanged) continue;
+        state = expectSameAsFull(state, tr);
+      }
+    }
   });
 });
