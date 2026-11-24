@@ -223,3 +223,60 @@ describe.each(VIEWPORTS)("창 고정 레이아웃 — $name $w×$h", ({ w, h }) 
     expect(shell.scrollLeft).toBe(0);
   });
 });
+
+describe("사이드바 페이지 트리 스크롤 (SH-PageTree, SYS-10)", () => {
+  const treeScroller = (): HTMLElement => {
+    const tree = document.querySelector<HTMLElement>('[data-slot="page-tree"]');
+    const viewport = tree?.closest<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    if (!viewport) throw new Error("사이드바 트리 스크롤러가 없다");
+    return viewport;
+  };
+  const treeRows = () => [
+    ...document.querySelectorAll<HTMLElement>('[data-slot="page-tree"] [role="treeitem"]'),
+  ];
+
+  it("페이지가 300개면 사이드바 트리가 넘치고 스크롤되며, 보이는 행이 따라온다", async () => {
+    await browserPage.viewport(1440, 900);
+    for (let i = 0; i < 300; i++) {
+      pagesStore.getState().create({ title: `사이드 메모 ${String(i).padStart(3, "0")}` });
+    }
+    await vi.waitFor(() => {
+      if (!treeRows().some((r) => r.textContent?.includes("사이드 메모"))) {
+        throw new Error("트리 행 대기 중");
+      }
+    }, WAIT);
+    await frames();
+
+    const s = treeScroller();
+    expect(s.scrollHeight).toBeGreaterThan(s.clientHeight);
+    expect(treeRows().length).toBeLessThan(100);
+    expect(treeRows().some((r) => r.textContent?.includes("사이드 메모 000"))).toBe(true);
+
+    // 휠은 가장 가까운 "실제로 스크롤되는" 상자로 간다. 트리 자신은 안 넘치므로 뷰포트까지 넘어가야 한다.
+    // (synthetic WheelEvent는 스크롤을 일으키지 않으므로 여기서는 scrollTop 설정으로 움직인다)
+    const tree = document.querySelector<HTMLElement>('[data-slot="page-tree"]');
+    if (!tree) throw new Error("page-tree가 없다");
+    for (let el: HTMLElement | null = tree; el && el !== s; el = el.parentElement) {
+      expect(getComputedStyle(el).overscrollBehaviorY).not.toBe("contain");
+    }
+    s.scrollTop = 1200;
+    await frames();
+    await frames();
+    expect(s.scrollTop).toBeGreaterThan(0);
+    const rowH = treeRows()[0]?.getBoundingClientRect().height ?? 0;
+    const firstShown = Math.floor(s.scrollTop / rowH);
+    const shownNums = treeRows()
+      .map((r) => /사이드 메모 (\d+)/.exec(r.textContent ?? "")?.[1])
+      .filter((n): n is string => n !== undefined)
+      .map(Number);
+    expect(shownNums.length).toBeGreaterThan(0);
+    expect(Math.min(...shownNums)).toBeLessThanOrEqual(firstShown);
+    expect(Math.max(...shownNums)).toBeGreaterThanOrEqual(firstShown);
+    expect(Math.min(...shownNums)).toBeGreaterThan(0);
+
+    const m = docMetrics();
+    expect(m.st).toBe(0);
+    expect(m.sl).toBe(0);
+    expect(shellOf().scrollTop).toBe(0);
+  });
+});

@@ -628,7 +628,9 @@ const PageTree = React.memo(function PageTree({
         // 트리 밖으로 나가면 표시를 지운다(행 사이를 오갈 때는 그대로)
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(undefined);
       }}
-      className={cn("relative overflow-y-auto overscroll-contain", className)}
+      // overscroll-contain을 붙이면 이 트리(안에서는 스크롤하지 않는다)가 휠을 먹어 버려 바깥 ScrollArea
+      // 뷰포트로 넘어가지 않는다(SH-PageTree). 스크롤은 뷰포트가 맡는다.
+      className={cn("relative overflow-y-auto", className)}
     >
       <div role="none" className="relative" style={{ height: rows.length * ROW_HEIGHT }}>
         {guides}
