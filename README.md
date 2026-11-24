@@ -21,27 +21,27 @@
 <table align="center">
   <tr>
     <td align="center" width="240">
-      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.2/Cetus.Note_0.1.2_x64-setup.exe">
+      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.3/Cetus.Note_0.1.3_x64-setup.exe">
         <img src="https://img.shields.io/badge/Windows-다운로드-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows 다운로드" />
       </a>
       <br /><sub>Windows 10 · 11 (x64)<br /><code>.exe</code> 설치 파일</sub>
     </td>
     <td align="center" width="240">
-      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.2/Cetus.Note_0.1.2_universal.dmg">
+      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.3/Cetus.Note_0.1.3_universal.dmg">
         <img src="https://img.shields.io/badge/macOS-다운로드-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS 다운로드" />
       </a>
       <br /><sub>Apple Silicon · Intel (universal)<br /><code>.dmg</code></sub>
     </td>
     <td align="center" width="240">
-      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.2/Cetus.Note_0.1.2_amd64.AppImage">
+      <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.3/Cetus.Note_0.1.3_amd64.AppImage">
         <img src="https://img.shields.io/badge/Linux-다운로드-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux 다운로드" />
       </a>
-      <br /><sub>x64 · <code>.AppImage</code><br />또는 <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.2/Cetus.Note_0.1.2_amd64.deb"><code>.deb</code></a></sub>
+      <br /><sub>x64 · <code>.AppImage</code><br />또는 <a href="https://github.com/gutanbug/CetusNote/releases/download/v0.1.3/Cetus.Note_0.1.3_amd64.deb"><code>.deb</code></a></sub>
     </td>
   </tr>
 </table>
 
-<p align="center"><sub>v0.1.2 · 다른 버전은 <a href="https://github.com/gutanbug/CetusNote/releases">릴리스 페이지</a>에서 받을 수 있어요. 처음 실행할 때 보안 경고가 뜨면 <a href="#설치">설치</a>를 참고하세요.</sub></p>
+<p align="center"><sub>v0.1.3 · 다른 버전은 <a href="https://github.com/gutanbug/CetusNote/releases">릴리스 페이지</a>에서 받을 수 있어요. 처음 실행할 때 보안 경고가 뜨면 <a href="#설치">설치</a>를 참고하세요.</sub></p>
 
 ## 왜 Cetus Note인가요
 
