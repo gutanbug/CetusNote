@@ -47,8 +47,11 @@ export function currentHeading(editor: Editor, headings: Heading[], scroller: El
   return current;
 }
 
-/** 제목으로 간다: 제목 끝에 캐럿을 두고 그 제목을 스크롤 영역 맨 위로 */
-export function goToHeading(editor: Editor, heading: Heading) {
+/**
+ * 제목으로 간다: 제목 끝에 캐럿을 두고 그 제목을 스크롤 영역 맨 위로.
+ * smooth면 부드럽게(목차 블록, ED-TableOfContents). 기본은 바로 — 모션 줄이기는 호출한 쪽이 정한다.
+ */
+export function goToHeading(editor: Editor, heading: Heading, options: { smooth?: boolean } = {}) {
   if (editor.isDestroyed) return;
   const node = editor.state.doc.nodeAt(heading.pos);
   if (node?.type.name !== "heading") return;
@@ -56,5 +59,6 @@ export function goToHeading(editor: Editor, heading: Heading) {
   editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
   editor.view.focus();
   const dom = editor.view.nodeDOM(heading.pos);
-  if (dom instanceof Element) dom.scrollIntoView({ block: "start" });
+  if (dom instanceof Element)
+    dom.scrollIntoView({ block: "start", behavior: options.smooth ? "smooth" : "auto" });
 }

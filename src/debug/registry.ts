@@ -206,6 +206,7 @@ export const registry = {
   },
   "ED-Quote": { layer: "L4", name: "인용", status: "audited", sheet: "§7", priority: "P0" },
   "ED-Callout": { layer: "L4", name: "콜아웃", status: "audited", sheet: "§7", priority: "P0" },
+  "ED-TableOfContents": { layer: "L4", name: "목차 블록", status: "ready", priority: "P2" },
   "ED-Divider": { layer: "L4", name: "구분선", status: "audited", sheet: "§7", priority: "P0" },
   "ED-CodeBlock": {
     layer: "L4",

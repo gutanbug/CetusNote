@@ -14,6 +14,7 @@ import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { BlockKeys } from "./block-keys";
 import { Callout } from "./callout";
+import { TableOfContents } from "./table-of-contents";
 import { CodeBlock } from "./code-block";
 import { ImageBlock, type ImageSource } from "./image";
 import { CopyAsTextExtension, type CopyAsText } from "./copy-as-text";
@@ -155,6 +156,7 @@ export function createExtensions({
     TaskItemShortcuts,
     ...toggleExtensions,
     Callout,
+    TableOfContents,
     CodeBlock,
     ImageBlock.configure({ upload: upload ?? null, fetch: fetchImage ?? null }),
     TableKit.configure({ table: { resizable: true, cellMinWidth: 80 } }),
