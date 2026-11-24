@@ -121,6 +121,11 @@
   & :not(pre) > code {
     @apply rounded-sm bg-inline-code px-1 py-px font-mono text-[0.88em] text-inline-code-fg;
   }
+  /* 선택 중에는 코드 글자를 본문 색으로 (인라인 코드 대비: 다크 3.4:1 → 6:1 이상) */
+  & code::selection,
+  & code ::selection {
+    color: var(--text-primary);
+  }
   & a {
     @apply cursor-pointer text-accent no-underline;
     border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
@@ -310,7 +315,7 @@
     @apply p-0;
   }
   & .selectedCell::after {
-    @apply pointer-events-none absolute inset-0 bg-accent-soft opacity-60 content-[''];
+    @apply pointer-events-none absolute inset-0 bg-selection-bg content-[''];
   }
   /* 셀마다 하나씩 그려지므로 둥근 끝을 두지 않아야 행을 넘어 한 줄로 이어진다. 칸 경계선 위에 2px로 */
   & .column-resize-handle {

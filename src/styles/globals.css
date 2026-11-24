@@ -48,6 +48,7 @@
   --color-accent-fill-on: var(--accent-fill-on);
   --color-sel: var(--sel-bg);
   --color-sel-fg: var(--sel-fg);
+  --color-selection-bg: var(--selection-bg);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-on: var(--danger-on);

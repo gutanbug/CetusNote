@@ -25,6 +25,8 @@
   --accent: var(--accent-l);
   --accent-soft: var(--accent-soft-l);
   --accent-on: #ffffff;
+  /* 텍스트 선택: 포인트 색을 이 비율만큼 바탕에 섞는다 (--selection-bg) */
+  --selection-mix: 25%;
   --danger: #d23b3b;
   --danger-soft: #fcebeb;
   --danger-on: #ffffff;
@@ -95,6 +97,8 @@
     --accent: var(--accent-d);
     --accent-soft: var(--accent-soft-d);
     --accent-on: #1b1c1f;
+    /* 다크는 바탕(#1b1c1f)과 구분이 되도록 더 진하게 섞는다 */
+    --selection-mix: 45%;
     --danger: #f2736b;
     --danger-soft: #3a2220;
     --danger-on: #1b1c1f;
@@ -213,7 +217,7 @@
 [data-accent] {
   --sel-bg: var(--accent-soft);
   --sel-fg: var(--accent);
-  --selection-bg: var(--accent-soft);
+  --selection-bg: color-mix(in srgb, var(--accent) var(--selection-mix), var(--bg-app));
 }
 
 :root {
