@@ -1,6 +1,6 @@
 import type { PreviewNode } from "@/components/page/doc-preview";
 import { TemplateGallery } from "@/components/page/template-gallery";
-import { usePages } from "@/features/pages";
+import { pagesStore, usePages } from "@/features/pages";
 import {
   fillDateDoc,
   fillDateText,
@@ -36,6 +36,12 @@ export function TemplateDialog() {
   React.useEffect(() => {
     if (open) ensureTemplates();
   }, [open]);
+  // 미리보기는 템플릿 본문이 있어야 그린다 (SYS-10). 읽히는 대로 목록이 채워진다
+  React.useEffect(() => {
+    if (!open) return;
+    for (const p of Object.values(pagesStore.getState().pages))
+      if (isTemplate(p)) void pagesStore.getState().ensureBody(p.id);
+  }, [open, pages]);
   // 미리보기는 오늘 날짜로 채운다. 원본 토큰은 템플릿 편집기에 그대로 둔다
   const items = React.useMemo(() => {
     const today = todayISO();

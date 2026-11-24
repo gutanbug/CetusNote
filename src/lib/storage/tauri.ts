@@ -77,6 +77,7 @@ export function createTauriStorage(): Storage {
     },
     writeWorkspace: (value) => writeCall("workspace_write", { value }),
     loadPages: async () => normalizeLoaded(await call("pages_load_all")),
+    loadPageMeta: async () => normalizeLoaded(await call("pages_load_meta")),
     readPages: async (ids) => normalizeLoaded(await call("pages_read", { ids })),
     scanChanges: () => call<ExternalChanges>("workspace_scan"),
     writePage: (page) => writeCall("page_write", { page }),

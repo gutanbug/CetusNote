@@ -207,6 +207,8 @@ async function printDocument(ticket: number): Promise<void> {
 export async function runPdfExport(id: string) {
   const page = pagesStore.getState().pages[id];
   if (!page || page.kind !== "page") return;
+  // 본문을 읽은 뒤에 찍는다 (SYS-10)
+  if (!(await pagesStore.getState().ensureBody(id))) return;
   const ticket = ++seq;
   dropUrl();
   useMainUi.getState().setPrintId(id);

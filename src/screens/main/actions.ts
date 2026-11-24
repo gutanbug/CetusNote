@@ -4,7 +4,8 @@ import { toast } from "@/components/ui/toast";
 import { exportPageMarkdown } from "@/features/export";
 import { metaStore } from "@/features/meta";
 import type { DropPosition } from "@/components/shell/drop-indicator";
-import { pagesStore, planDrop, type PageMeta } from "@/features/pages";
+import { pagesStore, planDrop, type PageMeta, type PagesState } from "@/features/pages";
+import { isBodyLoaded } from "@/features/pages/body";
 import { buildPageTree } from "@/features/pages/tree";
 import { sessionStore } from "@/features/session";
 import {
@@ -194,15 +195,32 @@ export function createTemplate(category: string): Page {
   return page;
 }
 
+/**
+ * 원본 본문을 복사해 새 페이지를 만든다 (SYS-10). 원본 본문이 아직 없으면 빈 복사본을 먼저 돌려주고,
+ * 본문이 읽히면 그때 채운다. 복사본은 바로 열 수 있다.
+ */
+function createCopyOf(
+  src: Page,
+  init: Omit<NonNullable<Parameters<PagesState["create"]>[0]>, "content">,
+): Page {
+  const store = pagesStore.getState();
+  if (isBodyLoaded(src)) return store.create({ ...init, content: structuredClone(src.content) });
+  const copy = store.create({ ...init });
+  void store.ensureBody(src.id).then((ok) => {
+    const body = pagesStore.getState().pages[src.id];
+    if (ok && body)
+      pagesStore.getState().update(copy.id, { content: structuredClone(body.content) });
+  });
+  return copy;
+}
+
 /** 템플릿 복제 — 같은 분류에 "사본"으로. 기본 템플릿 표시는 옮기지 않는다 */
 export function duplicateTemplate(id: string): Page | undefined {
   const src = pages()[id];
   if (!src || !isTemplate(src)) return;
-  const store = pagesStore.getState();
-  const copy = store.create({
+  const copy = createCopyOf(src, {
     title: `${src.title || "제목 없음"} 사본`,
     icon: src.icon,
-    content: structuredClone(src.content),
     props: structuredClone(src.props),
     template: { ...src.template, builtin: null },
   });
@@ -225,10 +243,9 @@ export function deleteTemplate(id: string) {
 export function saveAsTemplate(id: string): Page | undefined {
   const src = pages()[id];
   if (!src || src.kind !== "page" || src.template) return;
-  const copy = pagesStore.getState().create({
+  const copy = createCopyOf(src, {
     title: src.title || "제목 없음",
     icon: src.icon,
-    content: structuredClone(src.content),
     props: structuredClone(src.props),
     template: { category: "work", description: "", builtin: null, pageTitle: src.title },
   });
@@ -279,6 +296,12 @@ export function isBlankDoc(doc: Page["content"]): boolean {
 export function applyTemplate(templateId: string): Page | undefined {
   const template = pages()[templateId];
   if (!template || !isTemplate(template)) return;
+  if (!isBodyLoaded(template)) {
+    // 템플릿 본문을 아직 안 읽었다 (SYS-10). 읽히는 동안 다시 고르게 한다
+    void pagesStore.getState().ensureBody(templateId);
+    toast("템플릿을 아직 읽는 중이에요. 잠시 뒤 다시 골라 주세요.");
+    return;
+  }
   return applyTemplateResult(templateResult(template, todayISO()), template.title || "제목 없음");
 }
 
@@ -311,7 +334,8 @@ function applyTemplateResult(made: TemplateResult, name: string): Page {
 /** 홈의 할 일 체크 (SHELL-13) — 그 문서의 체크리스트 항목을 바꿔 저장한다 */
 export function setTodo(pageId: string, path: number[], checked: boolean) {
   const page = pages()[pageId];
-  if (!page) return;
+  // 본문이 없으면 할 일 항목을 찾을 수 없다 (홈은 모든 본문을 읽은 뒤에 보인다)
+  if (!page || !isBodyLoaded(page)) return;
   pagesStore.getState().update(pageId, { content: setTodoChecked(page.content, path, checked) });
 }
 
@@ -354,11 +378,10 @@ export function duplicatePage(id: string): Page | undefined {
   if (!src || src.kind !== "page") return;
   if (src.template) return duplicateTemplate(id);
   const store = pagesStore.getState();
-  const copy = store.create({
+  const copy = createCopyOf(src, {
     title: src.title ? `${src.title} 사본` : "",
     icon: src.icon,
     parentId: src.parentId,
-    content: structuredClone(src.content),
   });
   store.update(copy.id, { props: structuredClone(src.props), layout: { ...src.layout } });
   const ids = siblingIds(src.parentId).filter((x) => x !== copy.id);
@@ -426,6 +449,8 @@ export async function copyPageLink(id: string) {
 }
 
 export async function exportMarkdown(id: string) {
+  // 본문을 읽은 뒤 최신 페이지로 쓴다 (SYS-10)
+  if (!(await pagesStore.getState().ensureBody(id))) return;
   const page = pages()[id];
   if (!page || page.kind !== "page") return;
   try {

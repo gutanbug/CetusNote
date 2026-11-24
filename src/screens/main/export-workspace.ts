@@ -16,6 +16,8 @@ function todayKey(now = new Date()): string {
  * 폴더 고르기와 쓰기는 Rust가 한다. 끝나면 "폴더 열기"를 단 토스트를 띄운다.
  */
 export async function exportWorkspaceMarkdown(storage: Storage = getStorage()): Promise<void> {
+  // 모든 문서의 본문을 써야 한다 (SYS-10, ADR-022)
+  await pagesStore.getState().ensureAllBodies();
   const meta = metaStore.getState().meta;
   const plan = buildWorkspaceExport({
     pages: Object.values(pagesStore.getState().pages),

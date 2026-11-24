@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { pagesStore, usePages } from "@/features/pages";
+import { useBodyLoaded } from "@/features/pages/use-body";
 import { sessionStore, useSession } from "@/features/session";
 import { hasOverlayTitleBar } from "@/lib/platform";
 import { SkyMark } from "@/screens/main/sky-mark";
@@ -84,6 +85,8 @@ export function MainScreen() {
   const active = usePages((s) => (activeId ? s.pages[activeId] : undefined));
   // 템플릿(PAGE-14)은 트리에 없지만 편집할 때는 연다
   const page = active && (visible.has(active.id) || isTemplate(active)) ? active : undefined;
+  // 본문은 여는 때 읽는다 (SYS-10). 읽는 동안은 에디터를 그리지 않는다
+  const bodyReady = useBodyLoaded(page?.id);
   const focusMode = useMainUi((s) => s.focusMode);
   const contentEpoch = useMainUi((s) => s.contentEpoch);
   // 바깥에서 파일이 바뀌면(DATA-07) 에디터를 새 본문으로 다시 만든다
@@ -216,7 +219,7 @@ export function MainScreen() {
               <HomeView />
             ) : view.kind === "tag" ? (
               <TagView tag={view.tag} />
-            ) : page && page.kind === "page" ? (
+            ) : page && !bodyReady ? null : page && page.kind === "page" ? (
               <PageView key={`${page.id}:${contentEpoch}:${externalRev}`} page={page} />
             ) : page && page.kind === "collection" ? (
               <CollectionView key={page.id} page={page} />

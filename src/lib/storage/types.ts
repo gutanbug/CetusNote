@@ -247,6 +247,11 @@ export interface Storage {
   readWorkspace(): Promise<WorkspaceMeta>;
   writeWorkspace(meta: WorkspaceMeta): Promise<void>;
   loadPages(): Promise<LoadResult>;
+  /**
+   * 페이지 구조만 (SYS-10, ADR-022). 본문(content)은 읽지 않는다 — 돌려받은 content는 빈 문서이고,
+   * 본문이 필요하면 readPages로 연다
+   */
+  loadPageMeta(): Promise<LoadResult>;
   /** 원자적 쓰기 */
   writePage(page: Page): Promise<void>;
   /** 휴지통에 있는 페이지만 영구 삭제(파일 + assets/<id> + 버전 기록) */

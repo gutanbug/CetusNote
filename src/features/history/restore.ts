@@ -38,6 +38,9 @@ export async function restoreVersion(
   pageId: string,
   versionId: string,
 ): Promise<RestoreOutcome> {
+  // 지금 내용을 남기려면 본문이 있어야 한다. 없는 채로 남기면 빈 버전이 된다 (SYS-10)
+  if (!deps.pages.getState().pages[pageId]) return { ok: false, reason: "missing" };
+  if (!(await deps.pages.getState().ensureBody(pageId))) return { ok: false, reason: "read" };
   const current = deps.pages.getState().pages[pageId];
   if (!current || current.kind !== "page" || current.trashedAt)
     return { ok: false, reason: "missing" };

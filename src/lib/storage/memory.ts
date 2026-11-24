@@ -180,6 +180,17 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       need();
       workspace = clone(meta);
     },
+    async loadPageMeta() {
+      need();
+      return {
+        pages: [...pages.values()].map((p) => {
+          const meta = clone(p);
+          delete (meta as Partial<Page>).content;
+          return normalizePage(meta);
+        }),
+        errors: [],
+      };
+    },
     async loadPages() {
       need();
       return { pages: [...pages.values()].map((p) => normalizePage(clone(p))), errors: [] };

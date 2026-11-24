@@ -13,7 +13,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-type Loaded = Awaited<ReturnType<Storage["loadPages"]>>;
+type Loaded = Awaited<ReturnType<Storage["loadPageMeta"]>>;
 
 describe("느린 워크스페이스 불러오기 (SYS-09)", () => {
   it("A 페이지 불러오기가 B 뒤에 끝나도 B 페이지를 덮지 않는다", async () => {
@@ -22,8 +22,8 @@ describe("느린 워크스페이스 불러오기 (SYS-09)", () => {
     const slowA = deferred<Loaded>();
     const storage: Storage = {
       ...createMemoryStorage(),
-      loadPages: vi
-        .fn<Storage["loadPages"]>()
+      loadPageMeta: vi
+        .fn<Storage["loadPageMeta"]>()
         .mockReturnValueOnce(slowA.promise)
         .mockResolvedValueOnce({ pages: [pageB], errors: [] }),
     };

@@ -11,6 +11,10 @@ import { createStore } from "zustand/vanilla";
 import { createSaveQueue, type SaveState } from "./save-queue";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import { createHistoryRecorder, fingerprint, type HistoryRecorder } from "../history/recorder";
+import { isBodyLoaded, UNLOADED_BODY } from "./body";
+
+/** 본문을 한 번에 읽는 페이지 수 (IPC 한 번의 크기와 화면 갱신 간격) */
+const BODY_BATCH = 200;
 
 /**
  * 구조 스냅샷 — 본문(content)과 수정 시각(updatedAt)을 뺀 페이지 정보 (SYS-10).
@@ -20,6 +24,8 @@ export type PageMeta = Omit<Page, "content" | "updatedAt">;
 
 export type PagesState = {
   loaded: boolean;
+  /** 워크스페이스를 읽을 때마다 올라간다. 검색 색인이 처음 읽기와 나중 바뀜을 가른다 (SYS-10) */
+  loadSeq: number;
   pages: Record<string, Page>;
   /** id → 구조 스냅샷. 구조 필드가 바뀔 때만 객체가 새로 만들어진다 (SYS-10) */
   structure: Record<string, PageMeta>;
@@ -28,6 +34,15 @@ export type PagesState = {
   /** SH-SaveStatus에 그대로 넘긴다 (DATA-02) */
   saveState: SaveState;
   load(): Promise<void>;
+  /**
+   * 본문을 연다 (SYS-10, ADR-022). 이미 읽었으면 바로 true. 읽지 못하면 false — 페이지는 본문 없이 남는다.
+   * 같은 페이지를 여러 번 불러도 파일은 한 번만 읽는다.
+   */
+  ensureBody(id: string): Promise<boolean>;
+  /** 모든 본문을 읽는다. 본문 전체가 필요한 기능(백링크·할 일·내보내기·바꿈 정리)이 쓴다 */
+  ensureAllBodies(): Promise<void>;
+  /** 본문만 읽어 돌려준다. 스토어에는 넣지 않는다 (검색 색인 백그라운드 읽기, SYS-10) */
+  readBodies(ids: string[]): Promise<Page[]>;
   /** 새 문서·폴더·컬렉션. 컬렉션 아래에 폴더·컬렉션을 두려 하면 오류 (SHELL-14, COLL-01) */
   create(init?: Parameters<typeof createPage>[0]): Page;
   /** 페이지를 고친다. updatedAt을 갱신하고 자동 저장에 맡긴다. 옮길 때(parentId)도 같은 규칙 */
@@ -146,35 +161,115 @@ export function createPagesStore(
       generation,
     });
 
+    /** 읽는 중인 본문 — 페이지 id → 그 읽기 (같은 페이지를 두 번 읽지 않는다) */
+    const inflight = new Map<string, Promise<void>>();
+    /**
+     * 본문이 없는 동안 구조만 고친 페이지. 본문이 도착하면 합쳐서 한 번 저장한다.
+     * 자리 값 본문을 그대로 쓰면 파일의 본문이 지워지므로, 본문이 있을 때만 저장 큐에 넣는다.
+     */
+    const pendingMeta = new Set<string>();
+
     const put = (page: Page) => {
       set((s) => {
         const pages = { ...s.pages, [page.id]: page };
         return { pages, structure: withMeta(s.structure, s.pages, pages, [page.id]) };
       });
-      queue.schedule(page);
+      if (isBodyLoaded(page)) {
+        pendingMeta.delete(page.id);
+        queue.schedule(page);
+      } else pendingMeta.add(page.id);
+    };
+
+    /** 읽은 본문을 현재 페이지에 붙인다. 구조는 스토어의 것을 그대로 쓴다(그 사이 고친 내용이 있을 수 있다) */
+    /**
+     * 본문을 읽기만 한다. 스토어에는 넣지 않는다 — 검색 색인처럼 한 번 훑고 버리는 쪽이 쓴다 (SYS-10).
+     * 기다리는 사이 워크스페이스가 바뀌었으면 빈 목록 (SYS-09)
+     */
+    const fetchPages = async (ids: string[]): Promise<Page[]> => {
+      const gen = generation();
+      const { pages: disk, errors } = await storage.readPages(ids);
+      if (gen !== generation()) return [];
+      if (errors.length) set({ loadErrors: [...get().loadErrors, ...errors] });
+      return disk;
+    };
+
+    const readBodies = async (ids: string[]): Promise<void> => {
+      const disk = await fetchPages(ids);
+      const body = new Map(disk.map((p) => [p.id, p]));
+      const pages = { ...get().pages };
+      const loaded: string[] = [];
+      for (const id of ids) {
+        const cur = pages[id];
+        const got = body.get(id);
+        if (!cur || !got || isBodyLoaded(cur)) continue;
+        pages[id] = { ...cur, content: got.content };
+        loaded.push(id);
+      }
+      if (!loaded.length) return;
+      set({ pages });
+      for (const id of loaded) if (pendingMeta.delete(id)) queue.schedule(pages[id]!);
+    };
+
+    const ensureBodies = async (ids: string[]): Promise<void> => {
+      const waits: Promise<void>[] = [];
+      const todo: string[] = [];
+      for (const id of ids) {
+        const page = get().pages[id];
+        if (!page || isBodyLoaded(page)) continue;
+        const running = inflight.get(id);
+        if (running) waits.push(running);
+        else todo.push(id);
+      }
+      for (let i = 0; i < todo.length; i += BODY_BATCH) {
+        const batch = todo.slice(i, i + BODY_BATCH);
+        const run = readBodies(batch).catch((e) => {
+          // 읽지 못한 페이지는 본문 없이 남고, 여는 쪽이 false로 안다
+          console.warn("본문을 읽지 못했어요", e);
+        });
+        for (const id of batch) inflight.set(id, run);
+        void run.then(() => {
+          for (const id of batch) if (inflight.get(id) === run) inflight.delete(id);
+        });
+        waits.push(run);
+      }
+      await Promise.all(waits);
+    };
+
+    const ensureBody = async (id: string): Promise<boolean> => {
+      await ensureBodies([id]);
+      const page = get().pages[id];
+      return !!page && isBodyLoaded(page);
     };
 
     return {
       history,
       loaded: false,
+      loadSeq: 0,
       pages: {},
       structure: {},
       loadErrors: [],
       saveState: "saved",
+      readBodies: fetchPages,
       async load() {
         const gen = generation();
         // 이전 워크스페이스의 대기·실패 저장은 이 목록과 함께 버린다
         queue.reset();
-        const { pages, errors } = await storage.loadPages();
+        inflight.clear();
+        pendingMeta.clear();
+        // 구조만 읽는다 (SYS-10, ADR-022). 본문은 여는 때 읽는다
+        const { pages, errors } = await storage.loadPageMeta();
         // 기다리는 사이 워크스페이스가 바뀌었으면 이 결과는 이전 폴더의 것이다 (SYS-09)
         if (gen !== generation()) return;
         set({
           loaded: true,
-          pages: Object.fromEntries(pages.map((p) => [p.id, p])),
+          loadSeq: get().loadSeq + 1,
+          pages: Object.fromEntries(pages.map((p) => [p.id, { ...p, content: UNLOADED_BODY }])),
           structure: Object.fromEntries(pages.map((p) => [p.id, metaOf(p)])),
           loadErrors: errors,
         });
       },
+      ensureBody,
+      ensureAllBodies: () => ensureBodies(Object.keys(get().pages)),
       create(init) {
         const page = createPage(init);
         if (!canContain(page.parentId ? get().pages[page.parentId] : null, page.kind))
@@ -198,7 +293,10 @@ export function createPagesStore(
           const page = current[id];
           if (!page) continue;
           next[id] = { ...page, ...patch };
-          queue.schedule(next[id]!);
+          if (isBodyLoaded(next[id]!)) {
+            pendingMeta.delete(id);
+            queue.schedule(next[id]!);
+          } else pendingMeta.add(id);
         }
         set((s) => ({
           pages: next,
@@ -208,7 +306,12 @@ export function createPagesStore(
       trash(id) {
         // 휴지통으로 가기 전 내용을 남긴다 (DATA-09). 실패해도 휴지통 이동은 막지 않는다
         const page = get().pages[id];
-        if (page) void history.snapshot(page);
+        if (page && isBodyLoaded(page)) void history.snapshot(page);
+        else if (page)
+          void ensureBody(id).then(() => {
+            const latest = get().pages[id];
+            if (latest && isBodyLoaded(latest)) void history.snapshot(latest);
+          });
         get().update(id, { trashedAt: now() });
       },
       restore(id) {
@@ -217,6 +320,8 @@ export function createPagesStore(
       async purge(id) {
         const page = get().pages[id];
         if (!page?.trashedAt) return;
+        // 저장 전에 본문이 있어야 한다. 구조만 고친 채 지우면 본문 없는 파일이 남을 수 있다
+        if (!(await ensureBody(id))) throw new Error("본문을 읽지 못해 영구 삭제하지 못했어요");
         // 휴지통으로 옮긴 내용이 아직 파일에 안 갔으면 먼저 쓴다(Rust는 trashedAt을 보고 지운다)
         if (!(await queue.flushPage(id))) throw new Error("휴지통 이동을 저장하지 못했어요");
         // assets/<id>가 지워지기 전에, 그 이미지를 쓰는 다른 페이지(복제·복사)에 사본을 준다
@@ -224,14 +329,20 @@ export function createPagesStore(
         await storage.purgePage(id);
         history.cancel(id);
         queue.discard(id);
+        pendingMeta.delete(id);
         set((s) => {
           const pages = { ...s.pages };
           delete pages[id];
           return { pages, structure: withMeta(s.structure, s.pages, pages, [id]) };
         });
       },
-      flushPage: (id) => queue.flushPage(id),
+      flushPage: async (id) => {
+        if (pendingMeta.has(id)) await ensureBody(id);
+        return queue.flushPage(id);
+      },
       async adoptAssets(owner) {
+        // 다른 페이지가 이 페이지 폴더의 그림을 쓰는지 본문을 모두 봐야 안다
+        await ensureBodies(Object.keys(get().pages));
         for (const page of Object.values(get().pages)) {
           if (page.id === owner) continue;
           const borrowed = assetRefs(page).filter((src) => assetOwner(src) === owner);
@@ -259,13 +370,16 @@ export function createPagesStore(
         const before = get().pages;
         const pages = { ...before };
         const rev = { ...get().externalRev };
-        const busy = (id: string) => queue.isUnsaved(id) || (!!base && base[id] !== pages[id]);
+        const busy = (id: string) =>
+          queue.isUnsaved(id) || pendingMeta.has(id) || (!!base && base[id] !== pages[id]);
         for (const page of incoming) {
           if (busy(page.id)) conflicts.push(page.id);
           else {
             const local = pages[page.id];
-            // 덮이기 전의 이 앱 내용을 남긴다 (DATA-09). 내용이 같으면 남기지 않는다
-            if (local && fingerprint(local) !== fingerprint(page)) void history.snapshot(local);
+            // 덮이기 전의 이 앱 내용을 남긴다 (DATA-09). 내용이 같으면 남기지 않는다.
+            // 본문을 연 적 없는 페이지는 덮이기 전 내용이 메모리에 없어 남기지 못한다
+            if (local && isBodyLoaded(local) && fingerprint(local) !== fingerprint(page))
+              void history.snapshot(local);
             pages[page.id] = page;
             rev[page.id] = (rev[page.id] ?? 0) + 1;
             applied.push(page.id);
@@ -289,7 +403,11 @@ export function createPagesStore(
           });
         return { applied, removed: gone, conflicts };
       },
-      flushAll: () => queue.flush(),
+      flushAll: async () => {
+        // 구조만 고친 페이지의 본문이 아직 오는 중이면 기다린 뒤 저장한다
+        await ensureBodies([...pendingMeta]);
+        return queue.flush();
+      },
       retry: () => queue.retry(),
     };
   });
