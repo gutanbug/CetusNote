@@ -149,3 +149,42 @@ describe("검색 (ADR-003: 부분 문자열)", () => {
     expect(idx.search("배")).toEqual([]);
   });
 });
+
+describe("본문 색인 미루기 (SYS-11)", () => {
+  it("고친 페이지를 여러 번 고쳐도 찾기 결과는 마지막 본문이다", () => {
+    const idx = createSearchIndex();
+    const p = page("메모", ["처음 글"]);
+    idx.build([p]);
+    idx.upsert({ ...p, content: { type: "doc", content: [para("중간 글")] } });
+    idx.upsert({ ...p, content: { type: "doc", content: [para("마지막 글")] } });
+    expect(idx.search("처음")).toEqual([]);
+    expect(idx.search("마지막")).toHaveLength(1);
+  });
+
+  it("색인을 미뤄 둔 채 지운 페이지는 나중에 되살아나지 않는다", () => {
+    const idx = createSearchIndex();
+    const p = page("지울 메모", ["되살아나면 안 되는 글"]);
+    idx.build([]);
+    idx.upsert(p);
+    idx.remove(p.id);
+    idx.flush();
+    expect(idx.size).toBe(0);
+    expect(idx.search("되살아나면")).toEqual([]);
+  });
+
+  it("flush 뒤의 결과는 바로 만든 것과 같다", () => {
+    const eager = createSearchIndex();
+    const lazy = createSearchIndex();
+    const pages = [page("회의", ["안건 하나"]), page("계획", ["안건 둘", "예산"])];
+    eager.build([]);
+    lazy.build([]);
+    for (const p of pages) {
+      eager.upsert(p);
+      eager.flush();
+      lazy.upsert(p);
+    }
+    lazy.flush();
+    expect(lazy.search("안건")).toEqual(eager.search("안건"));
+    expect(lazy.search("예산")).toEqual(eager.search("예산"));
+  });
+});

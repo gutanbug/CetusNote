@@ -43,6 +43,16 @@ export function connectSearchIndex(
   const indexed = new Map<string, Page>(Object.entries(prev));
   /** 새 조각 작업이 시작되면 이전 작업은 멈춘다 */
   let generation = 0;
+  /** 고친 페이지의 본문 색인을 유휴 시간에 한 번 비운다 (찾기는 밀린 것을 스스로 먼저 비운다, SYS-11) */
+  let flushQueued = false;
+  const queueFlush = () => {
+    if (flushQueued) return;
+    flushQueued = true;
+    schedule(() => {
+      flushQueued = false;
+      index.flush();
+    });
+  };
 
   const buildInSlices = (next: Record<string, Page>) => {
     const gen = ++generation;
@@ -56,7 +66,9 @@ export function connectSearchIndex(
         // 조각 사이에 바뀌거나 지워진 페이지는 최신 상태를 본다
         const page = store.getState().pages[id];
         if (page && indexed.get(id) !== page) {
+          // 조각마다 바로 만들어야 조각 예산이 맞는다
           index.upsert(page);
+          index.flush();
           indexed.set(id, page);
         }
         if (clock() - start >= budgetMs) break;
@@ -83,10 +95,10 @@ export function connectSearchIndex(
       return;
     }
     for (const id of changed) {
-      const page = next[id]!;
-      index.upsert(page);
-      indexed.set(id, page);
+      index.upsert(next[id]!);
+      indexed.set(id, next[id]!);
     }
+    if (changed.length) queueFlush();
   });
   return unsubscribe;
 }

@@ -99,6 +99,11 @@ function countOf(text: string, term: string, cap = 50): number {
 
 export function createSearchIndex() {
   const entries = new Map<string, Entry>();
+  /**
+   * 아직 본문을 색인하지 않은 페이지 (SYS-11). 고칠 때마다 본문 전체를 낱말로 쪼개면 긴 문서에서 입력이 느려지므로,
+   * upsert는 페이지만 맡아 두고 찾기·개수 확인·flush 때 한 번에 만든다. 같은 페이지를 여러 번 고쳐도 마지막 것만 만든다.
+   */
+  const pending = new Map<string, Page>();
 
   const toEntry = (page: Page): Entry => {
     const body = display(docText(page.content));
@@ -118,21 +123,34 @@ export function createSearchIndex() {
     };
   };
 
+  const flush = () => {
+    if (pending.size === 0) return;
+    for (const page of pending.values()) {
+      if (page.kind === "folder") entries.delete(page.id);
+      else entries.set(page.id, toEntry(page));
+    }
+    pending.clear();
+  };
+
   return {
     /** 처음 한 번: 모든 페이지로 다시 만든다 */
     build(pages: Iterable<Page>) {
+      pending.clear();
       entries.clear();
       for (const p of pages) if (p.kind !== "folder") entries.set(p.id, toEntry(p));
     },
-    /** 폴더는 찾지 않는다(본문이 없다, SHELL-14) */
+    /** 폴더는 찾지 않는다(본문이 없다, SHELL-14). 본문 색인은 다음 찾기·flush 때 한다 */
     upsert(page: Page) {
-      if (page.kind === "folder") entries.delete(page.id);
-      else entries.set(page.id, toEntry(page));
+      pending.set(page.id, page);
     },
     remove(id: string) {
+      pending.delete(id);
       entries.delete(id);
     },
+    /** 밀린 페이지를 지금 색인한다(유휴 시간에 부른다). 찾기는 스스로 먼저 부른다 */
+    flush,
     get size() {
+      flush();
       return entries.size;
     },
     /**
@@ -141,6 +159,7 @@ export function createSearchIndex() {
      * 휴지통 페이지는 빼고 찾는다(includeTrashed로 포함).
      */
     search(query: string, { limit = 50, includeTrashed = false } = {}): SearchResult[] {
+      flush();
       const whole = normalize(query);
       const terms = [...new Set(whole.split(" ").filter(Boolean))];
       const cho = new Set(terms.filter(isChoseong));
