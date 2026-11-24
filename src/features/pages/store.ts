@@ -9,6 +9,7 @@ import {
 import { assetOwner, assetRefs, replaceAssetRefs } from "./assets";
 import { createStore } from "zustand/vanilla";
 import { createSaveQueue, type SaveState } from "./save-queue";
+import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import { createHistoryRecorder, fingerprint, type HistoryRecorder } from "../history/recorder";
 
 /**
@@ -119,11 +120,18 @@ type Options = {
   now?: () => string;
   /** 버전 기록 정책 (테스트용). 없으면 저장소에 남긴다 (DATA-09) */
   history?: HistoryRecorder;
+  /** 워크스페이스 세대 (테스트용). 없으면 앱 전체의 세대를 쓴다 (DATA-03, SYS-09) */
+  generation?: () => number;
 };
 
 export function createPagesStore(
   storage: Storage,
-  { delay, now = () => new Date().toISOString(), history: injected }: Options = {},
+  {
+    delay,
+    now = () => new Date().toISOString(),
+    history: injected,
+    generation = currentWorkspaceGeneration,
+  }: Options = {},
 ) {
   return createStore<PagesState>()((set, get) => {
     const history = injected ?? createHistoryRecorder({ storage, latest: (id) => get().pages[id] });
@@ -135,6 +143,7 @@ export function createPagesStore(
       },
       delay,
       onStateChange: (saveState) => set({ saveState }),
+      generation,
     });
 
     const put = (page: Page) => {
@@ -153,7 +162,12 @@ export function createPagesStore(
       loadErrors: [],
       saveState: "saved",
       async load() {
+        const gen = generation();
+        // 이전 워크스페이스의 대기·실패 저장은 이 목록과 함께 버린다
+        queue.reset();
         const { pages, errors } = await storage.loadPages();
+        // 기다리는 사이 워크스페이스가 바뀌었으면 이 결과는 이전 폴더의 것이다 (SYS-09)
+        if (gen !== generation()) return;
         set({
           loaded: true,
           pages: Object.fromEntries(pages.map((p) => [p.id, p])),

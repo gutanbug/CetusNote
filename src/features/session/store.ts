@@ -1,4 +1,5 @@
 import { normalizeZoom } from "@/lib/zoom";
+import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import type { PageFont, RecordOpenMode, Storage } from "@/lib/storage";
 import { parseAppIconPref, type AppIconPref } from "@/lib/app-icon";
 import { createStore } from "zustand/vanilla";
@@ -202,7 +203,16 @@ type Settings = Record<string, unknown> & {
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
+type SessionOptions = {
+  delay?: number;
+  /** 워크스페이스 세대 (테스트용). 없으면 앱 전체의 세대를 쓴다 */
+  generation?: () => number;
+};
+
+export function createSessionStore(
+  storage: Storage,
+  { delay = 400, generation = currentWorkspaceGeneration }: SessionOptions = {},
+) {
   /** 읽은 settings 전체 — 다른 기능의 키(테마 등)를 지우지 않게 합쳐서 쓴다 */
   let settings: Settings = {};
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -272,12 +282,15 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
       recentIcons: [],
       positions: [],
       async load(workspacePath) {
+        const gen = generation();
         let raw: unknown;
         try {
           raw = await storage.readSettings();
         } catch {
           raw = null;
         }
+        // 읽는 사이 워크스페이스가 바뀌었으면 이전 워크스페이스의 화면 상태로 덮지 않는다 (SYS-09)
+        if (gen !== generation()) return;
         settings = isObj(raw) ? (raw as Settings) : {};
         const mine = isObj(settings.workspaces) ? settings.workspaces[workspacePath] : undefined;
         set({

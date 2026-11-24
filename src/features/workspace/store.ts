@@ -5,6 +5,20 @@ import {
   type WorkspaceInfo,
 } from "@/lib/storage";
 import { createStore } from "zustand/vanilla";
+import { advanceWorkspaceGeneration } from "./generation";
+
+/** 워크스페이스를 바꾸기 전에 남은 저장을 끝내지 못했을 때 (DATA-03). 폴더는 바꾸지 않았다 */
+export class UnsavedChangesError extends Error {
+  constructor() {
+    super("저장하지 못한 변경이 있어서 폴더를 바꾸지 않았어요");
+    this.name = "UnsavedChangesError";
+  }
+}
+
+export type WorkspaceStoreOptions = {
+  /** 워크스페이스를 바꾸기 전에 호출한다. false면 바꾸지 않고 UnsavedChangesError로 알린다 (DATA-03) */
+  beforeChange?: () => Promise<boolean>;
+};
 
 /**
  * 워크스페이스 열기 흐름 (DATA-03).
@@ -44,6 +58,9 @@ export function shortenHome(path: string): string {
 
 /** 저장 오류 → 화면 문구(해요체) */
 export function workspaceErrorMessage(e: unknown): string {
+  if (e instanceof UnsavedChangesError) {
+    return "저장하지 못한 변경이 있어서 폴더를 바꾸지 않았어요. 잠시 뒤 다시 시도해 주세요.";
+  }
   const code = e instanceof StorageError ? e.code : "io";
   switch (code) {
     case "permission_denied":
@@ -71,14 +88,23 @@ export function switchErrorMessage(name: string, e: unknown): string {
   return workspaceErrorMessage(e);
 }
 
-export function createWorkspaceStore(storage: Storage) {
+export function createWorkspaceStore(
+  storage: Storage,
+  { beforeChange }: WorkspaceStoreOptions = {},
+) {
   return createStore<WorkspaceState>()((set, get) => {
+    /** 폴더를 바꾸기 전: 남은 저장을 끝낸다. 실패하면 던져서 바꾸지 않는다 */
+    const ready = async () => {
+      if (beforeChange && !(await beforeChange())) throw new UnsavedChangesError();
+    };
     const open = async (busy: "default" | "pick", run: () => Promise<WorkspaceInfo | null>) => {
       if (get().busy) return;
       set({ busy, error: null });
       try {
+        await ready();
         const workspace = await run();
         // 대화상자를 취소하면 그대로 첫 실행 화면에 머문다
+        if (workspace) advanceWorkspaceGeneration();
         set(
           workspace ? { workspace, phase: "ready", missingPath: null, busy: null } : { busy: null },
         );
@@ -129,7 +155,9 @@ export function createWorkspaceStore(storage: Storage) {
         if (get().busy || get().workspace?.path === path) return;
         set({ busy: "pick" });
         try {
+          await ready();
           const workspace = await storage.switchWorkspace(path);
+          advanceWorkspaceGeneration();
           set({ workspace, phase: "ready", missingPath: null, busy: null });
         } catch (e) {
           set({ busy: null });
@@ -140,7 +168,9 @@ export function createWorkspaceStore(storage: Storage) {
         if (get().busy) return false;
         set({ busy: "pick" });
         try {
+          await ready();
           const workspace = await storage.createWorkspace(name);
+          if (workspace) advanceWorkspaceGeneration();
           set(
             workspace
               ? { workspace, phase: "ready", missingPath: null, busy: null }
@@ -158,7 +188,9 @@ export function createWorkspaceStore(storage: Storage) {
         if (get().busy) return false;
         set({ busy: "restore" });
         try {
+          await ready();
           const workspace = await storage.restoreBackup();
+          if (workspace) advanceWorkspaceGeneration();
           set(
             workspace
               ? { workspace, phase: "ready", missingPath: null, busy: null }

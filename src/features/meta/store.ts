@@ -1,4 +1,5 @@
 import { ulid, type QuickNote, type Storage, type WorkspaceMeta } from "@/lib/storage";
+import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import { createStore } from "zustand/vanilla";
 
 /**
@@ -35,17 +36,31 @@ export type MetaState = {
 
 export type RemovedNote = { note: QuickNote; at: number };
 
+type MetaOptions = {
+  delay?: number;
+  now?: () => string;
+  /** 워크스페이스 세대 (테스트용). 없으면 앱 전체의 세대를 쓴다 (DATA-03) */
+  generation?: () => number;
+};
+
 export function createMetaStore(
   storage: Storage,
-  { delay = 400, now = () => new Date().toISOString() } = {},
+  {
+    delay = 400,
+    now = () => new Date().toISOString(),
+    generation = currentWorkspaceGeneration,
+  }: MetaOptions = {},
 ) {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** 지금 들고 있는 meta가 읽힌 워크스페이스 세대. 다른 세대면 다른 폴더의 내용이므로 쓰지 않는다 */
+  let loadedGen: number | null = null;
   return createStore<MetaState>()((set, get) => {
     const write = async () => {
       clearTimeout(timer);
       timer = undefined;
       const { meta } = get();
       if (!meta) return false;
+      if (loadedGen !== generation()) return false;
       try {
         await storage.writeWorkspace(meta);
         return true;
@@ -63,8 +78,12 @@ export function createMetaStore(
       meta: null,
       async reloadExternal() {
         if (timer !== undefined) return false;
+        const gen = generation();
         try {
-          set({ meta: await storage.readWorkspace() });
+          const next = await storage.readWorkspace();
+          if (gen !== generation()) return false;
+          set({ meta: next });
+          loadedGen = gen;
           return true;
         } catch {
           return false;
@@ -72,11 +91,17 @@ export function createMetaStore(
       },
       async load() {
         clearTimeout(timer);
+        const gen = generation();
+        let next: WorkspaceMeta | null;
         try {
-          set({ meta: await storage.readWorkspace() });
+          next = await storage.readWorkspace();
         } catch {
-          set({ meta: null });
+          next = null;
         }
+        // 읽는 사이 워크스페이스가 바뀌었으면 이전 워크스페이스의 태그·순서로 덮지 않는다 (SYS-09)
+        if (gen !== generation()) return;
+        set({ meta: next });
+        loadedGen = gen;
       },
       setTagColor(name, color) {
         const { meta } = get();
