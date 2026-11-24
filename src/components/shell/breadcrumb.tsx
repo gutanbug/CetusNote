@@ -7,6 +7,7 @@ import {
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { PageIcon } from "@/components/ui/page-icon";
+import { collapsePath } from "./breadcrumb-path";
 
 export type Crumb = { id: string; title: string; emoji?: string };
 
@@ -46,11 +47,7 @@ function Label({ item }: { item: Crumb }) {
  * 지금 페이지는 aria-current="page", 긴 경로는 가운데를 "…" 메뉴로 접는다.
  */
 function Breadcrumb({ items, onNavigate, maxItems = 4, className }: BreadcrumbProps) {
-  const collapse = items.length > maxItems;
-  const hidden = collapse ? items.slice(1, items.length - (maxItems - 2)) : [];
-  const shown: (Crumb | "more")[] = collapse
-    ? [items[0], "more", ...items.slice(items.length - (maxItems - 2))]
-    : items;
+  const { shown, hidden } = collapsePath(items, maxItems);
 
   return (
     <nav aria-label="경로" data-slot="breadcrumb" className={cn("min-w-0 flex-1", className)}>

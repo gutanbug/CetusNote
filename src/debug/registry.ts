@@ -256,8 +256,8 @@ export const registry = {
   "ED-FindBar": { layer: "L4", name: "찾기 막대", status: "audited", priority: "P1" },
   "ED-CopyAsText": { layer: "L4", name: "마크다운으로 복사", status: "ready", priority: "P1" },
   "ED-ToggleHeading": { layer: "L4", name: "토글 제목", status: "planned", priority: "P2" },
-  "ED-SubpageBlock": { layer: "L4", name: "하위 페이지 링크", status: "planned", priority: "P1" },
-  "ED-Breadcrumb": { layer: "L4", name: "경로 표시 블록", status: "planned", priority: "P2" },
+  "ED-SubpageBlock": { layer: "L4", name: "하위 페이지 링크", status: "ready", priority: "P1" },
+  "ED-Breadcrumb": { layer: "L4", name: "경로 표시 블록", status: "ready", priority: "P2" },
   "ED-FileAttachment": { layer: "L4", name: "파일 첨부 카드", status: "planned", priority: "P1" },
   "ED-PdfViewer": { layer: "L4", name: "PDF 블록", status: "planned", priority: "P2" },
   "ED-MediaPlayer": {
