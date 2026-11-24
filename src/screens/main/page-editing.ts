@@ -1,4 +1,16 @@
+import type { AttachmentPickKind, AttachmentSource } from "@/components/editor/attachment";
 import type { ImageSource } from "@/components/editor/image";
+import {
+  attachmentErrorMessage,
+  attachmentSrc,
+  importAttachmentFile,
+  openAttachment,
+  pickAttachmentFile,
+  revealAttachment,
+  saveAttachmentAs,
+  toPick,
+} from "@/features/attachments";
+import { attachmentKind, type AttachmentKind } from "@/lib/attachments/limits";
 import type { BreadcrumbSource } from "@/components/editor/breadcrumb-block";
 import type { SubpageRef, SubpageSource } from "@/components/editor/subpage-block";
 import { PAGE_LINK_PREFIX, type MentionSource } from "@/components/editor/page-mention";
@@ -48,6 +60,34 @@ export function usePageImages(pageId: string): ImageSource {
     }),
     [pageId],
   );
+}
+
+/** 파일 첨부 (EDIT-31~33) — 고르기·끌어 놓기 저장·열기·Finder·다른 이름으로 저장. 실패 안내는 여기서 띄운다 */
+export function usePageAttachments(pageId: string): AttachmentSource {
+  return React.useMemo<AttachmentSource>(() => {
+    const failed = (e: unknown, kind?: AttachmentKind) => {
+      toast.error(attachmentErrorMessage(e, kind));
+      return null;
+    };
+    // 고르기 종류 → 안내에 쓸 첨부 종류 (영상·소리는 종류가 둘이라 video 문구)
+    const kindOf = (k: AttachmentPickKind): AttachmentKind =>
+      k === "pdf" ? "pdf" : k === "media" ? "video" : "file";
+    return {
+      resolve: (path) => attachmentSrc(path),
+      pick: (kind) =>
+        pickAttachmentFile(pageId, kind).then(
+          (info) => (info ? toPick(info) : null),
+          (e: unknown) => failed(e, kindOf(kind)),
+        ),
+      importFile: (file) =>
+        importAttachmentFile(pageId, file).then(toPick, (e: unknown) =>
+          failed(e, attachmentKind(file.name, file.type)),
+        ),
+      open: (path) => void openAttachment(path).catch((e: unknown) => failed(e)),
+      reveal: (path) => void revealAttachment(path).catch((e: unknown) => failed(e)),
+      saveAs: (path) => void saveAttachmentAs(path).catch((e: unknown) => failed(e)),
+    };
+  }, [pageId]);
 }
 
 /** 페이지 멘션 (EDIT-13) — 에디터는 이 함수들로 찾고 제목을 읽고 연다 */

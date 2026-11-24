@@ -54,6 +54,7 @@ import {
   addTag,
   openEditorLink,
   removeTag,
+  usePageAttachments,
   usePageImages,
   usePageMentions,
   usePageTags,
@@ -709,6 +710,7 @@ function RecordTagEditor({ page }: { page: Page }) {
 /** 레코드 본문 — 페이지와 같은 에디터 (COLL-05) */
 function RecordBody({ page }: { page: Page }) {
   const images = usePageImages(page.id);
+  const attachments = usePageAttachments(page.id);
   const mentions = usePageMentions(page.id);
   const prefs = useSession((s) => s.editor);
   // 바깥 변경(DATA-07)이면 다시 만든다
@@ -733,6 +735,7 @@ function RecordBody({ page }: { page: Page }) {
         onOpenLink={openEditorLink}
         mentions={mentions}
         images={images}
+        attachments={attachments}
         spellCheck={prefs.spellcheck}
         dimChecked={prefs.dimChecked}
       />

@@ -6,7 +6,13 @@ import {
   type Page,
   type Storage,
 } from "@/lib/storage";
-import { assetOwner, assetRefs, replaceAssetRefs } from "./assets";
+import {
+  assetOwner,
+  assetRefs,
+  attachmentFileName,
+  isImageAssetPath,
+  replaceAssetRefs,
+} from "./assets";
 import { createStore } from "zustand/vanilla";
 import { createSaveQueue, type SaveState } from "./save-queue";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
@@ -345,12 +351,26 @@ export function createPagesStore(
         await ensureBodies(Object.keys(get().pages));
         for (const page of Object.values(get().pages)) {
           if (page.id === owner) continue;
-          const borrowed = assetRefs(page).filter((src) => assetOwner(src) === owner);
+          const borrowed = assetRefs(page, { attachments: true }).filter(
+            (src) => assetOwner(src) === owner,
+          );
           if (!borrowed.length) continue;
           const map = new Map<string, string>();
           for (const src of borrowed) {
             try {
-              map.set(src, await storage.writeAsset(page.id, await storage.readAsset(src)));
+              const bytes = await storage.readAsset(src);
+              // 이미지(img-…)는 이미지로, 파일 첨부는 첨부로 복사한다 (이미지 형식 검사를 피한다)
+              map.set(
+                src,
+                isImageAssetPath(src)
+                  ? await storage.writeAsset(page.id, bytes)
+                  : (
+                      await storage.importAttachmentBytes(page.id, {
+                        name: attachmentFileName(src),
+                        bytes,
+                      })
+                    ).path,
+              );
             } catch (e) {
               // 이미 없는 이미지는 옮길 것이 없다
               if (!(e instanceof StorageError && e.code === "not_found")) throw e;

@@ -267,6 +267,11 @@ function block(node: MdNode): string {
       const src = node.attrs?.src ?? (/^https?:\/\//i.test(remote) ? remote : "");
       return `![${escapeText(alt)}](${String(src)})`;
     }
+    case "attachment": {
+      // 파일 첨부는 워크스페이스 기준 경로 링크 (EDIT-31~33, ADR-025). 이미지와 같이 파일은 함께 내보내지 않는다
+      const name = String(node.attrs?.name ?? "") || "첨부";
+      return `[${escapeText(name)}](${String(node.attrs?.path ?? "")})`;
+    }
     case "blockMath":
       return `$$\n${String(node.attrs?.latex ?? "")}\n$$`;
     case "details": {

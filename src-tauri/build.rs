@@ -30,6 +30,7 @@ const COMMANDS: &[&str] = &[
     "asset_fetch",
     "asset_pick_file",
     "asset_import_file",
+    "asset_import_bytes",
     "asset_reveal",
     "asset_open",
     "asset_save_as",

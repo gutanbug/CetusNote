@@ -51,6 +51,7 @@ pub fn run() {
             commands::asset_fetch,
             commands::asset_pick_file,
             commands::asset_import_file,
+            commands::asset_import_bytes,
             commands::asset_reveal,
             commands::asset_open,
             commands::asset_save_as,

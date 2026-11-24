@@ -4,7 +4,15 @@ import { useId, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Row, Sheet } from "@/debug/specimen";
 import { Button } from "@/components/ui/button";
-import { matchShortcodes, nextActiveIndex, type ShortcodeItem } from "@/lib/emoji/shortcodes";
+import {
+  matchShortcodes,
+  nextActiveIndex,
+  SHORTCODES,
+  type ShortcodeItem,
+} from "@/lib/emoji/shortcodes";
+import { EditorSpecimen } from "@/debug/editor-specimen";
+import { getEditor } from "@/debug/editor-test";
+import { empty } from "./attachment-fixtures";
 import { EmojiInlinePopover, EmojiShortcodeMenu } from "./emoji-inline";
 
 const meta = {
@@ -156,5 +164,41 @@ export const PickerPopover: Story = {
     await waitFor(() =>
       expect(within(document.body).queryByRole("button", { name: "메모" })).toBeNull(),
     );
+  },
+};
+
+/* ───── 본문에서 (EDIT-35) ───── */
+
+/** `:sm` → 단축 코드 목록 → Enter로 이모지 글자 (EDIT-19 입력 규칙과 같이 본다) */
+export const ShortcodeInEditor: Story = {
+  render: () => <EditorSpecimen content={empty} />,
+  play: async ({ canvasElement }) => {
+    const editor = getEditor(canvasElement);
+    editor.chain().focus("end").insertContent(":sm").run();
+    const list = await within(document.body).findByRole("listbox", { name: "이모지 제안" });
+    await expect(within(list).getAllByRole("option").length).toBeGreaterThan(0);
+    await userEvent.keyboard("{Enter}");
+    const smile = SHORTCODES.find((item) => item.code === "smile")!.emoji;
+    await waitFor(() => expect(editor.getText()).toContain(smile));
+    await expect(within(document.body).queryByRole("listbox", { name: "이모지 제안" })).toBeNull();
+  },
+};
+
+/** `/이모지` → 피커가 캐럿 자리에 열리고, Escape로 닫으면 포커스는 편집기로 돌아온다 */
+export const SlashEmojiInEditor: Story = {
+  render: () => <EditorSpecimen content={empty} />,
+  play: async ({ canvasElement }) => {
+    const editor = getEditor(canvasElement);
+    editor.chain().focus("end").insertContent("/이모지").run();
+    await within(document.body).findByRole("listbox", { name: "블록 넣기" });
+    await userEvent.keyboard("{Enter}");
+    const dialog = await within(document.body).findByRole("dialog", { name: "이모지 넣기" });
+    // 열리는 동안 애니메이션이 돌아 visible 검사 대신 열린 상태를 본다
+    await expect(dialog).toHaveAttribute("data-state", "open");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(within(document.body).queryByRole("dialog", { name: "이모지 넣기" })).toBeNull(),
+    );
+    await waitFor(() => expect(editor.isFocused).toBe(true));
   },
 };

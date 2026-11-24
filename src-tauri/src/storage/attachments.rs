@@ -348,6 +348,35 @@ pub fn attachment_file_at(root: &Path, path: &str) -> Result<PathBuf> {
     Ok(file)
 }
 
+/// 경로 없이 바이트로만 받은 파일(웹뷰의 끌어 놓기·붙여 넣기)을 첨부한다. 상한은 바이트 길이로 먼저 거른다.
+/// 원본 이름의 임시 파일을 만들어 `import_at`으로 복사하고, 임시 폴더는 결과와 상관없이 지운다.
+pub fn import_bytes_at(
+    root: &Path,
+    page_id: &str,
+    name: &str,
+    bytes: &[u8],
+    want: Option<AttachmentKind>,
+    limits: Limits,
+) -> Result<Attachment> {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or("").trim();
+    if base.is_empty() || base == "." || base == ".." {
+        return Err(StorageError::new("invalid_asset", "파일 이름이 없어요"));
+    }
+    let kind = kind_of(base, Some(mime_of(base)));
+    if bytes.len() as u64 > limits.of(kind) {
+        return Err(too_large(kind));
+    }
+    let dir = std::env::temp_dir().join(format!("cetusnote-attach-{}", new_attachment_id()));
+    let src = dir.join(base);
+    let result = (|| -> Result<Attachment> {
+        fs::create_dir_all(&dir)?;
+        fs::write(&src, bytes)?;
+        import_at(root, page_id, &src, want, limits)
+    })();
+    let _ = fs::remove_dir_all(&dir);
+    result
+}
+
 /// 워크스페이스 `assets/` 폴더 (asset 프로토콜 허용 범위)
 pub fn assets_dir(root: &Path) -> PathBuf {
     root.join(ASSETS_DIR)
@@ -469,6 +498,52 @@ mod tests {
         assert_eq!(err.code, "too_large");
         // 거절하면 페이지 폴더도 만들지 않는다
         assert!(!ws.root.join(ASSETS_DIR).join(ID).exists());
+    }
+
+    #[test]
+    fn import_bytes_copies_by_name_and_checks_limits() {
+        let (_dir, ws) = ws();
+        let a =
+            import_bytes_at(&ws.root, ID, "메모.pdf", &[1u8; 2048], None, DEFAULT_LIMITS).unwrap();
+        assert_eq!(a.kind, AttachmentKind::Pdf);
+        assert_eq!(a.name, "메모.pdf");
+        assert_eq!(a.size, 2048);
+        assert!(ws.attachment_file(&a.path).is_ok());
+        // 경로 조각이 섞인 이름은 마지막 조각만 쓴다
+        let b = import_bytes_at(
+            &ws.root,
+            ID,
+            "a/b/clip.mp3",
+            &[2u8; 8],
+            None,
+            DEFAULT_LIMITS,
+        )
+        .unwrap();
+        assert_eq!(b.name, "clip.mp3");
+        assert_eq!(b.kind, AttachmentKind::Audio);
+        // 상한을 넘으면 거절하고 페이지 폴더도 만들지 않는다
+        let small = Limits {
+            file: 1024,
+            media: 4096,
+        };
+        let err = import_bytes_at(
+            &ws.root,
+            "01JD0000000000000000000001",
+            "big.zip",
+            &[0u8; 2000],
+            None,
+            small,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "too_large");
+        assert!(
+            !ws.root
+                .join(ASSETS_DIR)
+                .join("01JD0000000000000000000001")
+                .exists()
+        );
+        // 이름이 없으면 거절한다
+        assert!(import_bytes_at(&ws.root, ID, "..", &[0u8; 1], None, small).is_err());
     }
 
     #[test]

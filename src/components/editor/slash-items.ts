@@ -27,7 +27,13 @@ import {
   Table,
   Type,
   FilePlus,
+  FileText,
+  Film,
+  Music,
+  Paperclip,
+  Smile,
 } from "lucide-react";
+import type { AttachmentPickKind } from "./attachment";
 import { addDays, toIsoDate } from "@/lib/dates/local-date";
 
 export type SlashGroup = "기본 블록" | "미디어" | "고급" | "인라인";
@@ -58,6 +64,10 @@ export type SlashContext = {
   createSubpage?: () => string | null;
   /** 넣은 하위 페이지를 연다 (EDIT-29) */
   openSubpage?: (id: string) => void;
+  /** 파일을 골라 지금 자리에 첨부 블록으로 넣는다 (EDIT-31~33). 첨부 저장소가 없으면 없음 */
+  pickAttachment?: (kind: AttachmentPickKind) => void;
+  /** 이모지 피커를 캐럿 자리에 연다 (EDIT-35) */
+  pickEmoji?: () => void;
 };
 
 const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
@@ -165,6 +175,54 @@ export const SLASH_ITEMS: SlashItem[] = [
     run: (e, r, ctx) => {
       chain(e, r).run();
       ctx.pickImage?.();
+    },
+  },
+  {
+    id: "file",
+    title: "파일",
+    description: "파일을 골라 워크스페이스에 복사해 넣는다",
+    icon: Paperclip,
+    group: "미디어",
+    keywords: ["file", "attach", "attachment", "첨부", "파일 첨부"],
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.pickAttachment?.("file");
+    },
+  },
+  {
+    id: "pdf",
+    title: "PDF",
+    description: "PDF를 골라 본문에서 쪽 단위로 미리 본다",
+    icon: FileText,
+    group: "미디어",
+    keywords: ["pdf", "document", "문서"],
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.pickAttachment?.("pdf");
+    },
+  },
+  {
+    id: "video",
+    title: "비디오",
+    description: "영상을 골라 본문에서 재생한다",
+    icon: Film,
+    group: "미디어",
+    keywords: ["video", "movie", "clip", "동영상", "영상"],
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.pickAttachment?.("media");
+    },
+  },
+  {
+    id: "audio",
+    title: "오디오",
+    description: "소리·음성 파일을 골라 본문에서 재생한다",
+    icon: Music,
+    group: "미디어",
+    keywords: ["audio", "sound", "voice", "music", "소리", "음성"],
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.pickAttachment?.("media");
     },
   },
   {
@@ -282,6 +340,18 @@ export const SLASH_ITEMS: SlashItem[] = [
         .insertContentAt(range, { type: "blockMath", attrs: { latex: "" } })
         .run();
       ctx.editBlockMath(at);
+    },
+  },
+  {
+    id: "emoji",
+    title: "이모지",
+    description: "글자 사이에 이모지를 넣는다",
+    icon: Smile,
+    group: "인라인",
+    keywords: ["emoji", "emoticon", "smile", "이모지", "이모티콘", "감정"],
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.pickEmoji?.();
     },
   },
   {

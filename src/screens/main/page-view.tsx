@@ -52,6 +52,7 @@ import {
   openEditorLink,
   removeTag,
   usePageBreadcrumb,
+  usePageAttachments,
   usePageImages,
   usePageMentions,
   usePageSubpages,
@@ -139,6 +140,7 @@ export function PageView({ page }: { page: Page }) {
   // 이미지 (EDIT-14) — 에디터는 경로만 알고, 읽기·저장·고르기는 이 함수들로
   const editorPrefs = useSession((s) => s.editor);
   const images = usePageImages(page.id);
+  const attachments = usePageAttachments(page.id);
   const coverUrl = useAssetUrl(page.cover);
   // 커버 (PAGE-03): 고르면 이 페이지 assets에 복사해 경로를 기록한다. 옛 파일은 지우지 않는다(실행 취소·복제가 쓸 수 있게)
   const chooseCover = () => void images.pick().then((cover) => cover && update(page.id, { cover }));
@@ -320,6 +322,7 @@ export function PageView({ page }: { page: Page }) {
                 onOpenLink={openEditorLink}
                 mentions={mentions}
                 images={images}
+                attachments={attachments}
                 subpages={subpages}
                 createSubpage={() => createSubpageOf(page.id).id}
                 breadcrumb={breadcrumb}

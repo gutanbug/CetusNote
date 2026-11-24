@@ -325,3 +325,13 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
     - **백업·내보내기:** 복원 허용 크기와 Markdown 내보내기 복사는 파일 이름으로 상한을 고른다(`img-…` 25MB, 그 밖의 첨부 200MB). 영구 삭제는 기존 `assets/<id>` 삭제가 그대로 맞는다.
     - **알림 (EDIT-37):** `tauri-plugin-notification` **=2.7.0**(Rust·JS 둘 다, 2026-10-14 공개, tauri ^2.12 호환). `notification:default` 권한. 스케줄러(`features/reminders/scheduler.ts`)는 앱이 켜져 있을 때만 울리고, 시각이 되면 OS 알림 → 실패·권한 없음이면 앱 안 알림으로 대신한다. 꺼져 있던 동안 지난 알림은 다음 실행 때 놓친 목록으로 한 번 보여 준다(보낸 표시는 `localStorage`, 이 기기 기준). 데스크톱 플러그인은 알림 클릭 이벤트를 주지 않아 "클릭하면 페이지 열기"는 지원하지 않는다.
   - **미확인(실제 앱에서 봐야 함):** 알림 권한 대화상자, WKWebView의 asset 프로토콜 재생(영상·소리 코덱), pdf.js 워커·글꼴 로드.
+  - **구현 메모 (2026-11-24, 2단계 · 블록 연결):**
+    - **노드 하나:** `attachment` 블록(atom)이 종류 속성 `kind`(file · pdf · video · audio)로 ED-FileAttachment · ED-PdfViewer · ED-MediaPlayer 중 하나를 그린다. 속성 `{path, name, size, mime, kind, caption}`. 미리 보기 블록을 따로 두지 않는다(슬래시·붙여 넣기·내보내기 분기가 한 곳에 모인다).
+    - **저장 계층 주입:** 페이지 화면(`usePageAttachments`)이 `AttachmentSource`(resolve·pick·importFile·open·reveal·saveAs)를 에디터에 넘긴다. 실패 안내(토스트)는 화면 쪽이 한다. 컴포넌트는 lib/storage를 모른다.
+    - **누락 판정:** 노드가 처음 그려질 때 `resolveAssetSrc`(= `asset_src_path`, 없는 파일이면 not_found)를 부른다. 거절되면 누락 상태. 웹뷰 주소는 노드 뷰가 받아 `src`로 넘긴다.
+    - **바이트로 받은 파일(끌어 놓기·붙여 넣기):** 웹뷰 창은 경로가 없으므로 `asset_import_bytes`(raw 바디 + 헤더 `x-file-name`(퍼센트 인코딩)·`x-kind`)를 추가했다. 바이트 길이로 상한을 먼저 거른 뒤, 임시 폴더에 원본 이름으로 쓰고 `import_at`으로 복사한다(임시 폴더는 결과와 관계없이 지운다). 이미지(`img-`)는 기존 `asset_write` 경로를 그대로 쓴다.
+    - **Markdown·내보내기:** 페이지 Markdown은 `[이름](assets/…)` 링크. 워크스페이스 내보내기는 이미지와 같이 `assets/`에서 복사하고 상대 경로로 잇는다.
+    - **인쇄·PDF 내보내기:** 첨부 저장소를 주지 않으면 노드는 파일 카드로만 그린다(미리 보기·재생 없음).
+    - **검색:** 파일 이름을 검색 글에 넣는다.
+    - **복제·템플릿:** 사본은 본문 JSON을 복사하고 원본 폴더 경로를 가리킨다(이미지와 같음). 원본 페이지를 영구 삭제할 때 `adoptAssets`가 첨부도 옮긴다(첨부는 `importAttachmentBytes`로 복사, 이미지는 `writeAsset`).
+    - **미확인:** 네이티브 열기 대화상자 · WKWebView asset 프로토콜 재생 · 코덱 · 캡션 편집 칸(저장·표시만 됨).

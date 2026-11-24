@@ -309,6 +309,10 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
         : await pickAttachmentFile(kind);
       return picked ? storeAttachment(pageId, picked, kind) : null;
     },
+    async importAttachmentBytes(pageId, file, o) {
+      need();
+      return storeAttachment(pageId, file, o?.kind ?? "file");
+    },
     async importFile(pageId, path, o) {
       need();
       const src = options.importAttachments?.[path];

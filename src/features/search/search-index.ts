@@ -31,6 +31,8 @@ export function docText(doc: unknown): string {
     else if (n.type === "inlineMath" || n.type === "blockMath")
       parts.push(String(n.attrs?.latex ?? ""));
     else if (n.type === "pageMention") parts.push(String(n.attrs?.label ?? ""));
+    // 파일 첨부는 파일 이름으로 찾는다 (EDIT-31~33)
+    else if (n.type === "attachment") parts.push(String(n.attrs?.name ?? ""), "\n");
     n.content?.forEach(walk);
     if (n.type && BLOCK_SEP.has(n.type)) parts.push("\n");
   };

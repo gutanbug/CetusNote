@@ -188,6 +188,16 @@ function convert(node: MdNode, from: string, env: Env): MdNode[] {
       },
     ];
   }
+  if (node.type === "attachment") {
+    // 파일 첨부(EDIT-31~33)는 이미지처럼 워크스페이스 assets에서 복사하고 상대 경로로 잇는다
+    const path = String(node.attrs?.path ?? "");
+    if (!ASSET_SRC.test(path))
+      return [
+        { type: "paragraph", content: [{ type: "text", text: String(node.attrs?.name ?? "") }] },
+      ];
+    env.assets.add(path);
+    return [{ ...node, attrs: { ...node.attrs, path: relativeHref(from, path) } }];
+  }
   if (node.type === "image") {
     const src = String(node.attrs?.src ?? "");
     if (ASSET_SRC.test(src)) {

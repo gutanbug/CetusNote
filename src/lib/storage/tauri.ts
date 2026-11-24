@@ -117,6 +117,23 @@ export function createTauriStorage(): Storage {
       writeCall<AttachmentInfo | null>("asset_pick_file", { pageId, kind: o?.kind ?? null }),
     importFile: (pageId, path, o) =>
       writeCall<AttachmentInfo>("asset_import_file", { pageId, path, kind: o?.kind ?? null }),
+    // 바이트는 그대로 보내고, 이름·종류는 헤더로 싣는다(이름은 비ASCII라 퍼센트 인코딩)
+    importAttachmentBytes: (pageId, file, o) => {
+      if (token === null)
+        return Promise.reject(new StorageError("no_workspace", "워크스페이스가 열려 있지 않아요"));
+      return call<AttachmentInfo>(
+        "asset_import_bytes",
+        file.bytes as unknown as Record<string, unknown>,
+        {
+          headers: {
+            "x-page-id": pageId,
+            "x-workspace-token": String(token),
+            "x-file-name": encodeURIComponent(file.name),
+            "x-kind": o?.kind ?? "",
+          },
+        },
+      );
+    },
     revealAsset: (path) => call<void>("asset_reveal", { path }),
     openAsset: (path) => call<void>("asset_open", { path }),
     saveAssetAs: (path) => call<string | null>("asset_save_as", { path }),

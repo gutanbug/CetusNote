@@ -32,6 +32,7 @@ permissions = [
   "allow-asset-fetch",
   "allow-asset-pick-file",
   "allow-asset-import-file",
+  "allow-asset-import-bytes",
   "allow-asset-reveal",
   "allow-asset-open",
   "allow-asset-save-as",

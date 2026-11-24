@@ -411,3 +411,11 @@ describe("경로 표시 · 하위 페이지 Markdown (EDIT-29, EDIT-30)", () => 
     ).toBe("[하위 제목](cetusnote://page/p1)");
   });
 });
+
+describe("파일 첨부 (EDIT-31~33)", () => {
+  it("첨부는 워크스페이스 경로 링크로 내보낸다 (파일은 함께 내보내지 않는다)", () => {
+    const path = "assets/01JD0000000000000000000001/01JD0000000000000000000002-notes.pdf";
+    const md = doc({ type: "attachment", attrs: { path, name: "회의 메모.pdf", kind: "pdf" } });
+    expect(md).toContain(`[회의 메모.pdf](${path})`);
+  });
+});

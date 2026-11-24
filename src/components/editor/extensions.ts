@@ -35,6 +35,8 @@ import { columnExtensions } from "./columns";
 import { SubpageBlockNode } from "./subpage-block";
 import { BreadcrumbBlockNode } from "./breadcrumb-block";
 import { DateChipNode } from "./date-chip-node";
+import { AttachmentBlock, type AttachmentPick } from "./attachment";
+import { emojiShortcodeSuggestion, type EmojiShortcodeCallbacks } from "./emoji-shortcode";
 
 export type EditorExtensionOptions = {
   /** 빈 문단에 보일 안내 (EDIT-11) */
@@ -55,6 +57,10 @@ export type EditorExtensionOptions = {
   fetchImage?: ImageSource["fetch"];
   /** 주면 여러 블록을 복사할 때 글자(text/plain)를 이 변환(마크다운)으로 (EDIT-26) */
   copyAsText?: CopyAsText;
+  /** 파일 첨부 블록(EDIT-31~33). 이미지가 아닌 파일을 붙여 넣거나 끌어 놓으면 이것으로 저장한다 */
+  attachments?: { importFile: (file: File) => Promise<AttachmentPick | null> };
+  /** `:` 단축 코드 목록(EDIT-35). 주면 입력 중에 목록을 보여 준다. 입력 규칙(EDIT-19)은 늘 켜져 있다 */
+  emojiShortcode?: EmojiShortcodeCallbacks;
 };
 
 /** 이모지가 아니라 글자 기호로 남길 것 (EDIT-18: (c)→© · (r)→® · (tm)→™) */
@@ -90,6 +96,8 @@ export function createExtensions({
   upload,
   fetchImage,
   copyAsText,
+  attachments,
+  emojiShortcode,
 }: EditorExtensionOptions = {}): AnyExtension[] {
   return [
     ...(slash ? [slashCommand(slash)] : []),
@@ -142,6 +150,8 @@ export function createExtensions({
     TableOfContents,
     CodeBlock,
     ImageBlock.configure({ upload: upload ?? null, fetch: fetchImage ?? null }),
+    // 이미지 plugin이 먼저 받는다. 여기서는 이미지가 아닌 파일만 다룬다
+    AttachmentBlock.configure({ importFile: attachments?.importFile ?? null }),
     TableKit.configure({ table: { resizable: true, cellMinWidth: 80 } }),
     TableSelectAll,
     ...mathExtensions(onMathClick),
@@ -173,6 +183,10 @@ export function createExtensions({
       emojis: emojis.filter((e) => !TEXT_SYMBOLS.has(e.name)),
       enableEmoticons: false,
       forceFallbackImages: false,
+      // `:` 목록(EDIT-35). 콜백이 없으면 목록 없이 입력 규칙만 남는다
+      suggestion: emojiShortcodeSuggestion(
+        emojiShortcode ?? { onChange: () => {}, onKeyDown: () => false },
+      ),
     }),
   ];
 }

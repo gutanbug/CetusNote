@@ -1108,6 +1108,55 @@ pub fn asset_import_file(
     )
 }
 
+/// 경로 없이 받은 파일 바이트(웹뷰의 끌어 놓기·붙여 넣기)를 첨부한다 (asset_import_file과 같은 규칙).
+/// 헤더: x-page-id · x-workspace-token · x-file-name(퍼센트 인코딩) · x-kind(선택: file·pdf·media)
+#[tauri::command]
+pub fn asset_import_bytes(
+    state: State<AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Attachment> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(StorageError::new("invalid_asset", "파일 바이트가 필요해요"));
+    };
+    let header = |key: &str| request.headers().get(key).and_then(|v| v.to_str().ok());
+    let page_id =
+        header("x-page-id").ok_or_else(|| StorageError::new("invalid_id", "페이지 id가 없어요"))?;
+    let name = header("x-file-name")
+        .and_then(percent_decode)
+        .ok_or_else(|| StorageError::new("invalid_asset", "파일 이름이 없어요"))?;
+    let want = attachment_kind_arg(header("x-kind").filter(|k| !k.is_empty()))?;
+    let ws_token = header("x-workspace-token")
+        .and_then(|v| v.parse::<u64>().ok())
+        .ok_or_else(|| StorageError::new("invalid_asset", "워크스페이스 토큰이 없어요"))?;
+    let root = root_with_token(&state, ws_token)?;
+    attachments::import_bytes_at(
+        &root,
+        page_id,
+        &name,
+        bytes,
+        want,
+        attachments::DEFAULT_LIMITS,
+    )
+}
+
+/// 퍼센트 인코딩(UTF-8) 해제. 잘못된 형식이면 None
+fn percent_decode(raw: &str) -> Option<String> {
+    let bytes = raw.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(i + 1..i + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 /// 첨부 파일을 Finder·탐색기에서 보여 준다
 #[tauri::command]
 pub fn asset_reveal(app: AppHandle, state: State<AppState>, path: String) -> Result<()> {

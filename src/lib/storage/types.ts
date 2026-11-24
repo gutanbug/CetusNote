@@ -322,6 +322,12 @@ export interface Storage {
     path: string,
     options?: { kind?: AttachmentPickKind },
   ): Promise<AttachmentInfo>;
+  /** 경로 없이 받은 파일 바이트(웹뷰 끌어 놓기·붙여 넣기)를 같은 규칙으로 복사한다. 상한은 저장 전에 거른다 */
+  importAttachmentBytes(
+    pageId: string,
+    file: { name: string; bytes: Uint8Array; mime?: string },
+    options?: { kind?: AttachmentPickKind },
+  ): Promise<AttachmentInfo>;
   /** Finder·탐색기에서 보기 */
   revealAsset(path: string): Promise<void>;
   /** OS 기본 앱으로 열기 */

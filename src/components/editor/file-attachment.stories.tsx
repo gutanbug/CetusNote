@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { Row, Sheet, Stack } from "@/debug/specimen";
+import { EditorSpecimen } from "@/debug/editor-specimen";
+import { getEditor } from "@/debug/editor-test";
 import { FileAttachment } from "./file-attachment";
+import { blocks, empty, fakeSource } from "./attachment-fixtures";
 
 /** 카드 폭 — 본문 블록처럼 넓은 칸에 놓는다 */
 const Frame = ({ children }: { children: React.ReactNode }) => (
@@ -148,5 +151,82 @@ export const ContextMenu: Story = {
     const item = await within(document.body).findByRole("menuitem", { name: "삭제" });
     await userEvent.click(item);
     await waitFor(() => expect(args.onRemove).toHaveBeenCalledTimes(1));
+  },
+};
+
+/* ───── 노트 본문 안에서 (EDIT-31~33, 블록 노드 attachment) ───── */
+
+/** 제목이 이 글자로 시작하는 슬래시 항목 (설명 글에 같은 낱말이 있어도 제목으로 고른다) */
+const optionStarting = (list: HTMLElement, label: string) =>
+  within(list)
+    .getAllByRole("option")
+    .find((o) => o.textContent?.startsWith(label))!;
+
+const attachments = fakeSource();
+
+/** 본문 안의 네 종류 + 누락 파일 — PDF 쪽 미리 보기·영상·소리는 블록이 그린다 */
+export const InEditor: Story = {
+  render: () => <EditorSpecimen content={blocks} attachments={attachments} />,
+};
+
+/** 첨부 저장소가 없으면(인쇄·미리 보기) 파일 카드로만 그린다 */
+export const InEditorWithoutStorage: Story = {
+  render: () => <EditorSpecimen content={blocks} />,
+};
+
+/** `/파일` → 고르기 대화상자(file) → 블록이 들어간다 */
+export const SlashFile: Story = {
+  render: () => <EditorSpecimen content={empty} attachments={attachments} />,
+  play: async ({ canvasElement }) => {
+    const editor = getEditor(canvasElement);
+    editor.chain().focus("end").insertContent("/파일").run();
+    const list = await within(document.body).findByRole("listbox", { name: "블록 넣기" });
+    await userEvent.click(optionStarting(list, "파일"));
+    await waitFor(() => expect(attachments.pick).toHaveBeenCalledWith("file"));
+    await waitFor(() =>
+      expect(
+        editor
+          .getJSON()
+          .content?.some((n) => n.type === "attachment" && n.attrs?.name === "보고서.docx"),
+      ).toBe(true),
+    );
+  },
+};
+
+/** `/pdf` → 고르기 종류는 pdf */
+export const SlashPdf: Story = {
+  render: () => <EditorSpecimen content={empty} attachments={attachments} />,
+  play: async ({ canvasElement }) => {
+    const editor = getEditor(canvasElement);
+    // 앞 스토리의 목록이 남아 있으면 기다린다
+    await waitFor(() =>
+      expect(within(document.body).queryByRole("listbox", { name: "블록 넣기" })).toBeNull(),
+    );
+    editor.chain().focus("end").insertContent("/pdf").run();
+    const list = await within(document.body).findByRole("listbox", { name: "블록 넣기" });
+    await userEvent.click(optionStarting(list, "PDF"));
+    await waitFor(() => expect(attachments.pick).toHaveBeenCalledWith("pdf"));
+    await waitFor(() =>
+      expect(
+        editor.getJSON().content?.some((n) => n.type === "attachment" && n.attrs?.kind === "pdf"),
+      ).toBe(true),
+    );
+  },
+};
+
+/** 고르기를 취소하면(null) 아무것도 넣지 않는다 */
+const cancelled = fakeSource({ pick: fn(async () => null) });
+export const SlashFileCancelled: Story = {
+  render: () => <EditorSpecimen content={empty} attachments={cancelled} />,
+  play: async ({ canvasElement }) => {
+    const editor = getEditor(canvasElement);
+    await waitFor(() =>
+      expect(within(document.body).queryByRole("listbox", { name: "블록 넣기" })).toBeNull(),
+    );
+    editor.chain().focus("end").insertContent("/파일").run();
+    const list = await within(document.body).findByRole("listbox", { name: "블록 넣기" });
+    await userEvent.click(optionStarting(list, "파일"));
+    await waitFor(() => expect(cancelled.pick).toHaveBeenCalledWith("file"));
+    await expect(editor.getJSON().content?.some((n) => n.type === "attachment")).toBe(false);
   },
 };

@@ -8,6 +8,7 @@ import type { ImageSource } from "./image";
 import type { MentionSource, MentionTarget } from "./page-mention";
 import { filterSlashItems, SLASH_ITEMS } from "./slash-items";
 import { SlashMenu } from "./slash-menu";
+import { fakeSource } from "./attachment-fixtures";
 
 /** 슬래시 메뉴 — 빈 줄이나 공백 뒤에서 `/`를 입력하면 열린다. ↑↓로 고르고 Enter·Tab으로 넣는다. */
 const meta = {
@@ -108,6 +109,16 @@ async function slash(editor: Editor, query: string) {
   editor.chain().focus().insertContent(`/${query}`).run();
   return body().findByRole("listbox", LIST);
 }
+/** 첨부 블록이 있는지 (종류를 주면 그 종류만) */
+const hasAttachment = (editor: Editor, kind?: string) => {
+  let found = false;
+  editor.state.doc.descendants((n) => {
+    if (n.type.name === "attachment" && (!kind || n.attrs.kind === kind)) found = true;
+    return !found;
+  });
+  return found;
+};
+
 const contains = (editor: Editor, type: string) => {
   let found = false;
   editor.state.doc.descendants((n) => {
@@ -172,6 +183,12 @@ const CHECK: Record<string, (e: Editor) => Promise<void> | void> = {
   subpage: (e) => expect(contains(e, "subpage"), "하위 페이지 블록").toBe(true),
   date: (e) => expect(contains(e, "dateChip"), "날짜 칩").toBe(true),
   dateTomorrow: (e) => expect(contains(e, "dateChip"), "내일 날짜 칩").toBe(true),
+  file: (e) => expect(hasAttachment(e), "파일 첨부 블록").toBe(true),
+  pdf: (e) => expect(hasAttachment(e, "pdf"), "PDF 블록").toBe(true),
+  video: (e) => expect(hasAttachment(e), "비디오 블록").toBe(true),
+  audio: (e) => expect(hasAttachment(e), "오디오 블록").toBe(true),
+  emoji: () =>
+    expect(body().queryByRole("dialog", { name: "이모지 넣기" }), "이모지 피커").not.toBeNull(),
 };
 
 /** 넣은 토글 제목의 제목 단계 */
@@ -202,11 +219,12 @@ async function check(id: string, editor: Editor, label = id) {
 
 /** 실행 뒤 따로 뜬 창(멘션 제안 · 수식 편집)을 닫는다 */
 async function closeSide(id: string) {
-  if (id !== "pageMention" && id !== "blockMath" && id !== "inlineMath") return;
+  if (!["pageMention", "blockMath", "inlineMath", "emoji"].includes(id)) return;
   await userEvent.keyboard("{Escape}");
   await waitFor(() => {
     expect(body().queryByRole("listbox", { name: "페이지 멘션" })).toBeNull();
     expect(body().queryByRole("dialog", { name: "수식 편집" })).toBeNull();
+    expect(body().queryByRole("dialog", { name: "이모지 넣기" })).toBeNull();
   });
 }
 
@@ -214,6 +232,7 @@ const Full = () => (
   <EditorSpecimen
     content={START}
     images={images()}
+    attachments={fakeSource()}
     mentions={mentions}
     subpages={subpages}
     createSubpage={() => CHILD_ID}
@@ -264,7 +283,8 @@ export const EveryCommandClick: Story = {
       await userEvent.click(opt);
       await check(item.id, editor);
       await expect(editor.state.doc.textContent, item.id).not.toContain("/");
-      if (item.id !== "blockMath" && item.id !== "inlineMath")
+      // 수식·이모지는 자기 창(편집 창·피커)으로 포커스가 간다. 닫힐 때 편집기로 돌아온다
+      if (!["blockMath", "inlineMath", "emoji"].includes(item.id))
         await expect(editor.view.hasFocus(), item.id).toBe(true);
       await closeSide(item.id);
     }
