@@ -47,6 +47,19 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
+/** 행이 콜백·옵션으로 받는 값 — 콜백은 고정 함수, 옵션은 바뀔 때만 새 객체 (SYS-11) */
+type GridRowCtx = Pick<
+  GridViewProps,
+  | "onOpen"
+  | "onOpenPage"
+  | "onStatusChange"
+  | "statusOptions"
+  | "onAssigneeChange"
+  | "onDueChange"
+  | "assigneeChoices"
+  | "tagEditor"
+>;
+
 type GridViewProps = {
   items: RecordItem[];
   /** 레코드 상세 열기 (CL-RecordDetail) */
@@ -118,27 +131,6 @@ function GridView({
   const pendingFocus = React.useRef<{ row: number; col: number } | undefined>(undefined);
   const scrollerRef = React.useRef<HTMLElement | Window | null>(null);
   const span = columns.length + 1 + (addColumn ? 1 : 0);
-  const builtinCell = (key: BuiltinKey, r: RecordItem, name: string) =>
-    key === "status" ? (
-      <StatusPicker
-        label={`${name} 상태`}
-        value={r.status}
-        options={statusOptions}
-        color={r.statusColor}
-        onChange={(st) => onStatusChange(r.id, st)}
-      />
-    ) : key === "assignee" ? (
-      <AssigneePicker
-        label={`${name} 담당`}
-        value={r.assignee}
-        choices={assigneeChoices}
-        onChange={(n) => onAssigneeChange(r.id, n)}
-      />
-    ) : key === "due" ? (
-      <DuePicker label={`${name} 마감`} value={r.due} onChange={(d) => onDueChange(r.id, d)} />
-    ) : (
-      <TagCell item={r} name={name} editor={tagEditor?.(r.id)} />
-    );
   // 셀 이동 (role=grid): 탭 정지점은 한 곳(활성 셀의 첫 버튼)만 둔다. 나머지는 tabIndex -1.
   const count = items.length;
   const lastRow = Math.max(count - 1, 0);
@@ -148,6 +140,30 @@ function GridView({
   /** 그릴 행 구간 [first, last) — 보이는 구간 + 여유 (grid-rows.ts, ADR-021과 같은 방식) */
   const { first, last } = gridRowRange(view, count);
   const drawn = items.slice(first, last);
+  // 행에 넘기는 콜백은 한 번만 만들고 최신 props는 ref로 읽는다 — 부모가 다시 그려도 행 메모가 살아 있게 (SYS-11)
+  const latest = React.useRef({
+    onOpen,
+    onOpenPage,
+    onStatusChange,
+    onAssigneeChange,
+    onDueChange,
+  });
+  React.useLayoutEffect(() => {
+    latest.current = { onOpen, onOpenPage, onStatusChange, onAssigneeChange, onDueChange };
+  });
+  const ctx = React.useMemo<GridRowCtx>(
+    () => ({
+      onOpen: (id, e) => latest.current.onOpen(id, e),
+      onOpenPage: (id) => latest.current.onOpenPage(id),
+      onStatusChange: (id, st) => latest.current.onStatusChange(id, st),
+      onAssigneeChange: (id, n) => latest.current.onAssigneeChange(id, n),
+      onDueChange: (id, d) => latest.current.onDueChange(id, d),
+      statusOptions,
+      assigneeChoices,
+      tagEditor,
+    }),
+    [statusOptions, assigneeChoices, tagEditor],
+  );
 
   /** 스크롤 영역과 tbody 위치를 다시 잰다 (스크롤·크기 변화·행 수 변화 뒤) */
   const measure = React.useCallback(() => {
@@ -396,70 +412,18 @@ function GridView({
             {first > 0 ? (
               <tr aria-hidden="true" style={{ height: first * GRID_ROW_HEIGHT }} />
             ) : null}
-            {drawn.map((r, di) => {
-              const ri = first + di;
-              const name = r.title || "제목 없음";
-              return (
-                <tr
-                  key={r.id}
-                  role="row"
-                  aria-rowindex={ri + 2}
-                  className={cn(
-                    "group/row h-9 transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
-                    ri === count - 1 && "[&>td]:border-b-0",
-                  )}
-                >
-                  <td
-                    role="gridcell"
-                    aria-colindex={1}
-                    data-row={ri}
-                    data-col={0}
-                    className={cn(td, titleTd, scrolled && titleEdge)}
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => onOpen(r.id, e)}
-                        className={cn(
-                          "flex min-w-0 flex-1 items-center gap-2 rounded-md text-left font-medium",
-                          !r.title && "text-tertiary",
-                          focusRing,
-                        )}
-                      >
-                        {r.emoji ? (
-                          <span aria-hidden className="shrink-0">
-                            <PageIcon icon={r.emoji} />
-                          </span>
-                        ) : (
-                          <FileText {...ic} className="size-4 shrink-0 text-tertiary" />
-                        )}
-                        <span className="truncate">{name}</span>
-                      </button>
-                      <IconButton
-                        label={`“${name}” 페이지로 열기`}
-                        onClick={() => onOpenPage(r.id)}
-                        className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 force-hover:opacity-100"
-                      >
-                        <Maximize2 strokeWidth={1.5} />
-                      </IconButton>
-                    </div>
-                  </td>
-                  {columns.map((c, ci) => (
-                    <td
-                      key={c.key}
-                      role="gridcell"
-                      aria-colindex={ci + 2}
-                      data-row={ri}
-                      data-col={ci + 1}
-                      className={td}
-                    >
-                      {c.cell ? c.cell(r) : builtinCell(c.kind as BuiltinKey, r, name)}
-                    </td>
-                  ))}
-                  {addColumn ? <td role="gridcell" className={td} /> : null}
-                </tr>
-              );
-            })}
+            {drawn.map((r, di) => (
+              <GridRow
+                key={r.id}
+                item={r}
+                ri={first + di}
+                last={first + di === count - 1}
+                columns={columns}
+                scrolled={scrolled}
+                hasAdd={!!addColumn}
+                ctx={ctx}
+              />
+            ))}
             {last < count ? (
               <tr aria-hidden="true" style={{ height: (count - last) * GRID_ROW_HEIGHT }} />
             ) : null}
@@ -485,6 +449,107 @@ function GridView({
     </div>
   );
 }
+
+/** 표 행 하나 (SYS-11) — 레코드 항목이 같고 열 목록이 같으면 다시 그리지 않는다. 편집한 행만 그린다 */
+const GridRow = React.memo(function GridRow({
+  item: r,
+  ri,
+  last,
+  columns,
+  scrolled,
+  hasAdd,
+  ctx,
+}: {
+  item: RecordItem;
+  ri: number;
+  last: boolean;
+  columns: GridColumn[];
+  scrolled: boolean;
+  hasAdd: boolean;
+  ctx: GridRowCtx;
+}) {
+  const name = r.title || "제목 없음";
+  const builtinCell = (key: BuiltinKey) =>
+    key === "status" ? (
+      <StatusPicker
+        label={`${name} 상태`}
+        value={r.status}
+        options={ctx.statusOptions}
+        color={r.statusColor}
+        onChange={(st) => ctx.onStatusChange(r.id, st)}
+      />
+    ) : key === "assignee" ? (
+      <AssigneePicker
+        label={`${name} 담당`}
+        value={r.assignee}
+        choices={ctx.assigneeChoices}
+        onChange={(n) => ctx.onAssigneeChange(r.id, n)}
+      />
+    ) : key === "due" ? (
+      <DuePicker label={`${name} 마감`} value={r.due} onChange={(d) => ctx.onDueChange(r.id, d)} />
+    ) : (
+      <TagCell item={r} name={name} editor={ctx.tagEditor?.(r.id)} />
+    );
+  return (
+    <tr
+      role="row"
+      aria-rowindex={ri + 2}
+      className={cn(
+        "group/row h-9 transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
+        last && "[&>td]:border-b-0",
+      )}
+    >
+      <td
+        role="gridcell"
+        aria-colindex={1}
+        data-row={ri}
+        data-col={0}
+        className={cn(td, titleTd, scrolled && titleEdge)}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => ctx.onOpen(r.id, e)}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-2 rounded-md text-left font-medium",
+              !r.title && "text-tertiary",
+              focusRing,
+            )}
+          >
+            {r.emoji ? (
+              <span aria-hidden className="shrink-0">
+                <PageIcon icon={r.emoji} />
+              </span>
+            ) : (
+              <FileText {...ic} className="size-4 shrink-0 text-tertiary" />
+            )}
+            <span className="truncate">{name}</span>
+          </button>
+          <IconButton
+            label={`“${name}” 페이지로 열기`}
+            onClick={() => ctx.onOpenPage(r.id)}
+            className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 force-hover:opacity-100"
+          >
+            <Maximize2 strokeWidth={1.5} />
+          </IconButton>
+        </div>
+      </td>
+      {columns.map((c, ci) => (
+        <td
+          key={c.key}
+          role="gridcell"
+          aria-colindex={ci + 2}
+          data-row={ri}
+          data-col={ci + 1}
+          className={td}
+        >
+          {c.cell ? c.cell(r) : builtinCell(c.kind as BuiltinKey)}
+        </td>
+      ))}
+      {hasAdd ? <td role="gridcell" className={td} /> : null}
+    </tr>
+  );
+});
 
 function TagCell({
   item,

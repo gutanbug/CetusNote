@@ -133,12 +133,13 @@ export function valueCell(
 export function collectionProperties({
   settings,
   setSettings,
-  records,
+  getRecords,
   today,
 }: {
   settings: CollectionSettings;
   setSettings: (patch: Partial<CollectionSettings>) => void;
-  records: Page[];
+  /** 값을 한꺼번에 바꿀 때만 읽는다 — 열 목록이 옛 레코드 배열을 붙잡지 않도록 (SYS-11) */
+  getRecords: () => Page[];
   today: string;
 }) {
   const entries = propertyEntries(settings);
@@ -179,7 +180,7 @@ export function collectionProperties({
       toast.error(`“${to}” 옵션이 이미 있어요.`);
       return;
     }
-    for (const { id, value } of remapOption(records, field, from, to))
+    for (const { id, value } of remapOption(getRecords(), field, from, to))
       setRecordValue(id, field.id, value);
     const options =
       to === null
@@ -194,7 +195,7 @@ export function collectionProperties({
     });
   };
   const remove = (id: FieldId) => {
-    for (const r of records) if (id in r.props.values) setRecordValue(r.id, id, null);
+    for (const r of getRecords()) if (id in r.props.values) setRecordValue(r.id, id, null);
     setSettings(deleteField(settings, id));
   };
 
@@ -240,13 +241,13 @@ export function collectionProperties({
   };
 
   /** 표 열 */
-  const columns = (pages: Record<string, Page>): GridColumn[] =>
+  const columns = (getPage: (id: string) => Page): GridColumn[] =>
     visible.map((e) => ({
       key: e.key,
       name: e.name,
       kind: e.kind,
       menu: menu(e, "x"),
-      cell: e.builtin ? undefined : (item) => cellFor(e.key, pages[item.id], undefined, true),
+      cell: e.builtin ? undefined : (item) => cellFor(e.key, getPage(item.id), undefined, true),
     }));
 
   /** 상세 행 */

@@ -60,6 +60,7 @@ import {
 } from "./page-editing";
 import { PageMenu } from "./page-menu";
 import { collectionProperties } from "./collection-properties";
+import type { RecordItem } from "@/components/collection/fields";
 import { assigneeChoices, setRecordProps, toRecordItem } from "./record-fields";
 import { openInBackgroundTab, openInNewTab } from "./tabs";
 import { tagColor } from "./tag-colors";
@@ -71,6 +72,21 @@ import { useTopBarTitleBar } from "./use-tab-bar";
  * 컬렉션 화면 (COLL-01~06): 상단 바 + 이름 + CL-Toolbar + 표·보드·캘린더 + 레코드 상세.
  * 보기·정렬·필터는 컬렉션 파일(`collection`)에 남기고, 검색어·달·열린 레코드는 화면에만 둔다.
  */
+type ItemTags = Parameters<typeof toRecordItem>[1];
+type ItemStatuses = Parameters<typeof toRecordItem>[3];
+/** 표·보드에 넘기는 레코드 항목 캐시 — 페이지 객체마다 한 번만 만든다. 태그 색·날짜·상태 목록이 그대로면 같은 객체다 (SYS-11) */
+const rowItemCache = new WeakMap<
+  Page,
+  { tags: ItemTags; today: string; statuses: ItemStatuses; item: RecordItem }
+>();
+function rowItemOf(p: Page, tags: ItemTags, today: string, statuses: ItemStatuses): RecordItem {
+  const hit = rowItemCache.get(p);
+  if (hit && hit.tags === tags && hit.today === today && hit.statuses === statuses) return hit.item;
+  const item = toRecordItem(p, tags, today, statuses);
+  rowItemCache.set(p, { tags, today, statuses, item });
+  return item;
+}
+
 export function CollectionView({ page }: { page: Page }) {
   const iconProps = usePageIconProps(page);
   const all = usePages((s) => s.pages);
@@ -160,10 +176,34 @@ export function CollectionView({ page }: { page: Page }) {
     [records, settings, deferredSearch],
   );
   const statuses = settings.statuses;
-  const items = shown.map((p) => toRecordItem(p, tagColors, today, statuses));
-  const props = collectionProperties({ settings, setSettings, records, today });
-  const statusOptions = statuses.map((o) => ({ name: o.name, color: tagColor(o.color) }));
-  const names = React.useMemo(() => assigneeChoices(all), [all]);
+  const items = React.useMemo(
+    () => shown.map((p) => rowItemOf(p, tagColors, today, statuses)),
+    [shown, tagColors, today, statuses],
+  );
+  // 열·셀은 스토어에서 최신 페이지를 바로 읽는다 (고정 함수라 열 목록이 편집마다 새로 만들어지지 않는다)
+  const getPage = React.useCallback((id: string) => pagesStore.getState().pages[id]!, []);
+  // 속성 묶음은 설정·날짜·순서가 같으면 그대로 쓴다 (열·카드 함수가 매번 새로 만들어지지 않게, SYS-11)
+  const props = React.useMemo(
+    () =>
+      collectionProperties({
+        settings,
+        setSettings: (patch) =>
+          pagesStore.getState().update(page.id, { collection: { ...settings, ...patch } }),
+        today,
+        getRecords: () => collectionRecords(pagesStore.getState().pages, page.id, order),
+      }),
+    [settings, today, page.id, order],
+  );
+  /** 표 열 — 스키마(속성·설정)가 같으면 같은 배열이다. 셀 내용은 행이 자기 페이지로 그린다 (SYS-11) */
+  /** 표 열 — 속성 묶음이 바뀔 때만 새로 만든다. 셀 내용은 행이 자기 페이지로 그린다 (SYS-11) */
+  const gridColumns = React.useMemo(() => props.columns(getPage), [props, getPage]);
+  const statusOptions = React.useMemo(
+    () => statuses.map((o) => ({ name: o.name, color: tagColor(o.color) })),
+    [statuses],
+  );
+  // 담당자 목록은 이름이 같으면 같은 배열을 쓴다 (행 메모가 사이 편집에 깨지지 않게)
+  const assigneeKey = React.useMemo(() => assigneeChoices(all).join("\n"), [all]);
+  const names = React.useMemo(() => (assigneeKey ? assigneeKey.split("\n") : []), [assigneeKey]);
 
   const crumbs = [...ancestors(page.id, all).reverse(), page].map((p) => ({
     id: p.id,
@@ -206,43 +246,65 @@ export function CollectionView({ page }: { page: Page }) {
   const board = settings.board;
   const setBoard = (patch: Partial<BoardSettings>) =>
     setSettings({ board: { ...board, ...patch } });
-  const groups = boardGroups(shown, {
-    groupBy: board.groupBy,
-    statuses,
-    colors: board.colors,
-    tagColors: tagColors ?? {},
-  });
+  // 보드 계산(칸 나누기·카드 항목·칸 계산)은 보드 보기일 때만 한다 — 표에서 셀을 고칠 때마다 1만 건을 다시 나누지 않게 (SYS-11)
+  const onBoard = settings.view === "board";
+  const groups = React.useMemo(
+    () =>
+      onBoard
+        ? boardGroups(shown, {
+            groupBy: board.groupBy,
+            statuses,
+            colors: board.colors,
+            tagColors: tagColors ?? {},
+          })
+        : [],
+    [onBoard, shown, board, statuses, tagColors],
+  );
   const groupOf = (key: string) => groups.find((g) => g.key === key);
   // 보드 카드: 숨겼거나 카드 표시를 끈 기본 속성은 빼고, 고른 사용자 속성을 작게 (COLL-08)
-  const itemById = new Map(
-    shown.map((p, i) => {
-      const it = { ...items[i]!, extra: props.cardExtra(p) };
-      if (props.cardHidesBuiltin("assignee")) delete it.assignee;
-      if (props.cardHidesBuiltin("due")) delete it.due;
-      if (props.cardHidesBuiltin("tags")) it.tags = [];
-      return [p.id, it];
-    }),
+  const itemById = React.useMemo(
+    () =>
+      new Map(
+        onBoard
+          ? shown.map((p, i) => {
+              const it = { ...items[i]!, extra: props.cardExtra(p) };
+              if (props.cardHidesBuiltin("assignee")) delete it.assignee;
+              if (props.cardHidesBuiltin("due")) delete it.due;
+              if (props.cardHidesBuiltin("tags")) it.tags = [];
+              return [p.id, it] as const;
+            })
+          : [],
+      ),
+    [onBoard, shown, items, props],
   );
-  const columns: BoardColumn[] = groups
-    .filter((g) => !board.hidden.includes(g.key))
-    .map((g) => ({
-      key: g.key,
-      label: g.label,
-      color: tagColor(g.color),
-      items: g.records.map((p) => itemById.get(p.id)!),
-      calc: groupCalc(g.records, board.calc, today),
-      none: g.value === null,
-      editable: board.groupBy === "status" && g.value !== null,
-    }));
-  const hiddenColumns = groups
-    .filter((g) => board.hidden.includes(g.key))
-    .map((g) => ({
-      key: g.key,
-      label: g.label,
-      color: tagColor(g.color),
-      count: g.records.length,
-      none: g.value === null,
-    }));
+  const columns: BoardColumn[] = React.useMemo(
+    () =>
+      groups
+        .filter((g) => !board.hidden.includes(g.key))
+        .map((g) => ({
+          key: g.key,
+          label: g.label,
+          color: tagColor(g.color),
+          items: g.records.map((p) => itemById.get(p.id)!),
+          calc: groupCalc(g.records, board.calc, today),
+          none: g.value === null,
+          editable: board.groupBy === "status" && g.value !== null,
+        })),
+    [groups, itemById, board.hidden, board.groupBy, board.calc, today],
+  );
+  const hiddenColumns = React.useMemo(
+    () =>
+      groups
+        .filter((g) => board.hidden.includes(g.key))
+        .map((g) => ({
+          key: g.key,
+          label: g.label,
+          color: tagColor(g.color),
+          count: g.records.length,
+          none: g.value === null,
+        })),
+    [groups, board.hidden],
+  );
   const moveCard = (
     id: string,
     from: string,
@@ -405,16 +467,23 @@ export function CollectionView({ page }: { page: Page }) {
     Math.max(PANEL_MIN, panelWidth ?? Math.round(bodyWidth * 0.4)),
   );
 
-  const tagEditorFor = (id: string) => {
-    const rec = all[id];
+  const tagEditorFor = React.useCallback((id: string) => {
+    const rec = pagesStore.getState().pages[id];
     return rec ? <RecordTagEditor page={rec} /> : null;
-  };
+  }, []);
 
-  const days = monthGrid(month.year, month.month).map((d) => ({
-    ...d,
-    today: d.date === today,
-    items: items.filter((r) => r.due?.date === d.date),
-  }));
+  // 달력 칸은 달력 보기일 때만 채운다 (날짜마다 항목을 거르므로)
+  const days = React.useMemo(
+    () =>
+      settings.view === "calendar"
+        ? monthGrid(month.year, month.month).map((d) => ({
+            ...d,
+            today: d.date === today,
+            items: items.filter((r) => r.due?.date === d.date),
+          }))
+        : [],
+    [settings.view, month.year, month.month, today, items],
+  );
   const shiftMonth = (by: number) =>
     setMonth((m) => {
       const d = new Date(m.year, m.month + by, 1);
@@ -553,7 +622,7 @@ export function CollectionView({ page }: { page: Page }) {
                 tagEditor={tagEditorFor}
                 onNew={() => createRecord()}
                 empty={empty}
-                columns={props.columns(all)}
+                columns={gridColumns}
                 addColumn={props.addColumn}
               />
             ) : settings.view === "board" ? (
