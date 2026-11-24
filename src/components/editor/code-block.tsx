@@ -18,6 +18,7 @@ import {
   normalizeLanguage,
 } from "@/lib/code-language";
 import { cn } from "@/lib/utils";
+import { incrementalLowlight } from "./code-highlight";
 
 export { CODE_LANGUAGES, lowlight, normalizeLanguage };
 
@@ -118,6 +119,14 @@ function CodeBlockView({ node, updateAttributes, editor }: ReactNodeViewProps) {
 export const CodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView);
+  },
+  addProseMirrorPlugins() {
+    // Tiptap 기본 lowlight 플러그인(키 `lowlight$`)은 입력마다 문서 전체를 훑는다. 바뀐 블록만 칠하는 것으로 바꾼다 (SYS-11)
+    // 플러그인의 키는 타입에 없어서 내부 값(`key`)을 문자열로 읽는다
+    const rest = (this.parent?.() ?? []).filter(
+      (p) => !String((p as { key?: unknown }).key).startsWith("lowlight$"),
+    );
+    return [...rest, incrementalLowlight({ name: this.name, lowlight, defaultLanguage: null })];
   },
 }).configure({
   lowlight,
