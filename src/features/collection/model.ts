@@ -338,17 +338,22 @@ export function sortRecords(
   if (!sort) return records;
   const dir = sort.dir === "desc" ? -1 : 1;
   const rank = new Map(statuses.map((o, i) => [o.name, i]));
-  return [...records].sort((a, b) => {
-    const ka = key(a, sort.field, rank, fields);
-    const kb = key(b, sort.field, rank, fields);
+  // 키는 한 번만 구한다 (비교마다 다시 구하면 n log n번 — SYS-11). 비교는 같은 "ko" 규칙의 Collator
+  const decorated = records.map((p) => ({ p, k: key(p, sort.field, rank, fields) }));
+  decorated.sort((a, b) => {
+    const ka = a.k;
+    const kb = b.k;
     if (ka === null || kb === null) return ka === kb ? 0 : ka === null ? 1 : -1;
     const c =
       typeof ka === "number" && typeof kb === "number"
         ? ka - kb
-        : String(ka).localeCompare(String(kb), "ko");
+        : koCollator.compare(String(ka), String(kb));
     return c * dir;
   });
+  return decorated.map((d) => d.p);
 }
+
+const koCollator = new Intl.Collator("ko");
 
 /** 필터 → 검색(제목·담당·태그·글로 된 사용자 속성) → 정렬 */
 export function queryRecords(
