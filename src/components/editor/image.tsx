@@ -5,7 +5,6 @@ import {
   NodeViewContent,
   NodeViewWrapper,
   ReactNodeViewRenderer,
-  useEditorState,
   type ReactNodeViewProps,
 } from "@tiptap/react";
 import { ImageOff } from "lucide-react";
@@ -110,15 +109,24 @@ function ImageView({ node, updateAttributes, editor, selected, getPos }: ReactNo
           : "ready";
   const caption = node.textContent;
   // 캐럿이 캡션 안에 있는지 — 빈 캡션은 이때와 이미지를 골랐을 때만 보인다
-  const captionActive = useEditorState({
-    editor,
-    selector: ({ editor: e }) => {
+  // 선택이 바뀔 때만 확인한다. useEditorState는 트랜잭션마다 모든 이미지에서 돌아서 이미지가 많으면 입력이 느려진다 (SYS-11)
+  const [captionActive, setCaptionActive] = React.useState(false);
+  const captionRef = React.useRef(false);
+  React.useEffect(() => {
+    const check = () => {
       const pos = getPos();
-      if (typeof pos !== "number" || !e) return false;
-      const { from, to } = e.state.selection;
-      return from > pos && to < pos + node.nodeSize;
-    },
-  });
+      const { from, to } = editor.state.selection;
+      const next = typeof pos === "number" && from > pos && to < pos + node.nodeSize;
+      if (next === captionRef.current) return;
+      captionRef.current = next;
+      setCaptionActive(next);
+    };
+    check();
+    editor.on("selectionUpdate", check);
+    return () => {
+      editor.off("selectionUpdate", check);
+    };
+  }, [editor, getPos, node.nodeSize]);
   const showCaption = Boolean(caption) || captionActive || (selected && editor.isEditable);
   const shown = dragWidth ?? width;
 

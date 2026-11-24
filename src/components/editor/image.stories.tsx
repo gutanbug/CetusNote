@@ -70,6 +70,18 @@ export const ReadOnly: Story = {
   args: { editable: false, content: figure(COVER, "회의실 화이트보드") },
 };
 
+/** 이미지를 누르면 노드로 고른다 — 캡션 밖 문단에 캐럿이 있을 때는 캡션 상태가 꺼져 있다 (노드 뷰 선택 확인) */
+export const SelectByClick: Story = {
+  args: { content: `<p>앞 문단.</p>${figure(STUDY, "공부", 60)}<p>뒤 문단.</p>` },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const editor = getEditor(canvasElement);
+    await userEvent.click(await c.findByRole("img", { name: "공부" }));
+    await waitFor(() => expect(editor.state.selection.empty).toBe(false));
+    expect(editor.state.doc.nodeAt(editor.state.selection.from)?.type.name).toBe("image");
+  },
+};
+
 /** 키보드: 너비 손잡이 ←→ · End, 캡션 맨 앞 Backspace로 이미지 고르기, `/이미지` */
 export const Keyboard: Story = {
   args: { content: `${figure(STUDY, "공부", 50)}<p></p>` },

@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, waitFor, within } from "storybook/test";
+import { getEditor } from "@/debug/editor-test";
 import { EditorSpecimen } from "@/debug/editor-specimen";
 
 const CONTENT =
@@ -19,4 +21,36 @@ export const Default: Story = {
 /** 읽기 전용 (휴지통 미리보기 등) */
 export const ReadOnly: Story = {
   args: { content: CONTENT, editable: false },
+};
+
+/**
+ * 언어 바꾸기 · 복사 — 언어 목록은 처음 펼칠 때 채운다(블록이 많아도 열기가 빠르도록).
+ * 복사하면 "복사됨"이 잠깐 보이고 본문 글자가 클립보드로 간다.
+ */
+export const LanguageAndCopy: Story = {
+  args: { content: CONTENT },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const editor = getEditor(canvasElement);
+    const [first] = await c.findAllByRole("combobox", { name: "코드 언어" });
+    await userEvent.click(first);
+    await userEvent.selectOptions(first, "python");
+    await waitFor(() => expect(editor.state.doc.child(0).attrs.language).toBe("python"));
+    await waitFor(() =>
+      expect(canvasElement.querySelector("pre code")).toHaveClass("language-python"),
+    );
+
+    const writes: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          writes.push(text);
+        },
+      },
+    });
+    await userEvent.click(c.getAllByRole("button", { name: "코드 복사" })[0]);
+    await waitFor(() => expect(c.getAllByText("복사됨").length).toBeGreaterThan(0));
+    expect(writes[0]).toContain("export async function savePage");
+  },
 };
