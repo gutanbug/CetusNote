@@ -56,7 +56,10 @@ export const LongList: Story = {
 const COLLAPSED = [
   TOC,
   "<h1>본문</h1>",
-  ...Array.from({ length: 40 }, () => "<p>긴 본문 문단입니다. 목차 이동을 확인하려고 여러 줄을 채웁니다.</p>"),
+  ...Array.from(
+    { length: 40 },
+    () => "<p>긴 본문 문단입니다. 목차 이동을 확인하려고 여러 줄을 채웁니다.</p>",
+  ),
   "<details><summary>접힌 토글</summary><div><h2>토글 안의 제목</h2><p>토글 안 내용</p></div></details>",
 ].join("");
 
