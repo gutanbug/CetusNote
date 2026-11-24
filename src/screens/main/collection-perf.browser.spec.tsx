@@ -184,7 +184,8 @@ async function timed(
   clearFlags();
   const t0 = performance.now();
   act();
-  if (name.startsWith("cell-edit")) console.log("[probe-sync]", name, round(performance.now() - t0));
+  if (name.startsWith("cell-edit"))
+    console.log("[probe-sync]", name, round(performance.now() - t0));
   await tick();
   await settle(done, 1000);
   const ms = performance.now() - t0;
