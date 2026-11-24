@@ -7,15 +7,16 @@ import { runAutoBackup } from "@/features/backup";
 import { getStorage, isTauri } from "@/lib/storage/default";
 import { onWindowCloseRequested } from "@/lib/storage/window";
 import { useEffect } from "react";
-import { loadWorkspaceInOrder } from "./open-order";
+import { createLaunchGate, openWorkspaceForLaunch } from "./open-order";
+import { AUTO_BACKUP_DELAY_MS, scheduleAutoBackup } from "./auto-backup";
 
 /**
  * 워크스페이스가 열리면 그 폴더를 읽는다 (SYS-09: 한 번에 한 단계씩).
  * 페이지 목록(검색 인덱스·트리의 출발점)·화면 상태·workspace.json을 순서대로 읽어 권한 요청이 겹치지 않게 한다.
  */
-/** 순서대로 읽는 일이 끝난 워크스페이스 경로. 자동 백업·바깥 변경 확인은 이 뒤에만 폴더를 읽는다 */
-let launchReadyPath: string | null = null;
-const launchReadyListeners = new Set<() => void>();
+/** 읽기 준비가 끝난 워크스페이스. 자동 백업·바깥 변경 확인은 이 뒤에만 폴더를 읽는다 (페이지 읽기가 실패하면 준비 완료가 아니다) */
+export const launchGate = createLaunchGate();
+let loadSeq = 0;
 
 export function useLoadWorkspaceOnOpen() {
   useEffect(() => {
@@ -23,16 +24,19 @@ export function useLoadWorkspaceOnOpen() {
     const load = (path: string | undefined) => {
       if (!path || path === loadedFor) return;
       loadedFor = path;
-      launchReadyPath = null;
-      void loadWorkspaceInOrder(path, [
-        () => pagesStore.getState().load(),
-        (p) => sessionStore.getState().load(p),
-        () => metaStore.getState().load(),
-      ]).then(() => {
-        if (loadedFor !== path) return;
-        launchReadyPath = path;
-        launchReadyListeners.forEach((f) => f());
-      });
+      launchGate.reset();
+      const seq = ++loadSeq;
+      void openWorkspaceForLaunch(
+        path,
+        [
+          () => pagesStore.getState().load(),
+          (p) => sessionStore.getState().load(p),
+          () => metaStore.getState().load(),
+        ],
+        launchGate,
+        // 기다리는 사이 다른 워크스페이스로 바뀌었으면 준비 완료로 표시하지 않는다
+        () => seq === loadSeq,
+      );
     };
     load(workspaceStore.getState().workspace?.path);
     return workspaceStore.subscribe((s) => load(s.workspace?.path));
@@ -46,28 +50,31 @@ export function useLoadWorkspaceOnOpen() {
 export function useAutoBackupOnOpen() {
   useEffect(() => {
     let doneFor: string | null = null;
+    let cancel: (() => void) | undefined;
     const check = () => {
       const s = sessionStore.getState();
       const path = workspaceStore.getState().workspace?.path;
       if (!s.loaded || !path || s.workspace !== path || doneFor === path || !s.autoBackup) return;
-      if (launchReadyPath !== path) return;
+      if (!launchGate.isReady(path)) return;
       doneFor = path;
-      // 첫 화면을 그리는 일과 겹치지 않게 조금 뒤에
-      setTimeout(() => {
-        void runAutoBackup(getStorage()).then((r) => {
-          if (r === false)
-            toast.error("자동 백업을 만들지 못했어요. 설정 → 데이터에서 확인해 주세요.");
-        });
-      }, 3000);
+      // 첫 화면을 그리는 일과 겹치지 않게 조금 뒤에. 기다리는 사이 워크스페이스가 바뀌면 백업하지 않는다 (DATA-05)
+      cancel = scheduleAutoBackup({
+        delay: AUTO_BACKUP_DELAY_MS,
+        isCurrent: () => workspaceStore.getState().workspace?.path === path,
+        backup: () => runAutoBackup(getStorage()),
+        onFailed: () =>
+          toast.error("자동 백업을 만들지 못했어요. 설정 → 데이터에서 확인해 주세요."),
+      });
     };
     check();
     const a = sessionStore.subscribe(check);
     const b = workspaceStore.subscribe(check);
-    launchReadyListeners.add(check);
+    const c = launchGate.onReady(check);
     return () => {
       a();
       b();
-      launchReadyListeners.delete(check);
+      c();
+      cancel?.();
     };
   }, []);
 }
@@ -85,7 +92,7 @@ export function useExternalChanges() {
     const scan = async () => {
       if (busy || document.visibilityState !== "visible") return;
       const path = workspaceStore.getState().workspace?.path;
-      if (!path || launchReadyPath !== path) return;
+      if (!path || !launchGate.isReady(path)) return;
       busy = true;
       try {
         await checkExternalChanges();
