@@ -233,6 +233,22 @@
   * {
     @apply border-line;
   }
+  /*
+   * 창에 고정된 앱 셸(SYS-05): 문서(html·body·#root)는 스크롤하지 않고 창 크기를 넘지 않는다.
+   * 스크롤은 안쪽 스크롤러(사이드바 트리·페이지 본문·목록)가 맡는다. 탄성 스크롤(macOS)도 문서에는 걸지 않는다.
+   */
+  /* 뷰포트(html)는 hidden, 그 안쪽 body·#root는 clip — clip은 프로그램 스크롤도 받지 않는다 */
+  html {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body,
+  #root {
+    height: 100%;
+    overflow: clip;
+    overscroll-behavior: none;
+  }
   html {
     @apply font-sans;
     -webkit-font-smoothing: antialiased;

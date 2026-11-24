@@ -100,6 +100,24 @@ export default defineConfig(() => ({
           },
         },
       },
+      {
+        // 창 고정 레이아웃 회귀 (SYS-05) — 실제 App을 메모리 저장소로 띄워 문서·셸 스크롤을 잰다 (pnpm test:stories)
+        extends: true,
+        test: {
+          name: "shell",
+          include: ["src/**/*.browser.spec.tsx"],
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright({}),
+            instances: [
+              {
+                browser: "chromium",
+              },
+            ],
+          },
+        },
+      },
     ],
   },
 }));

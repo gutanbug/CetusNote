@@ -1,4 +1,5 @@
 import { applyAppearance } from "@/lib/appearance";
+import { pinShellScroll } from "@/lib/shell-scroll";
 import { motionTokens } from "@/lib/motion";
 import { useStore } from "zustand";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -53,6 +54,11 @@ function useAppearance(debug: boolean) {
   }, [appearance, loaded, debug]);
 }
 
+/** 창 고정 셸의 스크롤 가드 (SYS-05) — 문서가 프로그램 스크롤로 밀리지 않게 */
+function usePinnedShell() {
+  useEffect(() => pinShellScroll(), []);
+}
+
 /** 시작할 때 워크스페이스를 연다(지난 폴더) — 없으면 첫 실행 화면(DATA-03) */
 function useWorkspaceInit() {
   useEffect(() => {
@@ -63,6 +69,7 @@ function useWorkspaceInit() {
 export default function App() {
   const hash = useHash();
   useDebugShortcut();
+  usePinnedShell();
   useWorkspaceInit();
   useLoadWorkspaceOnOpen();
   useSaveOnClose();

@@ -343,7 +343,7 @@ function BoardView({
 
   return (
     <div data-slot="collection-board" className={className}>
-      <div ref={rootRef} className="flex items-start gap-3 overflow-x-auto pb-4">
+      <div ref={rootRef} className="flex items-start gap-3 overflow-x-auto overscroll-contain pb-4">
         {columns.map((col, ci) => {
           const headId = `board-col-${ci}`;
           // 칸마다 카드는 BOARD_PAGE장까지만 그린다 — 나머지는 「더 보기」 (SYS-11). 인덱스는 전체 목록 기준이라 끌기·Alt+화살표는 그대로다

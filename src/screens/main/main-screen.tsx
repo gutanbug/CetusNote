@@ -201,7 +201,12 @@ export function MainScreen() {
   }, []);
 
   return (
-    <div data-slot="main-screen" className="flex h-(--fit-h) overflow-hidden bg-app text-primary">
+    // relative: 안쪽 절대 위치 요소(장식·팝오버 자리)의 기준을 셸로 묶어 overflow-hidden이 잘라 내게 한다(SYS-05)
+    <div
+      data-slot="main-screen"
+      data-shell
+      className="relative flex h-(--fit-h) min-w-0 overflow-clip bg-app text-primary"
+    >
       <SidebarPanel hidden={focusMode} />
       <div className="flex min-h-0 min-w-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">

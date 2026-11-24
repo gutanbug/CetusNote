@@ -183,7 +183,7 @@ export function HomeView() {
               </Button>
             </SectionHead>
             {recents.length ? (
-              <div className="-mx-12 flex snap-x scroll-px-12 [scrollbar-width:none] gap-3 overflow-x-auto px-12 pb-1">
+              <div className="-mx-12 flex snap-x scroll-px-12 [scrollbar-width:none] gap-3 overflow-x-auto overscroll-contain px-12 pb-1">
                 {recents.map((p, i) => (
                   <RecentThumbCard
                     key={p.id}

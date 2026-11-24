@@ -628,7 +628,7 @@ const PageTree = React.memo(function PageTree({
         // 트리 밖으로 나가면 표시를 지운다(행 사이를 오갈 때는 그대로)
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(undefined);
       }}
-      className={cn("relative overflow-y-auto", className)}
+      className={cn("relative overflow-y-auto overscroll-contain", className)}
     >
       <div role="none" className="relative" style={{ height: rows.length * ROW_HEIGHT }}>
         {guides}

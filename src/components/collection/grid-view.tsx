@@ -320,7 +320,7 @@ function GridView({
   return (
     <div ref={rootRef} data-slot="collection-grid" className={className}>
       <div
-        className="group/grid overflow-x-auto rounded-lg border border-line"
+        className="group/grid overflow-x-auto overscroll-contain rounded-lg border border-line"
         onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
       >
         <table

@@ -93,7 +93,7 @@ function PageTabs({
         ref={listRef}
         role="tablist"
         aria-label="열린 탭"
-        className="flex min-w-0 [scrollbar-width:none] items-stretch overflow-x-auto"
+        className="flex min-w-0 [scrollbar-width:none] items-stretch overflow-x-auto overscroll-contain"
       >
         {items.map((item, i) => {
           const selected = i === activeIndex;
