@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor } from "storybook/test";
 import { EditorSpecimen } from "@/debug/editor-specimen";
 import { getEditor } from "@/debug/editor-test";
-import { ToggleHeading } from "./toggle-heading";
 
 const OPEN_H1 =
   '<div data-type="toggleHeading" data-open="true"><h1>1분기 계획</h1><p>에디터 기본 블록을 끝낸다.</p><p>검색 색인을 점검한다.</p></div>';
@@ -15,12 +14,11 @@ const CONTENT = `<p>토글 제목은 제목 줄 자체가 접힌다.</p>${OPEN_H
 /**
  * ED-ToggleHeading — 제목(H1–H3) 줄이 접히는 토글. 펼침 상태는 문서에 저장된다.
  * 키보드: ⌘⇧↵(또는 펼침 단추에 포커스 후 Enter·Space)로 접고 펼친다. 접힌 제목 끝에서 Enter를 치면 펼쳐진다.
- * 이 견본은 ED-Editor 확장 묶음에 아직 넣지 않은 노드를 `extraExtensions`로 붙인다(phase 2에서 등록).
  */
 const meta = {
   title: "L4 에디터/ED-ToggleHeading",
   component: EditorSpecimen,
-  args: { content: CONTENT, extraExtensions: [ToggleHeading] },
+  args: { content: CONTENT },
 } satisfies Meta<typeof EditorSpecimen>;
 export default meta;
 type Story = StoryObj<typeof meta>;

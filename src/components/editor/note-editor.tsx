@@ -1,4 +1,4 @@
-import type { AnyExtension, Editor, JSONContent, Range } from "@tiptap/core";
+import type { Editor, JSONContent, Range } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import "katex/dist/katex.min.css";
 import * as React from "react";
@@ -43,8 +43,6 @@ export type NoteEditorProps = {
   dimChecked?: boolean;
   /** 여러 블록을 복사할 때 다른 앱용 글자(마크다운)로 바꾸는 함수 (EDIT-26). 없으면 블록 글자만 */
   copyAsText?: (doc: JSONContent) => string;
-  /** 아직 앱 확장 묶음(createExtensions)에 넣지 않은 확장을 스토리·실험에서만 덧붙인다 (컴포넌트 Debug 견본용) */
-  extraExtensions?: AnyExtension[];
   /** 에디터가 만들어지면(또는 사라지면 null) 알린다 — 위 계층의 찾기 막대(ED-FindBar) 등이 쓴다 */
   onEditor?: (editor: Editor | null) => void;
   className?: string;
@@ -79,7 +77,6 @@ export function NoteEditor({
   dimChecked = true,
   onEditor,
   copyAsText,
-  extraExtensions,
   className,
 }: NoteEditorProps) {
   // 플러그인은 처음 받은 함수를 계속 쓰므로 최신 함수는 바깥 상자에서 읽는다
@@ -108,6 +105,7 @@ export function NoteEditor({
     if (e)
       item.run(e, range, {
         editBlockMath: (pos) => setMathTarget({ kind: "block", pos, latex: "" }),
+        editInlineMath: (pos) => setMathTarget({ kind: "inline", pos, latex: "" }),
         pickImage: liveImages.get() ? () => void pickImage() : undefined,
       });
   });
@@ -142,7 +140,6 @@ export function NoteEditor({
               liveImages.get()?.fetch?.(url) ?? Promise.reject(new Error("이미지 저장소 없음"))
           : undefined,
       }),
-      ...(extraExtensions ?? []),
     ],
     content,
     editable,

@@ -140,6 +140,9 @@ function inline(nodes: MdNode[] = [], mode: InlineMode = "block"): string {
       const id = String(node.attrs?.id ?? "");
       const title = mentionTitle?.(id) ?? String(node.attrs?.label ?? "");
       text = `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
+    } else if (node.type === "dateChip") {
+      // 날짜 칩(EDIT-36)은 YYYY-MM-DD 글자로 (알림·시각은 글로 옮기지 않는다)
+      text = String(node.attrs?.date ?? "");
     } else if (node.type === "emoji") {
       const name = String(node.attrs?.name ?? "");
       text = shortcodeToEmoji(name, emojis)?.emoji ?? `:${name}:`;
@@ -275,6 +278,27 @@ function block(node: MdNode): string {
         "</details>",
       ].join("\n");
     }
+    case "toggleHeading": {
+      // 제목 줄이 요약이고 나머지 블록이 접히는 내용 (EDIT-28). 제목 단계(H1–H3)는 글로 남지 않는다 (손실)
+      const [head, ...rest] = node.content ?? [];
+      const summary = head?.type === "heading" ? inline(head.content, "heading") : "";
+      const body = blocks(rest);
+      return [
+        node.attrs?.open !== false ? "<details open>" : "<details>",
+        `<summary>${summary}</summary>`,
+        ...(body ? ["", body, ""] : []),
+        "</details>",
+      ].join("\n");
+    }
+    case "columns":
+      // 열을 왼쪽에서 오른쪽, 위에서 아래 순서로 이어 쓴다 (EDIT-34). 가로 배치·열 폭은 글로 남지 않는다 (손실)
+      return blocks((node.content ?? []).flatMap((col) => col.content ?? []));
+    case "subpage": {
+      // 하위 페이지 카드 → 페이지 링크 (EDIT-29)
+      const id = String(node.attrs?.pageId ?? "");
+      const title = mentionTitle?.(id) ?? "하위 페이지";
+      return `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
+    }
     case "tableOfContents":
       return tocList();
     case "table":
@@ -284,6 +308,7 @@ function block(node: MdNode): string {
     case "inlineMath":
     case "emoji":
     case "pageMention":
+    case "dateChip":
       return inline([node]);
     default:
       // 모르는 블록(이후 버전의 블록 등): 안쪽 내용만 살린다

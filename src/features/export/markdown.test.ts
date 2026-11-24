@@ -211,6 +211,61 @@ describe("페이지 멘션 (EDIT-13)", () => {
   });
 });
 
+describe("편집 블록 phase 2 (EDIT-28·29·34·36)", () => {
+  it("토글 제목 → <details>, 요약은 제목 글, 접힌 내용은 나머지 블록 (단계는 글로 남지 않는다)", () => {
+    const md = doc({
+      type: "toggleHeading",
+      attrs: { open: false },
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [t("접힌 제목")] },
+        p(t("숨은 본문")),
+      ],
+    });
+    expect(md).toBe("<details>\n<summary>접힌 제목</summary>\n\n숨은 본문\n\n</details>");
+    expect(
+      doc({
+        type: "toggleHeading",
+        attrs: { open: true },
+        content: [{ type: "heading", attrs: { level: 1 }, content: [t("빈")] }],
+      }),
+    ).toBe("<details open>\n<summary>빈</summary>\n</details>");
+  });
+
+  it("단 나누기 → 열 순서대로 이어 쓴다 (가로 배치는 손실)", () => {
+    const col = (...content: MdNode[]) => ({ type: "column", attrs: { width: 1 }, content });
+    const md = doc({
+      type: "columns",
+      content: [col(p(t("왼쪽"))), col(p(t("가운데"))), col(p(t("오른쪽")))],
+    });
+    expect(md).toBe("왼쪽\n\n가운데\n\n오른쪽");
+  });
+
+  it("하위 페이지 → 페이지 링크 (지금 제목, 없으면 '하위 페이지')", () => {
+    const page = {
+      ...createPage({ title: "부모" }),
+      content: { type: "doc" as const, content: [{ type: "subpage", attrs: { pageId: "c1" } }] },
+    };
+    expect(pageToMarkdown(page, (id) => (id === "c1" ? "자식" : undefined))).toContain(
+      "[자식](cetusnote://page/c1)",
+    );
+    expect(pageToMarkdown(page)).toContain("[하위 페이지](cetusnote://page/c1)");
+  });
+
+  it("날짜 칩 → YYYY-MM-DD 글자 (시각·알림은 글로 옮기지 않는다)", () => {
+    const md = doc(
+      p(t("마감 "), {
+        type: "dateChip",
+        attrs: { date: "2026-12-01", time: "09:30", reminder: { kind: "morning" } },
+      }),
+    );
+    expect(md).toBe("마감 2026-12-01");
+  });
+
+  it("경로 표시 블록은 글로 남지 않는다 (손실)", () => {
+    expect(doc({ type: "breadcrumb" }, p(t("본문")))).toBe("본문");
+  });
+});
+
 describe("페이지", () => {
   it("front matter 없이 `# 아이콘 제목` 한 번 + 본문", () => {
     const page = {

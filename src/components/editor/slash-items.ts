@@ -1,8 +1,14 @@
 import type { Editor, Range } from "@tiptap/core";
 import {
   AtSign,
+  CalendarArrowUp,
+  CalendarDays,
   ChevronRight,
+  ChevronsDownUp,
   Code,
+  Columns2,
+  Columns3,
+  Columns4,
   Heading1,
   Heading2,
   Heading3,
@@ -14,13 +20,16 @@ import {
   ListTree,
   type LucideIcon,
   Minus,
+  Pi,
   Quote,
+  Route,
   Sigma,
   Table,
   Type,
 } from "lucide-react";
+import { addDays, toIsoDate } from "@/lib/dates/local-date";
 
-export type SlashGroup = "기본 블록" | "미디어" | "고급";
+export type SlashGroup = "기본 블록" | "미디어" | "고급" | "인라인";
 
 export type SlashItem = {
   id: string;
@@ -42,6 +51,8 @@ export type SlashContext = {
   editBlockMath: (pos: number) => void;
   /** 이미지 고르기 → 지금 자리에 넣는다 (ED-Image). 이미지 저장소가 없으면 없음 */
   pickImage?: () => void;
+  /** 방금 넣은 글자 수식(pos)의 LaTeX 편집 팝오버를 연다 */
+  editInlineMath: (pos: number) => void;
 };
 
 const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
@@ -57,7 +68,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "일반 본문 블록",
     icon: Type,
     group: "기본 블록",
-    keywords: ["text", "paragraph", "본문", "문단"],
+    keywords: ["text", "paragraph", "plain", "본문", "문단", "텍스트"],
     run: (e, r) => chain(e, r).setParagraph().run(),
   },
   ...([1, 2, 3] as const).map((level): SlashItem => ({
@@ -69,6 +80,15 @@ export const SLASH_ITEMS: SlashItem[] = [
     hint: "#".repeat(level),
     keywords: [`h${level}`, "heading", "title", "헤딩"],
     run: (e, r) => chain(e, r).setHeading({ level }).run(),
+  })),
+  ...([1, 2, 3] as const).map((level): SlashItem => ({
+    id: `toggleHeading${level}`,
+    title: `토글 제목 ${level}`,
+    description: "제목을 누르면 아래 내용이 접히는 토글",
+    icon: ChevronsDownUp,
+    group: "기본 블록",
+    keywords: [`th${level}`, "toggle heading", "toggle", "토글 제목", "토글", "접기"],
+    run: (e, r) => chain(e, r).setToggleHeading({ level }).run(),
   })),
   {
     id: "bulletList",
@@ -87,7 +107,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: ListOrdered,
     group: "기본 블록",
     hint: "1.",
-    keywords: ["number", "ordered", "list", "ol", "숫자"],
+    keywords: ["number", "num", "ordered", "list", "ol", "숫자", "번호"],
     run: (e, r) => chain(e, r).toggleOrderedList().run(),
   },
   {
@@ -127,7 +147,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: Minus,
     group: "기본 블록",
     hint: "---",
-    keywords: ["divider", "hr", "line", "선"],
+    keywords: ["divider", "div", "hr", "line", "선"],
     run: (e, r) => chain(e, r).setHorizontalRule().run(),
   },
   {
@@ -170,6 +190,24 @@ export const SLASH_ITEMS: SlashItem[] = [
     hint: ":::",
     keywords: ["callout", "강조", "메모"],
     run: (e, r) => chain(e, r).setCallout().run(),
+  },
+  ...([2, 3, 4] as const).map((count): SlashItem => ({
+    id: `columns${count}`,
+    title: `${count}단 나누기`,
+    description: `가로로 ${count}열, 각 열에 블록을 넣는다`,
+    icon: [Columns2, Columns3, Columns4][count - 2]!,
+    group: "고급",
+    keywords: ["columns", "column", "단", "열", `${count}열`, `${count}단`, "나누기"],
+    run: (e, r) => chain(e, r).insertColumns({ count }).run(),
+  })),
+  {
+    id: "breadcrumb",
+    title: "경로 표시",
+    description: "현재 페이지까지의 상위 경로",
+    icon: Route,
+    group: "고급",
+    keywords: ["breadcrumb", "경로", "bread", "path", "위치"],
+    run: (e, r) => chain(e, r).insertContent({ type: "breadcrumb" }).run(),
   },
   {
     id: "tableOfContents",
@@ -219,6 +257,48 @@ export const SLASH_ITEMS: SlashItem[] = [
         .run();
       ctx.editBlockMath(at);
     },
+  },
+  {
+    id: "inlineMath",
+    title: "인라인 수식",
+    description: "문장 안에 넣는 KaTeX 수식",
+    icon: Pi,
+    group: "인라인",
+    hint: "$",
+    keywords: ["inline math", "math", "equation", "latex", "katex", "수식", "인라인"],
+    // 커서 자리에 빈 수식을 넣고 바로 편집 팝오버를 연다
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      const pos = e.state.selection.from;
+      e.chain()
+        .insertContentAt(pos, { type: "inlineMath", attrs: { latex: "" } })
+        .run();
+      ctx.editInlineMath(pos);
+    },
+  },
+  {
+    id: "date",
+    title: "날짜",
+    description: "오늘 날짜 칩 — 누르면 날짜를 바꾼다",
+    icon: CalendarDays,
+    group: "인라인",
+    keywords: ["date", "today", "오늘", "날짜", "now"],
+    run: (e, r) =>
+      chain(e, r)
+        .insertDateChip({ date: toIsoDate(new Date()) })
+        .run(),
+  },
+  {
+    id: "dateTomorrow",
+    title: "내일 날짜",
+    description: "내일 날짜 칩",
+    icon: CalendarArrowUp,
+    group: "인라인",
+    keywords: ["tomorrow", "내일", "date", "날짜"],
+    run: (e, r) =>
+      chain(e, r)
+        .insertDateChip({ date: toIsoDate(addDays(new Date(), 1)) })
+        .run(),
   },
 ];
 

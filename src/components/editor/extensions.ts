@@ -30,6 +30,11 @@ import {
 import { slashCommand, type SlashCallbacks } from "./slash-command";
 import { TaskItemShortcuts } from "./task-item-shortcuts";
 import { toggleExtensions } from "./toggle";
+import { ToggleHeading } from "./toggle-heading";
+import { columnExtensions } from "./columns";
+import { SubpageBlockNode } from "./subpage-block";
+import { BreadcrumbBlockNode } from "./breadcrumb-block";
+import { DateChipNode } from "./date-chip-node";
 
 export type EditorExtensionOptions = {
   /** 빈 문단에 보일 안내 (EDIT-11) */
@@ -128,6 +133,11 @@ export function createExtensions({
     }),
     TaskItemShortcuts,
     ...toggleExtensions,
+    ToggleHeading,
+    ...columnExtensions,
+    SubpageBlockNode,
+    BreadcrumbBlockNode,
+    DateChipNode,
     Callout,
     TableOfContents,
     CodeBlock,

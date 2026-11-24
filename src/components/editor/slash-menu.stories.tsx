@@ -46,7 +46,8 @@ export const InEditor: Story = {
     // 입력은 에디터 명령으로 넣는다(IME 없이도 같은 트랜잭션), 키는 실제 keydown으로 보낸다
     editor.chain().focus("end").insertContent("/제목").run();
     const list = await within(document.body).findByRole("listbox", { name: "블록 넣기" });
-    await expect(within(list).getAllByRole("option")).toHaveLength(3);
+    // 「제목」은 제목 1–3과 토글 제목 1–3에 걸린다
+    await expect(within(list).getAllByRole("option")).toHaveLength(6);
     await expect(within(list).getByRole("option", { selected: true })).toHaveTextContent("제목 1");
     await userEvent.keyboard("{ArrowDown}{Enter}");
     await waitFor(() => expect(canvasElement.querySelector(".ProseMirror h2")).not.toBeNull());
@@ -148,7 +149,39 @@ const CHECK: Record<string, (e: Editor) => Promise<void> | void> = {
     expect(contains(e, "blockMath"), "수식 블록 노드").toBe(true);
     expect(body().queryByRole("dialog", { name: "수식 편집" }), "수식 편집 창").not.toBeNull();
   },
+  inlineMath: (e) => {
+    expect(contains(e, "inlineMath"), "인라인 수식 노드").toBe(true);
+    expect(body().queryByRole("dialog", { name: "수식 편집" }), "수식 편집 창").not.toBeNull();
+  },
+  toggleHeading1: (e) => expect(toggleLevel(e)).toBe(1),
+  toggleHeading2: (e) => expect(toggleLevel(e)).toBe(2),
+  toggleHeading3: (e) => expect(toggleLevel(e)).toBe(3),
+  columns2: (e) => expectColumns(e, 2),
+  columns3: (e) => expectColumns(e, 3),
+  columns4: (e) => expectColumns(e, 4),
+  breadcrumb: (e) => expect(contains(e, "breadcrumb"), "경로 표시 블록").toBe(true),
+  date: (e) => expect(contains(e, "dateChip"), "날짜 칩").toBe(true),
+  dateTomorrow: (e) => expect(contains(e, "dateChip"), "내일 날짜 칩").toBe(true),
 };
+
+/** 넣은 토글 제목의 제목 단계 */
+function toggleLevel(e: Editor): unknown {
+  let level: unknown = null;
+  e.state.doc.descendants((n) => {
+    if (n.type.name === "toggleHeading") level = n.firstChild?.attrs.level;
+  });
+  return level;
+}
+
+/** 넣은 단 블록의 열 수 */
+function expectColumns(e: Editor, count: number) {
+  expect(contains(e, "columns"), "단 나누기 블록").toBe(true);
+  let columns = 0;
+  e.state.doc.descendants((n) => {
+    if (n.type.name === "column") columns++;
+  });
+  expect(columns).toBe(count);
+}
 
 /** 실패하면 어떤 경우인지 이름을 붙인다 */
 async function check(id: string, editor: Editor, label = id) {
@@ -159,7 +192,7 @@ async function check(id: string, editor: Editor, label = id) {
 
 /** 실행 뒤 따로 뜬 창(멘션 제안 · 수식 편집)을 닫는다 */
 async function closeSide(id: string) {
-  if (id !== "pageMention" && id !== "blockMath") return;
+  if (id !== "pageMention" && id !== "blockMath" && id !== "inlineMath") return;
   await userEvent.keyboard("{Escape}");
   await waitFor(() => {
     expect(body().queryByRole("listbox", { name: "페이지 멘션" })).toBeNull();
@@ -176,7 +209,7 @@ const Full = () => (
   />
 );
 
-/** 17개 명령 전부 — 이름으로 찾아 ↓로 고르고 Enter. 선택 표시·aria-activedescendant·실행 결과·`/` 지움 */
+/** 27개 명령 전부 — 이름으로 찾아 ↓로 고르고 Enter. 선택 표시·aria-activedescendant·실행 결과·`/` 지움 */
 export const EveryCommandEnter: Story = {
   render: Full,
   play: async ({ canvasElement }) => {
@@ -205,7 +238,7 @@ export const EveryCommandEnter: Story = {
   },
 };
 
-/** 17개 명령 전부 — `/`만 쳐서 열린 전체 목록에서 마우스로 누른다. 포커스는 에디터에 남는다 */
+/** 27개 명령 전부 — `/`만 쳐서 열린 전체 목록에서 마우스로 누른다. 포커스는 에디터에 남는다 */
 export const EveryCommandClick: Story = {
   render: Full,
   play: async ({ canvasElement }) => {
@@ -219,7 +252,8 @@ export const EveryCommandClick: Story = {
       await userEvent.click(opt);
       await check(item.id, editor);
       await expect(editor.state.doc.textContent, item.id).not.toContain("/");
-      if (item.id !== "blockMath") await expect(editor.view.hasFocus(), item.id).toBe(true);
+      if (item.id !== "blockMath" && item.id !== "inlineMath")
+        await expect(editor.view.hasFocus(), item.id).toBe(true);
       await closeSide(item.id);
     }
   },
@@ -270,7 +304,8 @@ export const KeyboardNavigation: Story = {
     const list = await slash(editor, "");
     await expect(optionTitle(selected(list))).toBe("텍스트");
     await userEvent.keyboard("{ArrowUp}");
-    await expect(optionTitle(selected(list))).toBe("수식 블록");
+    // 맨 끝 항목(날짜 묶음의 마지막)으로 돈다
+    await expect(optionTitle(selected(list))).toBe("내일 날짜");
     // 맨 끝 항목이 목록 안에 보이게 스크롤됐다
     await waitFor(() => {
       const o = selected(list).getBoundingClientRect();
@@ -308,15 +343,15 @@ export const LiveFiltering: Story = {
     await reset(editor);
     let list = await slash(editor, "");
     await userEvent.keyboard("{ArrowDown}{ArrowDown}");
-    editor.commands.insertContent("제");
-    await waitFor(() => expect(within(list).getAllByRole("option")).toHaveLength(3));
+    editor.commands.insertContent("제목");
+    await waitFor(() => expect(within(list).getAllByRole("option")).toHaveLength(6));
     await expect(optionTitle(selected(list))).toBe("제목 1");
-    editor.commands.insertContent("목 3");
-    await waitFor(() => expect(within(list).getAllByRole("option")).toHaveLength(1));
+    editor.commands.insertContent(" 3");
+    await waitFor(() => expect(within(list).getAllByRole("option")).toHaveLength(2));
     await expect(optionTitle(selected(list))).toBe("제목 3");
     // 지우면 다시 늘어난다
     await userEvent.keyboard("{Backspace}{Backspace}");
-    await waitFor(() => expect(within(list).getAllByRole("option")).toHaveLength(3));
+    await waitFor(() => expect(within(list).getAllByRole("option")).toHaveLength(6));
     await userEvent.keyboard("{Backspace}{Backspace}");
     await waitFor(() =>
       expect(within(list).getAllByRole("option")).toHaveLength(SLASH_ITEMS.length),

@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor } from "storybook/test";
 import { EditorSpecimen } from "@/debug/editor-specimen";
 import { getEditor } from "@/debug/editor-test";
-import { Column, Columns } from "./columns";
 
 const col = (width: number, html: string) =>
   `<div data-type="column" data-width="${width}">${html}</div>`;
@@ -22,7 +21,6 @@ const meta = {
   component: EditorSpecimen,
   args: {
     content: `<p>단 나누기 위아래 본문</p>${TWO}<p>아래 문단</p>`,
-    extraExtensions: [Columns, Column],
   },
 } satisfies Meta<typeof EditorSpecimen>;
 export default meta;

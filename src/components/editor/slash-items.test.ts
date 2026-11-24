@@ -4,8 +4,8 @@ import { filterSlashItems, groupSlashItems, SLASH_ITEMS } from "./slash-items";
 const ids = (q: string) => filterSlashItems(q).map((it) => it.id);
 
 describe("SLASH_ITEMS 데이터", () => {
-  it("16개 항목, id는 서로 다르다", () => {
-    expect(SLASH_ITEMS).toHaveLength(17);
+  it("27개 항목, id는 서로 다르다", () => {
+    expect(SLASH_ITEMS).toHaveLength(27);
     expect(new Set(SLASH_ITEMS.map((it) => it.id)).size).toBe(SLASH_ITEMS.length);
   });
 
@@ -19,9 +19,9 @@ describe("SLASH_ITEMS 데이터", () => {
     }
   });
 
-  it("그룹은 기본 블록 → 미디어 → 고급 순서로 이어진다(섞이지 않는다)", () => {
+  it("그룹은 기본 블록 → 미디어 → 고급 → 인라인 순서로 이어진다(섞이지 않는다)", () => {
     const order = groupSlashItems(SLASH_ITEMS).map((g) => g.group);
-    expect(order).toEqual(["기본 블록", "미디어", "고급"]);
+    expect(order).toEqual(["기본 블록", "미디어", "고급", "인라인"]);
     const flat = groupSlashItems(SLASH_ITEMS).flatMap((g) => g.items);
     expect(flat).toEqual(SLASH_ITEMS);
   });
@@ -60,16 +60,23 @@ describe("filterSlashItems", () => {
   );
 
   it("대소문자와 앞뒤 공백을 무시한다", () => {
-    expect(ids("H1")).toEqual(["heading1"]);
+    expect(ids("H1")).toEqual(["heading1", "toggleHeading1"]);
     expect(ids("  TODO ")).toEqual(["taskList"]);
-    expect(ids("LaTeX")).toEqual(["blockMath"]);
+    expect(ids("LaTeX")).toEqual(["blockMath", "inlineMath"]);
     expect(ids("목차")).toEqual(["tableOfContents"]);
     expect(ids("TOC")).toEqual(["tableOfContents"]);
     expect(ids("차례")).toEqual(["tableOfContents"]);
   });
 
   it("제목 검색은 제목 1·2·3, 단축 입력은 #의 개수로 좁혀진다", () => {
-    expect(ids("제목")).toEqual(["heading1", "heading2", "heading3"]);
+    expect(ids("제목")).toEqual([
+      "heading1",
+      "heading2",
+      "heading3",
+      "toggleHeading1",
+      "toggleHeading2",
+      "toggleHeading3",
+    ]);
     expect(ids("#")).toEqual(["heading1", "heading2", "heading3"]);
     expect(ids("##")).toEqual(["heading2", "heading3"]);
     expect(ids("###")).toEqual(["heading3"]);
@@ -109,5 +116,32 @@ describe("filterSlashItems", () => {
       "heading3",
     ]);
     expect(filterSlashItems("표", sub)).toEqual([]);
+  });
+});
+
+describe("Notion식 별칭 (EDIT-ALIAS)", () => {
+  it.each([
+    ["plain", "paragraph"],
+    ["num", "orderedList"],
+    ["div", "divider"],
+    ["#", "heading1"],
+    ["##", "heading2"],
+    ["###", "heading3"],
+    ["th1", "toggleHeading1"],
+    ["2열", "columns2"],
+    ["4단", "columns4"],
+    ["math", "inlineMath"],
+    ["tomorrow", "dateTomorrow"],
+  ])("/%s 로 찾으면 %s가 나온다", (q, id) => {
+    expect(ids(q)).toContain(id);
+  });
+
+  it("/num 은 번호 목록을 앞에 둔다", () => {
+    expect(ids("num")[0]).toBe("orderedList");
+  });
+
+  it("/# 은 제목 1–3을 모두 보여준다 (제목 1이 먼저)", () => {
+    const got = ids("#");
+    expect(got.slice(0, 3)).toEqual(["heading1", "heading2", "heading3"]);
   });
 });
