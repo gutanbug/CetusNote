@@ -504,6 +504,7 @@ pub fn pages_load_all(state: State<AppState>) -> Result<LoadedPages> {
     with_workspace(&state, Workspace::load_all)
 }
 
+/// 페이지 구조만 (본문 없음, SYS-10). 본문은 `pages_read`로 연다
 #[tauri::command]
 pub fn pages_load_meta(state: State<AppState>) -> Result<LoadedPages> {
     with_workspace(&state, Workspace::load_meta)

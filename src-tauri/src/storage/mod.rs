@@ -7,6 +7,7 @@
 pub mod backup;
 pub mod export;
 pub mod history;
+pub mod meta;
 pub mod watch;
 
 use serde::Serialize;
@@ -20,6 +21,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub const PAGES_DIR: &str = "pages";
 pub const ASSETS_DIR: &str = "assets";
 pub const WORKSPACE_FILE: &str = "workspace.json";
+/// 다시 만들 수 있는 캐시(페이지 구조 색인, SYS-10). 백업에 넣지 않는다
+pub const CACHE_DIR: &str = ".cache";
 /// 빈 폴더가 아닌 곳을 고르면 그 안에 이 이름으로 워크스페이스를 만든다
 pub const DEFAULT_FOLDER_NAME: &str = "CetusNote";
 

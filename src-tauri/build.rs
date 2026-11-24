@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "workspace_read",
     "workspace_write",
     "pages_load_all",
+    "pages_load_meta",
     "page_write",
     "page_purge",
     "history_save",

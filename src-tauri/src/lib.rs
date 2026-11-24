@@ -25,6 +25,7 @@ pub fn run() {
             commands::workspace_read,
             commands::workspace_write,
             commands::pages_load_all,
+            commands::pages_load_meta,
             commands::page_write,
             commands::page_purge,
             commands::history_save,

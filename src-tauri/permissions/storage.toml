@@ -13,6 +13,7 @@ permissions = [
   "allow-workspace-read",
   "allow-workspace-write",
   "allow-pages-load-all",
+  "allow-pages-load-meta",
   "allow-page-write",
   "allow-page-purge",
   "allow-history-save",
