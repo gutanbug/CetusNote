@@ -26,8 +26,20 @@ export type WorkspaceStoreOptions = {
  */
 export type WorkspacePhase = "loading" | "setup" | "ready";
 
+/** 저장하지 못해 폴더를 바꾸지 못했을 때 대화상자가 고를 선택지 (DATA-03, 앱 닫기와 같은 흐름) */
+export type UnsavedSwitch = {
+  /** 다시 저장을 시도하고, 저장이 되면 바꾼다 */
+  retry(): Promise<void>;
+  /** 저장하지 않고 바꾼다. 대기 중인 변경은 버린다 */
+  discard(): Promise<void>;
+  /** 폴더를 바꾸지 않고 닫는다 */
+  cancel(): void;
+};
+
 export type WorkspaceState = {
   phase: WorkspacePhase;
+  /** 저장하지 못한 변경 때문에 멈춘 폴더 바꾸기. null이면 대화상자를 띄우지 않는다 */
+  unsaved: UnsavedSwitch | null;
   workspace: WorkspaceInfo | null;
   /** 첫 실행 화면에 보여 줄 기본 위치(표시용, 홈 폴더는 ~로 줄임) */
   defaultLabel: string | null;
@@ -93,21 +105,61 @@ export function createWorkspaceStore(
   { beforeChange }: WorkspaceStoreOptions = {},
 ) {
   return createStore<WorkspaceState>()((set, get) => {
-    /** 폴더를 바꾸기 전: 남은 저장을 끝낸다. 실패하면 던져서 바꾸지 않는다 */
-    const ready = async () => {
-      if (beforeChange && !(await beforeChange())) throw new UnsavedChangesError();
-    };
-    const open = async (busy: "default" | "pick", run: () => Promise<WorkspaceInfo | null>) => {
-      if (get().busy) return;
-      set({ busy, error: null });
+    /** `change`가 저장을 끝내지 못해 바꾸지 않았을 때 돌려주는 값 */
+    const UNSAVED = Symbol("unsaved");
+
+    /**
+     * 폴더를 바꾸는 공통 흐름 (DATA-03). 바꾸기 전에 남은 저장을 끝낸다.
+     * 끝내지 못하면 바꾸지 않고 `unsaved`로 대화상자를 띄운다(다시 시도 · 저장하지 않고 진행 · 취소).
+     * 실패하면 던진다. 부르는 쪽이 오류 문구를 정한다.
+     */
+    const change = async (
+      busy: NonNullable<WorkspaceState["busy"]>,
+      run: () => Promise<WorkspaceInfo | null>,
+      skipSave = false,
+    ): Promise<WorkspaceInfo | null | typeof UNSAVED> => {
+      set({ busy, error: null, unsaved: null });
       try {
-        await ready();
+        if (!skipSave && beforeChange && !(await beforeChange())) {
+          set({ busy: null, unsaved: unsavedChoices(busy, run) });
+          return UNSAVED;
+        }
         const workspace = await run();
-        // 대화상자를 취소하면 그대로 첫 실행 화면에 머문다
+        // 대화상자를 취소하면 그대로 머문다
         if (workspace) advanceWorkspaceGeneration();
         set(
           workspace ? { workspace, phase: "ready", missingPath: null, busy: null } : { busy: null },
         );
+        return workspace;
+      } catch (e) {
+        set({ busy: null });
+        throw e;
+      }
+    };
+
+    /** 대화상자 선택지: 다시 시도는 저장 검사를 다시 하고, 저장하지 않고 진행은 검사를 건너뛴다 */
+    const unsavedChoices = (
+      busy: NonNullable<WorkspaceState["busy"]>,
+      run: () => Promise<WorkspaceInfo | null>,
+    ): UnsavedSwitch => {
+      const again = (skipSave: boolean) => async () => {
+        try {
+          await change(busy, run, skipSave);
+        } catch (e) {
+          set({ error: workspaceErrorMessage(e) });
+        }
+      };
+      return {
+        retry: again(false),
+        discard: again(true),
+        cancel: () => set({ unsaved: null }),
+      };
+    };
+
+    const open = async (busy: "default" | "pick", run: () => Promise<WorkspaceInfo | null>) => {
+      if (get().busy) return;
+      try {
+        await change(busy, run);
       } catch (e) {
         set({ busy: null, error: workspaceErrorMessage(e) });
       }
@@ -116,6 +168,7 @@ export function createWorkspaceStore(
     return {
       phase: "loading",
       workspace: null,
+      unsaved: null,
       defaultLabel: null,
       missingPath: null,
       busy: null,
@@ -153,54 +206,20 @@ export function createWorkspaceStore(
       },
       async switchTo(path) {
         if (get().busy || get().workspace?.path === path) return;
-        set({ busy: "pick" });
-        try {
-          await ready();
-          const workspace = await storage.switchWorkspace(path);
-          advanceWorkspaceGeneration();
-          set({ workspace, phase: "ready", missingPath: null, busy: null });
-        } catch (e) {
-          set({ busy: null });
-          throw e;
-        }
+        // 저장하지 못하면 대화상자(unsaved)가 이어서 묻는다. 여기서는 던지지 않는다
+        await change("pick", () => storage.switchWorkspace(path));
       },
       async create(name) {
         if (get().busy) return false;
-        set({ busy: "pick" });
-        try {
-          await ready();
-          const workspace = await storage.createWorkspace(name);
-          if (workspace) advanceWorkspaceGeneration();
-          set(
-            workspace
-              ? { workspace, phase: "ready", missingPath: null, busy: null }
-              : { busy: null },
-          );
-          return !!workspace;
-        } catch (e) {
-          set({ busy: null });
-          throw e;
-        }
+        const workspace = await change("pick", () => storage.createWorkspace(name));
+        return workspace !== UNSAVED && !!workspace;
       },
       openDefault: () => open("default", () => storage.openDefaultWorkspace()),
       pick: () => open("pick", () => storage.pickWorkspace()),
       async restore() {
         if (get().busy) return false;
-        set({ busy: "restore" });
-        try {
-          await ready();
-          const workspace = await storage.restoreBackup();
-          if (workspace) advanceWorkspaceGeneration();
-          set(
-            workspace
-              ? { workspace, phase: "ready", missingPath: null, busy: null }
-              : { busy: null },
-          );
-          return !!workspace;
-        } catch (e) {
-          set({ busy: null });
-          throw e;
-        }
+        const workspace = await change("restore", () => storage.restoreBackup());
+        return workspace !== UNSAVED && !!workspace;
       },
     };
   });

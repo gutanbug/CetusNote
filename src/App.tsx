@@ -14,6 +14,7 @@ import { sessionStore } from "@/features/session";
 import { useAutoUpdateChecks } from "@/features/updater";
 import { useWorkspace, workspaceStore } from "@/features/workspace";
 import { MainScreen } from "@/screens/main/main-screen";
+import { UnsavedSwitchDialog } from "@/screens/main/unsaved-switch-dialog";
 import { SetupScreen } from "@/screens/setup/setup-screen";
 import { lazy, Suspense, useEffect, useState } from "react";
 
@@ -95,6 +96,7 @@ export default function App() {
   return (
     <>
       <Toaster />
+      <UnsavedSwitchDialog />
       <AnimatePresence mode="wait" initial={false}>
         {phase === "setup" ? (
           <motion.div

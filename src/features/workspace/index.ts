@@ -14,6 +14,7 @@ export {
   workspaceErrorMessage,
   type WorkspacePhase,
   type WorkspaceState,
+  type UnsavedSwitch,
   type WorkspaceStore,
 } from "./store";
 export { advanceWorkspaceGeneration, currentWorkspaceGeneration } from "./generation";

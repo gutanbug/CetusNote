@@ -2,7 +2,7 @@ import { createMemoryStorage, StorageError, type Page, type Storage } from "@/li
 import { createMetaStore } from "@/features/meta/store";
 import { createPagesStore } from "@/features/pages/store";
 import { createSessionStore } from "@/features/session/store";
-import { createWorkspaceStore, UnsavedChangesError } from "@/features/workspace/store";
+import { createWorkspaceStore } from "@/features/workspace/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceWriteGuard } from "./write-guard";
 
@@ -58,7 +58,7 @@ describe("워크스페이스 전환 전 저장 (DATA-03)", () => {
     expect(writes.some((w) => w.root === "/w/B")).toBe(false);
   });
 
-  it("저장하지 못한 변경이 남으면 전환을 막고 오류를 알린다", async () => {
+  it("저장하지 못한 변경이 남으면 전환을 막고 대화상자(저장하지 않고 진행)를 준다", async () => {
     const { storage, currentRoot } = routedStorage({
       failWrite: () => new StorageError("io", "disk"),
     });
@@ -73,10 +73,15 @@ describe("워크스페이스 전환 전 저장 (DATA-03)", () => {
       beforeChange: createWorkspaceWriteGuard({ pages, session, meta }),
     });
     await ws.getState().init();
-    await expect(ws.getState().switchTo("/w/B")).rejects.toBeInstanceOf(UnsavedChangesError);
+    await ws.getState().switchTo("/w/B");
     expect(currentRoot()).toBe("/w/A");
     expect(ws.getState().workspace?.path).toBe("/w/A");
+    expect(ws.getState().unsaved).not.toBeNull();
     expect(pages.getState().saveState).toBe("error");
+    // 저장하지 않고 진행하면 바뀌고, 대화상자는 닫힌다
+    await ws.getState().unsaved?.discard();
+    expect(currentRoot()).toBe("/w/B");
+    expect(ws.getState().unsaved).toBeNull();
   });
 
   it("가드 없이 바뀐 뒤에도 A의 대기 쓰기는 B에 쓰이지 않는다 (안전장치)", async () => {
