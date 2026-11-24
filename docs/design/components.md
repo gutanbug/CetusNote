@@ -398,6 +398,7 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 
 - 네 관점(취향·위계, 인터페이스 품질, 디자인 일치, 프로젝트 규칙)으로 감사했다. 디자인 일치(OpenDesign 비교)는 하지 못했다.
 - **ED-TableMenu (감사 완료):** 높음 1 해결 — ⌥F10으로 표 도구 모음(role=toolbar, "표 도구")에 들어가 ←→ Home End로 옮긴다(로빙 탭인덱스). Enter·Space는 실행 후 포커스를 단추에 두고(표가 사라지면 본문), Esc는 같은 셀의 본문 커서로 돌아간다. 글자를 고른 상태는 서식 바가 ⌥F10을 받는다. 나머지 버튼은 레이블·툴팁·포커스 링이 있다.
+- **ED-Table (키보드, EDIT-15):** ⌘A(Windows·Linux Ctrl+A)는 셀 안에서 셀 본문 전체(여러 문단이면 첫 글자~마지막 글자)를 고른다. 이미 다 고른 상태면 문서 전체. 빈 셀은 첫 번째 누름을 삼키고 같은 셀에서 두 번째 누름부터 문서 전체. 여러 셀(CellSelection)을 고른 상태와 표 밖은 문서 전체. 구현 `editor/table-select-all.ts`(우선순위 1000), 단위 테스트 `table-select-all.test.ts`, 스토리 play `ED-Table/SelectCellContent`.
 - **ED-PageMention (감사 완료):** 중간 1 확인 — 제안 목록은 처음부터 편집기에 aria-controls · aria-activedescendant · aria-autocomplete를 달고(CaretPopup, 슬래시 메뉴와 같은 패턴), 고른 항목의 aria-selected를 맞춘다. 높음 0. 스토리(ActiveOption)가 ↓↑ 이동과 닫힐 때 연결 제거를 검사한다. aria-expanded는 textbox에 쓸 수 없어(axe) 넣지 않는다.
 - **ED-FindBar (감사 완료 유지):** 찾을 글자 칸 레이블, 결과 `aria-live`, ⌥⌘F 바꾸기 칸과 `aria-expanded`를 확인했다. 찾기·다음·바꾸기·모두 바꾸기와 실행 취소 한 번을 동작으로 확인했다.
 - **ED-Image (Ready 유지):** 가져오는 중 자리는 `role="img"` + `aria-busy`, 실패 자리는 `ImageOff` + 레이블이다. 가져오는 순간을 DOM으로 잡지 못했고, 실제 내려받기는 Tauri 백엔드가 필요하다 → 실제 앱 확인 필요.

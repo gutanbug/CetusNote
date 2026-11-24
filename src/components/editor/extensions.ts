@@ -1,4 +1,5 @@
 import { TabIndent } from "./tab-indent";
+import { TableSelectAll } from "./table-select-all";
 import { TextAlignment } from "./text-align";
 import type { AnyExtension } from "@tiptap/core";
 import Emoji, { emojis } from "@tiptap/extension-emoji";
@@ -132,6 +133,7 @@ export function createExtensions({
     CodeBlock,
     ImageBlock.configure({ upload: upload ?? null, fetch: fetchImage ?? null }),
     TableKit.configure({ table: { resizable: true, cellMinWidth: 80 } }),
+    TableSelectAll,
     ...mathExtensions(onMathClick),
     // 색은 토큰 변수를 그대로 저장해 테마가 바뀌어도 따라간다 (예: "var(--c-red-fg)")
     Highlight.configure({ multicolor: true }),
