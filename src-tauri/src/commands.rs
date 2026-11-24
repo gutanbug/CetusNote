@@ -167,6 +167,40 @@ fn recent_list(saved: Option<&Value>, current: Option<&std::path::Path>) -> Vec<
         .collect()
 }
 
+/// 워크스페이스 이름을 바꾸면 최근 목록의 표시 이름도 맞춘다 (SET-02).
+/// 목록에 없는 폴더·이미 같은 이름·저장된 상태가 없을 때는 None (다시 쓸 것이 없다)
+fn recent_name_update(saved: &Value, root: &Path, name: &str) -> Option<Value> {
+    if !saved.is_object()
+        || !recent_paths(Some(saved))
+            .iter()
+            .any(|p| p.as_path() == root)
+    {
+        return None;
+    }
+    let key = root.to_string_lossy().into_owned();
+    let mut names = recent_names(Some(saved));
+    if names.get(&key).and_then(Value::as_str) == Some(name) {
+        return None;
+    }
+    names.insert(key, json!(name));
+    let mut next = saved.clone();
+    next["recentNames"] = Value::Object(names);
+    Some(next)
+}
+
+/// 지금 연 워크스페이스의 최근 목록 이름을 workspace.json 이름에 맞춘다.
+/// 메타 저장은 이미 끝났으므로 목록 이름을 못 고쳐도 실패로 돌리지 않는다(다음 저장 때 다시 맞춘다)
+fn sync_recent_name(app: &AppHandle, root: &Path) {
+    let Ok(dir) = config_dir(app) else { return };
+    let file = dir.join(APP_STATE_FILE);
+    let Some(saved) = storage::read_json_opt(&file).ok().flatten() else {
+        return;
+    };
+    if let Some(next) = recent_name_update(&saved, root, &workspace_display_name(root)) {
+        let _ = storage::write_json(&file, &next);
+    }
+}
+
 /// 새 워크스페이스 이름 검사 — 폴더 이름이 된다. 빈 이름·경로 문자·숨김 이름은 거절
 fn valid_workspace_name(name: &str) -> Option<String> {
     let name = name.trim();
@@ -401,8 +435,12 @@ pub fn workspace_read(state: State<AppState>) -> Result<Option<Value>> {
 }
 
 #[tauri::command]
-pub fn workspace_write(state: State<AppState>, value: Value) -> Result<()> {
-    with_workspace(&state, |ws| ws.write_meta(&value))
+pub fn workspace_write(app: AppHandle, state: State<AppState>, value: Value) -> Result<()> {
+    with_workspace(&state, |ws| {
+        ws.write_meta(&value)?;
+        sync_recent_name(&app, &ws.root);
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -1489,6 +1527,28 @@ mod tests {
         assert_eq!(out[1].name, "CetusNote");
         assert!(out[1].current);
         assert!(recent_list(None, None).is_empty());
+    }
+
+    #[test]
+    fn recent_name_update_follows_rename_of_recent_root() {
+        // 워크스페이스 이름을 바꾸면 최근 목록의 이름도 따라간다 (SET-02)
+        let root = Path::new("/no/such/Documents/CetusNote");
+        let saved = json!({
+            "recent": ["/no/such/Documents/CetusNote", "/no/such/Desktop/점검"],
+            "recentNames": {
+                "/no/such/Documents/CetusNote": "CetusNote",
+                "/no/such/Desktop/점검": "점검"
+            }
+        });
+        let next = recent_name_update(&saved, root, "내 노트").expect("이름이 바뀌었으면 갱신");
+        let out = recent_list(Some(&next), Some(root));
+        assert_eq!(out[0].name, "내 노트");
+        assert_eq!(out[1].name, "점검");
+        // 이미 같은 이름이면 다시 쓰지 않는다
+        assert!(recent_name_update(&next, root, "내 노트").is_none());
+        // 최근 목록에 없는 폴더, 저장된 것이 없을 때는 건드리지 않는다
+        assert!(recent_name_update(&saved, Path::new("/no/such/other"), "x").is_none());
+        assert!(recent_name_update(&json!(null), root, "x").is_none());
     }
 
     #[test]
