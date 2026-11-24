@@ -13,7 +13,8 @@ import { TopBar } from "@/components/shell/top-bar";
 import { useAssetUrl } from "@/features/assets";
 import { useMeta } from "@/features/meta";
 import { SkyMark } from "@/screens/main/sky-mark";
-import { findBacklinks, pagesStore, usePages } from "@/features/pages";
+import { pagesStore, usePages } from "@/features/pages";
+import { backlinksIn, useSummaryVersion } from "@/features/pages/summary";
 import { sessionStore, useSession } from "@/features/session";
 import { formatAgo, formatDate } from "@/lib/format-date";
 import type { Page } from "@/lib/storage";
@@ -62,22 +63,24 @@ function useMinuteTick() {
  * 자기 글은 자기 백링크에 들어가지 않으므로 결과가 같다.
  */
 function useBacklinks(id: string, all: Record<string, Page>): BacklinkItem[] {
+  // 본문 요약(SYS-10, ADR-022)으로 찾는다. 요약이 더 채워지면(version) 다시 찾는다
+  const version = useSummaryVersion();
   const find = () =>
-    findBacklinks(all, id).map((b) => ({
+    backlinksIn(id, all).map((b) => ({
       id: b.page.id,
       title: b.page.title,
       emoji: b.page.icon,
       count: b.count,
       snippets: b.snippets,
     }));
-  const [seen, setSeen] = React.useState(() => ({ id, all, items: find() }));
+  const [seen, setSeen] = React.useState(() => ({ id, all, version, items: find() }));
   const onlySelfChanged =
     seen.all === all ||
     (Object.keys(seen.all).length === Object.keys(all).length &&
       Object.entries(all).every(([k, v]) => k === id || seen.all[k] === v));
-  if (seen.id !== id || !onlySelfChanged) {
+  if (seen.id !== id || seen.version !== version || !onlySelfChanged) {
     // 렌더 중에 이전 값과 비교해 맞춘다(설정 대화상자와 같은 방식)
-    const next = { id, all, items: find() };
+    const next = { id, all, version, items: find() };
     setSeen(next);
     return next.items;
   }

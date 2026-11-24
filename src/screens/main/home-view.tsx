@@ -9,10 +9,10 @@ import { useBottomTail } from "@/screens/main/use-bottom-tail";
 import { SkyMark } from "@/screens/main/sky-mark";
 import { useMeta } from "@/features/meta";
 import { useAssetUrl } from "@/features/assets";
-import { assetRefs, usePages } from "@/features/pages";
+import { usePages } from "@/features/pages";
+import { openTodosIn, summaryIndex, useSummaryVersion } from "@/features/pages/summary";
 import { sessionStore, useSession } from "@/features/session";
 import type { Page } from "@/lib/storage";
-import { openTodos } from "@/features/todos";
 import { formatAgo } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { LayoutTemplate, Plus } from "lucide-react";
@@ -88,6 +88,8 @@ function SectionHead({
  */
 export function HomeView() {
   const pages = usePages((s) => s.pages);
+  // 할 일은 본문 요약을 본다 (SYS-10, ADR-022). 요약이 채워지는 대로 다시 그린다
+  useSummaryVersion();
   const recentIds = useSession((s) => s.recent);
   const tagColors = useMeta((s) => s.meta?.tags);
   const [hour] = React.useState(() => new Date().getHours());
@@ -101,7 +103,8 @@ export function HomeView() {
     [visible, pages],
   );
   const recents = recentPages(recentIds, pages, visible).slice(0, RECENT_LIMIT);
-  const allOpen = React.useMemo(() => openTodos(docs), [docs]);
+  // 요약이 채워지면 이 화면도 다시 그려지므로 따로 메모하지 않는다 (SYS-10)
+  const allOpen = openTodosIn(docs);
   const todos: TodayTodo[] = React.useMemo(() => {
     const toItem = (t: (typeof allOpen)[number]): TodayTodo => ({
       id: t.key,
@@ -269,8 +272,8 @@ function RecentThumbCard({
   page,
   ...props
 }: { page: Page } & Omit<React.ComponentProps<typeof RecentCard>, "thumb">) {
-  const thumb = useAssetUrl(
-    page.cover ?? assetRefs({ cover: null, icon: null, content: page.content })[0],
-  );
+  // 표지가 없으면 본문 요약의 첫 그림 (요약이 채워지면 다시 그린다)
+  useSummaryVersion();
+  const thumb = useAssetUrl(page.cover ?? summaryIndex.get(page.id)?.asset ?? null);
   return <RecentCard thumb={thumb} {...props} />;
 }

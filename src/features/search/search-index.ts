@@ -104,6 +104,11 @@ export function createSearchIndex() {
    * upsert는 페이지만 맡아 두고 찾기·개수 확인·flush 때 한 번에 만든다. 같은 페이지를 여러 번 고쳐도 마지막 것만 만든다.
    */
   const pending = new Map<string, Page>();
+  /**
+   * 본문을 아직 안 읽은 페이지의 제목만 바뀐 것 (SYS-10, ADR-022). 본문 색인은 그대로 두고 제목만 고친다 —
+   * 자리 값 본문으로 다시 만들면 본문 검색이 사라진다.
+   */
+  const titleOnly = new Set<string>();
 
   const toEntry = (page: Page): Entry => {
     const body = display(docText(page.content));
@@ -127,24 +132,41 @@ export function createSearchIndex() {
     if (pending.size === 0) return;
     for (const page of pending.values()) {
       if (page.kind === "folder") entries.delete(page.id);
-      else entries.set(page.id, toEntry(page));
+      else {
+        const entry = toEntry(page);
+        const prev = entries.get(page.id);
+        if (titleOnly.has(page.id) && prev) {
+          entry.body = prev.body;
+          entry.bodyNorm = prev.bodyNorm;
+        }
+        entries.set(page.id, entry);
+      }
     }
     pending.clear();
+    titleOnly.clear();
   };
 
   return {
-    /** 처음 한 번: 모든 페이지로 다시 만든다 */
+    /** 처음 한 번: 모든 페이지로 다시 만든다 (본문이 없는 페이지는 제목만 찾인다) */
     build(pages: Iterable<Page>) {
       pending.clear();
+      titleOnly.clear();
       entries.clear();
       for (const p of pages) if (p.kind !== "folder") entries.set(p.id, toEntry(p));
     },
     /** 폴더는 찾지 않는다(본문이 없다, SHELL-14). 본문 색인은 다음 찾기·flush 때 한다 */
     upsert(page: Page) {
       pending.set(page.id, page);
+      titleOnly.delete(page.id);
+    },
+    /** 본문을 아직 안 읽은 페이지: 제목·아이콘만 고치고 이전 본문 색인은 남긴다 */
+    upsertTitle(page: Page) {
+      pending.set(page.id, page);
+      titleOnly.add(page.id);
     },
     remove(id: string) {
       pending.delete(id);
+      titleOnly.delete(id);
       entries.delete(id);
     },
     /** 밀린 페이지를 지금 색인한다(유휴 시간에 부른다). 찾기는 스스로 먼저 부른다 */
