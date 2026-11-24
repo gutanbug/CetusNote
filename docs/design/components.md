@@ -179,7 +179,7 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 | ED-FileAttachment  | 파일 첨부 카드       | 확장자별 lucide 아이콘 · 이름(말줄임) · 크기 · 형식, 올리는 중 · 크기 초과 오류 · 원본 없음                                                           | D H F A X, 올리는 중, 오류 | 커스텀 노드 + 노드 뷰                                         | —    | P1   | Ready     |
 | ED-PdfViewer       | PDF 블록             | 쪽 스크롤 미리 보기, 확대·축소(UI-IconButton), 쪽 번호, 불러오는 중 · 실패(첨부 카드로 대체)                                                          | D 로딩 오류                | 커스텀 (pdf.js 번들, 지연 로드 · 2026-11-24 결정)              | —    | P2   | Ready     |
 | ED-MediaPlayer     | 비디오 / 오디오 블록 | video · audio 종류, 네이티브 컨트롤을 토큰 배경으로 감쌈, 캡션, 재생 불가(첨부 카드로 대체)                                                           | D H F X(재생 불가)         | 커스텀 노드 뷰(`<video>` · `<audio>`)                         | —    | P2   | Ready     |
-| ED-Columns         | 단 나누기            | 2·3·4열, 열 사이 간격 토큰, 열 경계 손잡이(선택 · 드래그 조절), 빈 열 안내                                                                            | D H(손잡이) F              | tiptap 커스텀 노드(중첩 블록 컨테이너 + 노드 뷰)              | —    | P2   | 계획      |
+| ED-Columns | 단 나누기 | 2·3·4열, 열 블록 담기, 열 너비 손잡이(마우스 드래그), 좁으면 세로로 쌓임 | 손잡이 H(마우스 전용) | 커스텀 노드 + 노드 뷰 (`columns > column{2,4} > 블록+`) | — | P2 | Ready |
 | ED-EmojiInline     | 본문 이모지          | 글자 크기(1em) 이모지 한 글자, 피커 트리거(슬래시 「이모지」)                                                                                         | D 선택                     | tiptap 커스텀 인라인 노드 + OV-EmojiPicker(L2 재사용)         | —    | P2   | Ready      |
 | ED-DateChip        | 날짜 칩              | 상대 표시(오늘·내일·어제·N일 뒤), 지난 날짜 흐림, 알림 설정 표시(종 아이콘·EDIT-37), 누르면 날짜 팝오버                                                 | D H F A(팝오버 열림) X     | 커스텀 인라인 노드 + 노드 뷰, UI-Calendar를 OV-Popover에 넣음 | —    | P2   | Ready      |
 | ED-TableOfContents | 목차 블록            | 본문 H1–H3을 들여쓴 계층 목록으로(라이브). 항목은 버튼(누르면 그 제목으로, 부드럽게·모션 줄이기면 즉시), 제목이 없으면 안내 문구. 카드 없이 왼쪽 선만 | —                          | tiptap 커스텀 노드(atom)                                      | —    | P2   | Ready     |
@@ -191,6 +191,17 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 - **신규 L1:** `UI-Calendar`는 L6 `CL-CalendarView`가 L1–L4를 import할 수 없어 따로 만든다. 나중에 CL-CalendarView가 이 컴포넌트를 쓰도록 바꿀지 결정한다.
 - **기존 것과 구분:** `PG-PdfPreview`는 PDF 내보내기 미리보기(DATA-06)라 ED-PdfViewer와 다르다. ED-Math(인라인·블록 수식, EDIT-16)는 이미 있으므로 새 블록을 만들지 않는다. ED-Image의 이미지 저장 경로(`assets/`)를 파일 첨부가 따른다(ADR-025 제안).
 - **저장 형식:** 노드 속성에는 파일 경로(워크스페이스 기준)·이름·크기·종류만 둔다. 파일 자체는 페이지 JSON에 넣지 않는다.
+
+### ED-ToggleHeading · ED-Columns 메모 (2026-11-24, phase 1 — 컴포넌트만)
+
+- **ED-ToggleHeading 설계 결정:** ED-Toggle(Details) 재사용은 하지 않았다. Details의 요약은 `detailsSummary`(인라인)라 `heading`이 아니어서 목차(`getHeadings`)와 Markdown 제목 변환에서 빠진다. 별도 노드 `toggleHeading`(content `heading block*`)로 제목을 진짜 `heading`으로 두고, 열림 상태는 `open` 속성(`data-open`), 접힌 동안 뒤 블록은 ProseMirror 노드 장식 `hidden`으로 숨긴다(문서 JSON에는 장식이 없다).
+- **목차·검색:** 접힌 제목도 목차에 남는다(제목은 보이는 줄이므로 이동 대상이 항상 보인다). 검색은 문서 글자를 그대로 본다.
+- **ED-ToggleHeading 키보드:** ⌘⇧↵ = 캐럿이 든 토글 접기·펼치기(접을 때 캐럿이 숨은 내용에 있으면 제목 끝으로). 펼침 단추 = 마우스 클릭, 포커스 후 Enter·Space(`aria-expanded`, 「토글 접기」「토글 펼치기」). Enter: 접힌 제목 끝에서 Enter를 치면 아래 문단이 생기고 토글이 펼쳐진다(appendTransaction). Tab은 탭 문자(EDIT-22) 그대로.
+- **ED-Columns 설계:** `columns`(content `column{2,4}`) > `column`(content `block+`, 비율 `width` = flex-grow). 열 안 Tab은 탭 문자(EDIT-22)라 열을 옮기지 않는다.
+- **ED-Columns 키보드:** ⌘⌥←/→ = 앞·뒤 열 첫 줄로(끝 열에서는 멈춤), ⌘⌥⇧←/→ = 캐럿 열 폭 0.25씩(옆 열에서 가져옴, 최소 0.5). 손잡이는 마우스 전용(`aria-hidden`, 포인터 드래그 후 놓을 때 저장).
+- **좁은 폭:** 단 나누기 너비 32rem 아래에서 열이 세로로 쌓인다(컨테이너 쿼리). 그때 손잡이는 숨긴다.
+- **드래그 핸들:** Tiptap DragHandle은 최상위 블록만 잡는다(`nested` 미사용). 단 전체는 핸들로 옮기고, 열 안 블록은 핸들이 없다.
+- **phase 2 연결(다른 작업):** 확장 묶음(`extensions.ts`)에 `ToggleHeading`(`toggle-heading.tsx`, 이름 `toggleHeading`)과 `Columns`·`Column`(`columns.tsx`, 묶음 `columnExtensions`)을 넣고, 스토리용 `NoteEditor.extraExtensions` 경로는 그때 걷는다. 명령: `setToggleHeading({ level })`, `toggleToggleHeading()`, `insertColumns({ count })`, `setColumnWidths({ pos, widths })`, `moveToColumn(±1)`, `resizeColumn(±)`. Markdown은 아직 없다: 토글 제목은 `<details><summary>제목</summary>…</details>`(ED-Toggle과 같은 형식)로 낸다고 제안한다. 단은 Markdown에 대응이 없어 열을 위에서 아래로 펼치는 것을 제안(손실 명시)하며 확정은 phase 2에서 한다.
 
 ### EDIT-35~37 구현 메모 (2026-11-24, phase 1 — 앱 연결 전)
 
