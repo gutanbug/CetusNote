@@ -93,7 +93,7 @@ export const registry = {
   "UI-PageIcon": { layer: "L1", name: "페이지 아이콘", status: "ready", priority: "P1" },
   "UI-AppLogo": { layer: "L1", name: "다른 앱 로고", status: "ready", priority: "P1" },
   "UI-ChoiceCard": { layer: "L1", name: "선택 카드", status: "ready", priority: "P1" },
-  "UI-Calendar": { layer: "L1", name: "달력", status: "planned", priority: "P2" },
+  "UI-Calendar": { layer: "L1", name: "달력", status: "ready", priority: "P2" },
   "OV-Popover": {
     layer: "L2",
     name: "팝오버 기본 틀",
@@ -267,8 +267,8 @@ export const registry = {
     priority: "P2",
   },
   "ED-Columns": { layer: "L4", name: "단 나누기", status: "planned", priority: "P2" },
-  "ED-EmojiInline": { layer: "L4", name: "본문 이모지", status: "planned", priority: "P2" },
-  "ED-DateChip": { layer: "L4", name: "날짜 칩", status: "planned", priority: "P2" },
+  "ED-EmojiInline": { layer: "L4", name: "본문 이모지", status: "ready", priority: "P2" },
+  "ED-DateChip": { layer: "L4", name: "날짜 칩", status: "ready", priority: "P2" },
   "PG-PageHeader": { layer: "L5", name: "페이지 헤더", status: "audited", priority: "P0" },
   "PG-Properties": {
     layer: "L5",

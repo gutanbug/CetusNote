@@ -57,7 +57,7 @@ L6 컬렉션           components/collection/ 표/보드/캘린더 (P2)
 | UI-PageIcon      | 페이지 아이콘           | 이모지 · lucide 아이콘(색 9종) · 올린 이미지 — 글자 크기(1em)에 맞춰 그린다                                   | 이미지 불러오는 중                                                                                                                                                                                                                     | 커스텀                                                                 | —    | P1   | Ready     |
 | UI-AppLogo       | 다른 앱 로고            | notion · obsidian · appflowy · affine, 단색(currentColor), 24px 기본                                          | 글자색을 따른다                                                                                                                                                                                                                        | 커스텀(SVG, 예외 아래)                                                 | —    | P1   | Ready     |
 | UI-ChoiceCard    | 선택 카드(라디오 그룹)  | 2·3·4열, 그림 · 제목 · 한 줄 설명                                                                             | D H A(선택, 체크 표시) F                                                                                                                                                                                                               | Radix `radio-group`                                                    | —    | P1   | Ready     |
-| UI-Calendar      | 달력(월 격자)           | 월 7열(일요일 시작), 오늘 포인트 테두리, 선택 날짜, 이전·다음 달 버튼, 다른 달 날짜 흐리게                    | D H A F X, 오늘 · 선택                                                                                                                                                                                                                 | 커스텀(CL-CalendarView 격자와 시각 맞춤, L6 import 불가라 따로 만든다) | —    | P2   | 계획      |
+| UI-Calendar      | 달력(월 격자)           | 월 7열(일요일 시작), 오늘 포인트 테두리, 선택 날짜, 이전·다음 달 버튼, 다른 달 날짜 흐리게                    | D H A F X, 오늘 · 선택                                                                                                                                                                                                                 | 커스텀(CL-CalendarView 격자와 시각 맞춤, L6 import 불가라 따로 만든다) | —    | P2   | Ready      |
 
 ### UI-AppLogo 예외 메모 (2026-11-23)
 
@@ -180,8 +180,8 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 | ED-PdfViewer       | PDF 블록             | 쪽 스크롤 미리 보기, 확대·축소(UI-IconButton), 쪽 번호, 불러오는 중 · 실패(첨부 카드로 대체)                                                          | D 로딩 오류                | 커스텀 노드 뷰 + 웹뷰 PDF 또는 pdf.js(결정)                   | —    | P2   | 계획      |
 | ED-MediaPlayer     | 비디오 / 오디오 블록 | video · audio 종류, 네이티브 컨트롤을 토큰 배경으로 감쌈, 캡션, 재생 불가(첨부 카드로 대체)                                                           | D H F X(재생 불가)         | 커스텀 노드 뷰(`<video>` · `<audio>`)                         | —    | P2   | 계획      |
 | ED-Columns         | 단 나누기            | 2·3·4열, 열 사이 간격 토큰, 열 경계 손잡이(선택 · 드래그 조절), 빈 열 안내                                                                            | D H(손잡이) F              | tiptap 커스텀 노드(중첩 블록 컨테이너 + 노드 뷰)              | —    | P2   | 계획      |
-| ED-EmojiInline     | 본문 이모지          | 글자 크기(1em) 이모지 한 글자, 피커 트리거(슬래시 「이모지」)                                                                                         | D 선택                     | tiptap 커스텀 인라인 노드 + OV-EmojiPicker(L2 재사용)         | —    | P2   | 계획      |
-| ED-DateChip        | 날짜 칩              | 상대 표시(오늘·내일·어제·N일 뒤), 지난 날짜 흐림, 알림 설정 표시(EDIT-37 결정 후), 누르면 날짜 팝오버                                                 | D H F A(팝오버 열림) X     | 커스텀 인라인 노드 + 노드 뷰, UI-Calendar를 OV-Popover에 넣음 | —    | P2   | 계획      |
+| ED-EmojiInline     | 본문 이모지          | 글자 크기(1em) 이모지 한 글자, 피커 트리거(슬래시 「이모지」)                                                                                         | D 선택                     | tiptap 커스텀 인라인 노드 + OV-EmojiPicker(L2 재사용)         | —    | P2   | Ready      |
+| ED-DateChip        | 날짜 칩              | 상대 표시(오늘·내일·어제·N일 뒤), 지난 날짜 흐림, 알림 설정 표시(종 아이콘·EDIT-37), 누르면 날짜 팝오버                                                 | D H F A(팝오버 열림) X     | 커스텀 인라인 노드 + 노드 뷰, UI-Calendar를 OV-Popover에 넣음 | —    | P2   | Ready      |
 | ED-TableOfContents | 목차 블록            | 본문 H1–H3을 들여쓴 계층 목록으로(라이브). 항목은 버튼(누르면 그 제목으로, 부드럽게·모션 줄이기면 즉시), 제목이 없으면 안내 문구. 카드 없이 왼쪽 선만 | —                          | tiptap 커스텀 노드(atom)                                      | —    | P2   | Ready     |
 
 ### EDIT-28~37 계획 메모 (2026-11-24)
@@ -190,6 +190,15 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 - **신규 L1:** `UI-Calendar`는 L6 `CL-CalendarView`가 L1–L4를 import할 수 없어 따로 만든다. 나중에 CL-CalendarView가 이 컴포넌트를 쓰도록 바꿀지 결정한다.
 - **기존 것과 구분:** `PG-PdfPreview`는 PDF 내보내기 미리보기(DATA-06)라 ED-PdfViewer와 다르다. ED-Math(인라인·블록 수식, EDIT-16)는 이미 있으므로 새 블록을 만들지 않는다. ED-Image의 이미지 저장 경로(`assets/`)를 파일 첨부가 따른다(ADR-025 제안).
 - **저장 형식:** 노드 속성에는 파일 경로(워크스페이스 기준)·이름·크기·종류만 둔다. 파일 자체는 페이지 JSON에 넣지 않는다.
+
+### EDIT-35~37 구현 메모 (2026-11-24, phase 1 — 앱 연결 전)
+
+- **UI-Calendar:** `components/ui/calendar.tsx`. 직접 만들었다(react-day-picker 미추가). props: `value`, `onChange`, `min`, `max`, `weekStartsOn`, `today`, `defaultMonth`, `onEscape`, `label`. 키: 방향키 한 칸·한 주, Home/End 주, PageUp/PageDown 달, Shift+PageUp/Down 해, Enter·Space 고르기, Esc는 `onEscape`. 격자는 roving tabIndex, 행 키는 주의 첫 날짜(달이 바뀔 때 포커스 유지).
+- **ED-DateChip:** 노드 `dateChip`(`components/editor/date-chip-node.tsx`, 원자 인라인). 속성: `date`(YYYY-MM-DD 로컬), `time`(HH:mm 또는 null), `reminder`(JSON: `{kind:"none"}` · `{kind:"morning"}` · `{kind:"custom",time}` · `{kind:"before",minutes:10|60|1440}`), `done`(bool), `created`(ISO 또는 null). HTML: `span[data-type="date-chip"]`, 속성 `data-date`·`data-time`·`data-reminder`(JSON)·`data-done`·`data-created`. 명령 `insertDateChip(attrs)`. 본문 글자는 상대 문구. 날짜·시각 계산은 `lib/dates/`(`formatDateLabel`, `computeReminderAt`, `reminderStatus`, `isOverdue`).
+- **ED-DateChip 알림 (phase 2):** 앱이 켜져 있을 때만 OS 알림. 스케줄러는 `computeReminderAt`으로 시각을 구하고, 지난 알림은 `reminderStatus === "passed"`로 다음 실행 때 앱 안에 보여 준다. 플러그인 추가·권한 안내·저장 위치는 phase 2.
+- **ED-EmojiInline:** `components/editor/emoji-inline.tsx`(`EmojiInlinePopover`, `EmojiShortcodeMenu`). 이모지는 글자로 넣는다(노드 없음). 단축 코드 목록·매칭은 `lib/emoji/shortcodes.ts`(`matchShortcodes`, `nextActiveIndex`). phase 2: 슬래시 「이모지」에서 열고, EDIT-19(`:smile:`)와 역할을 정한다. 키 처리(위·아래·Enter·Esc)는 Tiptap 제안 플러그인의 `onKeyDown`에서 같은 도우미로 한다.
+- **Markdown (phase 2 제안):** 날짜 칩은 `YYYY-MM-DD`(시각이 있으면 뒤에 `HH:mm`), 알림·완료는 잃는다고 명시. 이모지는 글자 그대로.
+- **ED-Math:** 인라인 수식은 기존 `ED-Math`(EDIT-16)로 이미 Ready 이상(감사 완료). 새 ID를 만들지 않았다.
 
 ### L4 메모 (2026-11-19)
 
