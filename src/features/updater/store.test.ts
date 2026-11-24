@@ -142,6 +142,21 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
     await Promise.all([a, b]);
     expect(spy).toHaveBeenCalledTimes(1);
   });
+
+  it("내려받는 중에 설치를 또 부르면 새로 내려받지 않고, 같은 요청이 끝날 때까지 기다린다", async () => {
+    const { store, updater } = make({ latest: NEW, steps: 2, delayMs: 1 });
+    await store.getState().check();
+    const spy = vi.spyOn(updater, "downloadAndInstall");
+    const first = store.getState().install();
+    const second = store.getState().install();
+    let secondDone = false;
+    void second.then(() => (secondDone = true));
+    await vi.waitFor(() => expect(store.getState().status).toBe("downloading"));
+    expect(secondDone).toBe(false);
+    await Promise.all([first, second]);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(updater.relaunched).toBe(true);
+  });
 });
 
 describe("자동 확인 (SYS-07)", () => {

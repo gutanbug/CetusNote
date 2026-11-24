@@ -173,4 +173,65 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     await vi.waitFor(() => expect(retry).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(toastMock.error).toHaveBeenCalledTimes(2));
   });
+
+  it("설정에서 내려받는 중에 토스트의 업데이트를 누르면, 진행률과 완료를 토스트가 끝까지 받는다", async () => {
+    const { updater, release } = gatedUpdater();
+    const store = createUpdaterStore({ updater, flush: async () => true });
+    await store.getState().check();
+    // 설정 화면이 먼저 내려받기를 시작한다(25%에서 멈춰 있다)
+    const fromSettings = store.getState().install();
+    expect(store.getState().progress).toBe(25);
+    // 토스트의 「업데이트」는 진행 중인 내려받기에 합류해야 한다
+    runInstallWithToast(store);
+    release();
+    await fromSettings;
+    await vi.waitFor(() => expect(updater.relaunched).toBe(true));
+    const messages = toastMessages();
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        "내려받는 중 25%",
+        "내려받는 중 100%",
+        "설치하고 다시 여는 중이에요",
+      ]),
+    );
+  });
+
+  it("설정에서 내려받는 중에 토스트를 연 뒤 내려받기가 실패하면, 토스트가 오류와 다시 시도를 보여 준다", async () => {
+    const { updater, release } = gatedUpdater({ installError: "disk" });
+    const store = createUpdaterStore({ updater, flush: async () => true });
+    await store.getState().check();
+    const fromSettings = store.getState().install();
+    runInstallWithToast(store);
+    release();
+    await fromSettings;
+    await vi.waitFor(() => expect(toastMock.error).toHaveBeenCalledTimes(1));
+    expect(lastOpts(toastMock.error).action?.label).toBe("다시 시도");
+  });
 });
+
+/** 내려받기를 release()로 한 단계씩 풀어 주는 가짜 업데이트. 토스트가 중간에 합류하는 순서를 고정한다 */
+function gatedUpdater(options: { installError?: string } = {}) {
+  const base = createFakeUpdater({ latest: NEW });
+  let release: () => void = () => {};
+  const updater = {
+    currentVersion: base.currentVersion,
+    check: base.check,
+    relaunch: base.relaunch,
+    get relaunched() {
+      return base.relaunched;
+    },
+    async downloadAndInstall(onProgress: (p: number) => void) {
+      onProgress(25);
+      await new Promise<void>((resolve) => (release = resolve));
+      if (options.installError) throw new Error(options.installError);
+      onProgress(100);
+    },
+  };
+  return { updater, release: () => release() };
+}
+
+function toastMessages() {
+  return toastMock.mock.calls.map((c) =>
+    typeof c[0] === "string" ? c[0] : c[0].props.children[0].props.children,
+  );
+}

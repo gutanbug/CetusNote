@@ -53,6 +53,8 @@ export type UpdaterDeps = {
 
 export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDeps) {
   let inflight: Promise<CheckResult> | null = null;
+  // 내려받기·설치 중인 요청. 다시 부르면 이 요청이 끝날 때까지 기다린다(진행률·오류를 놓치지 않게)
+  let installing: Promise<void> | null = null;
 
   return createStore<UpdaterStore>()((set, get) => {
     const currentOf = async () => {
@@ -104,53 +106,14 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
         });
         return inflight;
       },
-      async install() {
-        const info = get().update;
-        if (!info || get().status === "downloading") return;
-        set({
-          status: "downloading",
-          progress: null,
-          finishing: false,
-          errorStep: null,
-          error: null,
+      install() {
+        // 이미 내려받는 중이면 새 요청을 만들지 않고, 같은 요청이 끝날 때까지 기다린다
+        if (installing) return installing;
+        if (!get().update) return Promise.resolve();
+        installing = runInstall().finally(() => {
+          installing = null;
         });
-        try {
-          await updater.downloadAndInstall((progress) => set({ progress }));
-        } catch {
-          set({
-            status: "error",
-            errorStep: "install",
-            progress: null,
-            finishing: false,
-            error: INSTALL_ERROR_MESSAGE,
-          });
-          return;
-        }
-        // 설치는 끝났다. 남은 저장을 끝낸 뒤에만 다시 연다
-        set({ finishing: true });
-        const saved = await flush().catch(() => false);
-        if (!saved) {
-          set({
-            status: "error",
-            errorStep: "install",
-            progress: null,
-            finishing: false,
-            error: SAVE_BEFORE_RESTART_MESSAGE,
-          });
-          return;
-        }
-        try {
-          await updater.relaunch();
-        } catch {
-          // 설치는 이미 끝났으므로 다시 설치하지 않고 직접 열어 달라고만 한다
-          set({
-            status: "error",
-            errorStep: "relaunch",
-            progress: null,
-            finishing: false,
-            error: RELAUNCH_ERROR_MESSAGE,
-          });
-        }
+        return installing;
       },
       async loadVersion() {
         await currentOf();
@@ -159,6 +122,53 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
         set({ notifiedVersion: version });
       },
     };
+
+    async function runInstall(): Promise<void> {
+      set({
+        status: "downloading",
+        progress: null,
+        finishing: false,
+        errorStep: null,
+        error: null,
+      });
+      try {
+        await updater.downloadAndInstall((progress) => set({ progress }));
+      } catch {
+        set({
+          status: "error",
+          errorStep: "install",
+          progress: null,
+          finishing: false,
+          error: INSTALL_ERROR_MESSAGE,
+        });
+        return;
+      }
+      // 설치는 끝났다. 남은 저장을 끝낸 뒤에만 다시 연다
+      set({ finishing: true });
+      const saved = await flush().catch(() => false);
+      if (!saved) {
+        set({
+          status: "error",
+          errorStep: "install",
+          progress: null,
+          finishing: false,
+          error: SAVE_BEFORE_RESTART_MESSAGE,
+        });
+        return;
+      }
+      try {
+        await updater.relaunch();
+      } catch {
+        // 설치는 이미 끝났으므로 다시 설치하지 않고 직접 열어 달라고만 한다
+        set({
+          status: "error",
+          errorStep: "relaunch",
+          progress: null,
+          finishing: false,
+          error: RELAUNCH_ERROR_MESSAGE,
+        });
+      }
+    }
   });
 }
 
