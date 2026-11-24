@@ -4,9 +4,9 @@ import { filterSlashItems, groupSlashItems, SLASH_ITEMS } from "./slash-items";
 const ids = (q: string) => filterSlashItems(q).map((it) => it.id);
 
 describe("SLASH_ITEMS 데이터", () => {
-  it("27개 항목, id는 서로 다르다", () => {
-    expect(SLASH_ITEMS).toHaveLength(27);
+  it("id는 서로 다르다 (하위 페이지 항목 포함)", () => {
     expect(new Set(SLASH_ITEMS.map((it) => it.id)).size).toBe(SLASH_ITEMS.length);
+    expect(SLASH_ITEMS.some((it) => it.id === "subpage")).toBe(true);
   });
 
   it("이름은 서로 다르고 설명·아이콘·낱말이 있다", () => {
@@ -143,5 +143,13 @@ describe("Notion식 별칭 (EDIT-ALIAS)", () => {
   it("/# 은 제목 1–3을 모두 보여준다 (제목 1이 먼저)", () => {
     const got = ids("#");
     expect(got.slice(0, 3)).toEqual(["heading1", "heading2", "heading3"]);
+  });
+});
+
+describe("하위 페이지 슬래시 항목 (EDIT-29)", () => {
+  it("page·subpage·하위 페이지·새 페이지·child 낱말로 찾는다", () => {
+    for (const q of ["page", "subpage", "하위 페이지", "새 페이지", "child"]) {
+      expect(ids(q), q).toContain("subpage");
+    }
   });
 });

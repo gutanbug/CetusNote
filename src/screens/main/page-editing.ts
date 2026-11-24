@@ -1,4 +1,6 @@
 import type { ImageSource } from "@/components/editor/image";
+import type { BreadcrumbSource } from "@/components/editor/breadcrumb-block";
+import type { SubpageRef, SubpageSource } from "@/components/editor/subpage-block";
 import { PAGE_LINK_PREFIX, type MentionSource } from "@/components/editor/page-mention";
 import type { PageTag } from "@/components/page/properties";
 import { toast } from "@/components/ui/toast";
@@ -10,13 +12,13 @@ import {
   saveImageFile,
 } from "@/features/assets";
 import { metaStore, useMeta } from "@/features/meta";
-import { pagesStore, usePages } from "@/features/pages";
+import { pagesStore, usePages, type PageMeta } from "@/features/pages";
 import { searchIndex } from "@/features/search";
 import { useSession } from "@/features/session";
 import type { Page } from "@/lib/storage";
 import { openLink } from "@/lib/storage/open-link";
 import * as React from "react";
-import { openPageLink } from "./actions";
+import { crumbsOf, displayTitle, openPageLink } from "./actions";
 import { resolveMention, searchMentions } from "./mention-model";
 import { nextTagColor, tagColor } from "./tag-colors";
 import { openInNewTab } from "./tabs";
@@ -69,6 +71,47 @@ export function usePageMentions(pageId: string): MentionSource {
         o?.newTab && resolveMention(all, id) ? openInNewTab(id) : openPageLink(id),
     }),
     [all, pageId, recent],
+  );
+}
+
+/**
+ * 하위 페이지 블록 (EDIT-29) — 제목·아이콘·지워짐·휴지통을 구조(structure)에서 읽는다.
+ * 구조가 바뀌면(이름·휴지통·이동) 새 값으로 다시 그린다.
+ */
+export function usePageSubpages(): SubpageSource {
+  const all = usePages((s) => s.structure);
+  return React.useMemo<SubpageSource>(
+    () => ({
+      resolvePage: (id) => subpageRefOf(all, id),
+      onOpen: (id, o) =>
+        o.newTab && resolveMention(all, id) ? openInNewTab(id) : openPageLink(id),
+    }),
+    [all],
+  );
+}
+
+/** 하위 페이지 블록이 보는 상태 (EDIT-29). 휴지통(조상 포함)·폴더는 열 수 없어 trashed로 본다 */
+export function subpageRefOf(all: Record<string, PageMeta>, id: string): SubpageRef {
+  const p = all[id];
+  if (!p) return { title: "", exists: false, trashed: false };
+  return {
+    title: displayTitle(p),
+    icon: p.icon,
+    exists: true,
+    trashed: resolveMention(all, id) === null,
+  };
+}
+
+/** 경로 표시 블록 (EDIT-30) — 이 노트 페이지의 경로. 이름이 바뀌면 다시 그린다 */
+export function usePageBreadcrumb(pageId: string): BreadcrumbSource {
+  const all = usePages((s) => s.structure);
+  return React.useMemo<BreadcrumbSource>(
+    () => ({
+      currentPageId: pageId,
+      resolvePath: (id) => crumbsOf(id, all),
+      onOpen: (id) => openPageLink(id),
+    }),
+    [all, pageId],
   );
 }
 

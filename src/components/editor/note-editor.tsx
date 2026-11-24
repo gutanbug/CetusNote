@@ -4,6 +4,7 @@ import "katex/dist/katex.min.css";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { BlockHandle } from "./block-handle";
+import { BreadcrumbProvider, type BreadcrumbSource } from "./breadcrumb-block";
 import "./editor.css";
 import { createExtensions } from "./extensions";
 import { FloatingToolbar } from "./floating-toolbar";
@@ -18,6 +19,7 @@ import {
   type MentionTarget,
 } from "./page-mention";
 import { SlashLayer } from "./slash-layer";
+import { SubpageProvider, type SubpageSource } from "./subpage-block";
 import type { SlashItem } from "./slash-items";
 import { TableMenu } from "./table-menu";
 
@@ -43,7 +45,13 @@ export type NoteEditorProps = {
   dimChecked?: boolean;
   /** 여러 블록을 복사할 때 다른 앱용 글자(마크다운)로 바꾸는 함수 (EDIT-26). 없으면 블록 글자만 */
   copyAsText?: (doc: JSONContent) => string;
-  /** 에디터가 만들어지면(또는 사라지면 null) 알린다 — 위 계층의 찾기 막대(ED-FindBar) 등이 쓴다 */
+  /** 하위 페이지 블록(EDIT-29) — 제목·열기. 없으면 블록은 「삭제된 페이지」로 보인다 */
+  subpages?: SubpageSource;
+  /** 슬래시 「하위 페이지」: 새 하위 페이지를 만들고 id를 돌려준다. 없으면 항목이 아무것도 넣지 않는다 */
+  createSubpage?: () => string | null;
+  /** 경로 표시 블록(EDIT-30) — 이 노트 페이지의 경로 */
+  breadcrumb?: BreadcrumbSource;
+  /** 에디터가 만들어지면 — 위 계층의 찾기 막대(ED-FindBar) 등이 쓴다 */
   onEditor?: (editor: Editor | null) => void;
   className?: string;
 };
@@ -77,8 +85,18 @@ export function NoteEditor({
   dimChecked = true,
   onEditor,
   copyAsText,
+  subpages,
+  createSubpage,
+  breadcrumb,
   className,
 }: NoteEditorProps) {
+  const [liveSubpages] = React.useState(() => latest(subpages));
+  React.useLayoutEffect(() => liveSubpages.set(subpages), [liveSubpages, subpages]);
+  const [liveCreateSubpage] = React.useState(() => latest(createSubpage));
+  React.useLayoutEffect(
+    () => liveCreateSubpage.set(createSubpage),
+    [liveCreateSubpage, createSubpage],
+  );
   // 플러그인은 처음 받은 함수를 계속 쓰므로 최신 함수는 바깥 상자에서 읽는다
   const [liveCopy] = React.useState(() => latest(copyAsText));
   React.useLayoutEffect(() => liveCopy.set(copyAsText), [liveCopy, copyAsText]);
@@ -107,6 +125,8 @@ export function NoteEditor({
         editBlockMath: (pos) => setMathTarget({ kind: "block", pos, latex: "" }),
         editInlineMath: (pos) => setMathTarget({ kind: "inline", pos, latex: "" }),
         pickImage: liveImages.get() ? () => void pickImage() : undefined,
+        createSubpage: createSubpage ? () => liveCreateSubpage.get()?.() ?? null : undefined,
+        openSubpage: (id) => liveSubpages.get()?.onOpen(id, { newTab: false }),
       });
   });
   const mention = useSuggestMenu<MentionTarget>((item, range) => {
@@ -179,7 +199,11 @@ export function NoteEditor({
     <div data-slot="note-editor" className={cn("relative", className)}>
       <MentionProvider value={mentions ?? null}>
         <ImageProvider value={images?.load ?? null}>
-          <EditorContent editor={editor} />
+          <SubpageProvider value={subpages ?? null}>
+            <BreadcrumbProvider value={breadcrumb ?? null}>
+              <EditorContent editor={editor} />
+            </BreadcrumbProvider>
+          </SubpageProvider>
         </ImageProvider>
       </MentionProvider>
       <TableMenu editor={editor} />

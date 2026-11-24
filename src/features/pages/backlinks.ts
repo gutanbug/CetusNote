@@ -103,6 +103,16 @@ export function linksOf(
       }
       return;
     }
+    // 하위 페이지 블록은 글이 없어도 그 페이지를 가리킨다 (EDIT-29)
+    if (n.type === "subpage" && typeof n.attrs?.pageId === "string") {
+      const label = titleOf(n.attrs.pageId) || "하위 페이지";
+      const entry = out.get(n.attrs.pageId) ?? { count: 0, snippets: [] };
+      entry.count += 1;
+      if (entry.snippets.length < SNIPPETS_PER_PAGE)
+        entry.snippets.push({ text: label, highlight: [0, label.length] });
+      out.set(n.attrs.pageId, entry);
+      return;
+    }
     n.content?.forEach(visit);
   };
   visit(page.content as Node);

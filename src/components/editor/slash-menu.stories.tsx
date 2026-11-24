@@ -67,6 +67,15 @@ const mentions: MentionSource = {
   resolve: (id) => PAGES.find((p) => p.id === id) ?? null,
   onOpen: () => {},
 };
+/** 하위 페이지(EDIT-29): 만들기는 고정된 id를 돌려주고, 제목은 PAGES에서 찾는다 */
+const CHILD_ID = "p-child";
+const subpages = {
+  resolvePage: (id: string) =>
+    id === CHILD_ID
+      ? { title: "방금 만든 하위 페이지", exists: true, trashed: false }
+      : { title: "", exists: false, trashed: false },
+  onOpen: fn(),
+};
 const STUDY = "assets/01JD0000000000000000000000/study.jpg";
 const images = (): ImageSource => ({
   load: async () => thumb,
@@ -160,6 +169,7 @@ const CHECK: Record<string, (e: Editor) => Promise<void> | void> = {
   columns3: (e) => expectColumns(e, 3),
   columns4: (e) => expectColumns(e, 4),
   breadcrumb: (e) => expect(contains(e, "breadcrumb"), "경로 표시 블록").toBe(true),
+  subpage: (e) => expect(contains(e, "subpage"), "하위 페이지 블록").toBe(true),
   date: (e) => expect(contains(e, "dateChip"), "날짜 칩").toBe(true),
   dateTomorrow: (e) => expect(contains(e, "dateChip"), "내일 날짜 칩").toBe(true),
 };
@@ -205,6 +215,8 @@ const Full = () => (
     content={START}
     images={images()}
     mentions={mentions}
+    subpages={subpages}
+    createSubpage={() => CHILD_ID}
     placeholder="'/'를 입력해 명령어 사용"
   />
 );

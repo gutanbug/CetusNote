@@ -93,6 +93,8 @@ type InlineMode = "block" | "cell" | "heading";
 
 /** 내보내는 동안 멘션의 지금 제목을 찾는다(없으면 저장된 label) — pageToMarkdown이 잠깐 정한다 */
 let mentionTitle: ((id: string) => string | undefined) | undefined;
+/** 이 페이지의 경로(맨 위 → 이 페이지 제목). 경로 표시 블록(EDIT-30)이 쓴다 — 블록은 글로 `A › B`가 된다 */
+let pagePath: string[] | undefined;
 
 /**
  * 인라인 내용. 마크를 스택으로 열고 닫아, 이어진 굵게 구간을 하나로 묶는다(`**a**` + `**b**` → `**ab**`).
@@ -299,6 +301,9 @@ function block(node: MdNode): string {
       const title = mentionTitle?.(id) ?? "하위 페이지";
       return `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
     }
+    case "breadcrumb":
+      // 경로 표시 블록 (EDIT-30): 경로를 `A › B`로. 경로를 모르면(복사 등) 블록은 빠진다
+      return pagePath?.length ? pagePath.map((t) => escapeText(t || "제목 없음")).join(" › ") : "";
     case "tableOfContents":
       return tocList();
     case "table":
@@ -334,16 +339,22 @@ function tocList(): string {
  */
 export function docToMarkdown(
   doc: MdNode,
-  options: { escape?: boolean; titleOf?: (id: string) => string | undefined } = {},
+  options: {
+    escape?: boolean;
+    titleOf?: (id: string) => string | undefined;
+    path?: string[];
+  } = {},
 ): string {
   escaping = options.escape ?? true;
   mentionTitle = options.titleOf;
+  pagePath = options.path;
   tocRoot = doc;
   try {
     return blocks(doc.content);
   } finally {
     escaping = true;
     mentionTitle = undefined;
+    pagePath = undefined;
     tocRoot = undefined;
   }
 }
@@ -353,12 +364,18 @@ export function docToMarkdown(
  * 본문 맨 앞 H1이 제목과 같으면 그 줄은 머리에 합쳐 한 번만 쓴다.
  * titleOf를 주면 멘션을 지금 제목으로 적는다(없거나 undefined면 넣을 때의 제목).
  */
-export function pageToMarkdown(page: Page, titleOf?: (id: string) => string | undefined): string {
+export function pageToMarkdown(
+  page: Page,
+  titleOf?: (id: string) => string | undefined,
+  path?: string[],
+): string {
   mentionTitle = titleOf;
+  pagePath = path;
   try {
     return pageMarkdown(page);
   } finally {
     mentionTitle = undefined;
+    pagePath = undefined;
     tocRoot = undefined;
   }
 }

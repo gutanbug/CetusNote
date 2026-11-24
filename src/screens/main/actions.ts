@@ -4,6 +4,7 @@ import { toast } from "@/components/ui/toast";
 import { exportPageMarkdown } from "@/features/export";
 import { metaStore } from "@/features/meta";
 import type { DropPosition } from "@/components/shell/drop-indicator";
+import type { Crumb } from "@/components/shell/breadcrumb";
 import { pagesStore, planDrop, type PageMeta, type PagesState } from "@/features/pages";
 import { isBodyLoaded } from "@/features/pages/body";
 import { buildPageTree } from "@/features/pages/tree";
@@ -65,6 +66,30 @@ export function openPage(id: string) {
   useMainUi.getState().setView({ kind: "page" });
   sessionStore.getState().expand(...ancestors(id).map((p) => p.id));
   sessionStore.getState().open(id);
+}
+
+/**
+ * 경로 (EDIT-30): 맨 위 → 이 페이지. 사이드바 경로와 경로 표시 블록이 같은 목록을 쓴다.
+ * 없는 페이지면 빈 목록이다 (휴지통 페이지 여부는 호출하는 쪽이 본다).
+ */
+export function crumbsOf(id: string, all: Record<string, PageMeta> = structure()): Crumb[] {
+  const page = all[id];
+  if (!page) return [];
+  return [...ancestors(id, all).reverse(), page].map((p) => ({
+    id: p.id,
+    title: displayTitle(p),
+    emoji: p.kind !== "folder" ? (p.icon ?? undefined) : undefined,
+  }));
+}
+
+/**
+ * 하위 페이지 (EDIT-29) — 사이드바 ＋와 같은 저장 경로로 만들되 열지는 않는다.
+ * 본문에 링크를 넣은 뒤 호출하는 쪽이 연다(열린 페이지가 떠나기 전에 본문이 먼저 저장되게).
+ */
+export function createSubpageOf(parentId: string): Page {
+  const page = createDocument(parentId);
+  sessionStore.getState().expand(parentId, ...ancestors(parentId).map((p) => p.id));
+  return page;
 }
 
 /** 컬렉션 안의 레코드인가 (보드·표 카드) */
@@ -454,7 +479,8 @@ export async function exportMarkdown(id: string) {
   const page = pages()[id];
   if (!page || page.kind !== "page") return;
   try {
-    const name = await exportPageMarkdown(page, { titleOf: mentionTitleOf(pages()) });
+    const path = crumbsOf(page.id).map((c) => c.title);
+    const name = await exportPageMarkdown(page, { titleOf: mentionTitleOf(pages()), path });
     if (name) toast(`“${name}” 파일로 내보냈어요.`);
   } catch {
     toast.error("내보내지 못했어요. 다른 위치를 골라 보세요.");

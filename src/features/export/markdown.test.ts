@@ -386,3 +386,28 @@ describe("목차 블록 (ED-TableOfContents)", () => {
     expect(out.split("\n\n").pop()).toBe("- [가*나](#가나)");
   });
 });
+
+describe("경로 표시 · 하위 페이지 Markdown (EDIT-29, EDIT-30)", () => {
+  it("경로 블록은 A › B 글로 내보낸다", () => {
+    expect(
+      docToMarkdown({ type: "doc", content: [{ type: "breadcrumb" }] } as MdNode, {
+        path: ["폴더", "상위", "현재"],
+      }),
+    ).toBe("폴더 › 상위 › 현재");
+  });
+
+  it("경로를 모르면(복사 등) 경로 블록은 빠진다", () => {
+    expect(
+      docToMarkdown({ type: "doc", content: [{ type: "breadcrumb" }, p(t("본문"))] } as MdNode),
+    ).toBe("본문");
+  });
+
+  it("하위 페이지 블록은 지금 제목의 페이지 링크", () => {
+    expect(
+      docToMarkdown(
+        { type: "doc", content: [{ type: "subpage", attrs: { pageId: "p1" } }] } as MdNode,
+        { titleOf: (id) => (id === "p1" ? "하위 제목" : undefined) },
+      ),
+    ).toBe("[하위 제목](cetusnote://page/p1)");
+  });
+});

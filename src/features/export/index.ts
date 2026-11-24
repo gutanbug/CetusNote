@@ -13,7 +13,8 @@ export function exportPageMarkdown(
   {
     storage = getStorage(),
     titleOf,
-  }: { storage?: Storage; titleOf?: (id: string) => string | undefined } = {},
+    path,
+  }: { storage?: Storage; titleOf?: (id: string) => string | undefined; path?: string[] } = {},
 ) {
-  return storage.exportMarkdown(markdownFileName(page), pageToMarkdown(page, titleOf));
+  return storage.exportMarkdown(markdownFileName(page), pageToMarkdown(page, titleOf, path));
 }

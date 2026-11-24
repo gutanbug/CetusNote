@@ -26,6 +26,7 @@ import {
   Sigma,
   Table,
   Type,
+  FilePlus,
 } from "lucide-react";
 import { addDays, toIsoDate } from "@/lib/dates/local-date";
 
@@ -53,6 +54,10 @@ export type SlashContext = {
   pickImage?: () => void;
   /** 방금 넣은 글자 수식(pos)의 LaTeX 편집 팝오버를 연다 */
   editInlineMath: (pos: number) => void;
+  /** 하위 페이지를 만들어 그 id를 돌려준다 (EDIT-29). 페이지 화면이 없으면 없음 */
+  createSubpage?: () => string | null;
+  /** 넣은 하위 페이지를 연다 (EDIT-29) */
+  openSubpage?: (id: string) => void;
 };
 
 const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
@@ -200,6 +205,27 @@ export const SLASH_ITEMS: SlashItem[] = [
     keywords: ["columns", "column", "단", "열", `${count}열`, `${count}단`, "나누기"],
     run: (e, r) => chain(e, r).insertColumns({ count }).run(),
   })),
+  {
+    id: "subpage",
+    title: "하위 페이지",
+    description: "이 페이지 아래에 새 페이지를 만들고 링크를 넣는다",
+    icon: FilePlus,
+    group: "고급",
+    keywords: ["page", "subpage", "하위 페이지", "새 페이지", "child", "하위", "페이지"],
+    // 새 페이지를 만들어 링크 블록을 넣고, 그 페이지를 연다 (Notion과 같은 흐름)
+    run: (e, r, ctx) => {
+      const id = ctx.createSubpage?.() ?? null;
+      if (!id) {
+        chain(e, r).run();
+        return;
+      }
+      // insertContent는 커서를 블록 뒤로 옮긴다(경로 표시와 같은 방식) — 다음 명령이 그 자리에서 이어진다
+      chain(e, r)
+        .insertContent({ type: "subpage", attrs: { pageId: id } })
+        .run();
+      ctx.openSubpage?.(id);
+    },
+  },
   {
     id: "breadcrumb",
     title: "경로 표시",

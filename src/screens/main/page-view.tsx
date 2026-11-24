@@ -31,7 +31,14 @@ import { docToMarkdown, type MdNode } from "@/features/export";
 import { toast } from "@/components/ui/toast";
 import type { JSONContent } from "@tiptap/core";
 import * as React from "react";
-import { ancestors, displayTitle, isBlankDoc, toggleFavorite, updateTemplateInfo } from "./actions";
+import {
+  ancestors,
+  createSubpageOf,
+  displayTitle,
+  isBlankDoc,
+  toggleFavorite,
+  updateTemplateInfo,
+} from "./actions";
 import { MoveDialog } from "./move-dialog";
 import { PageMenu } from "./page-menu";
 import { TagEditor } from "./tag-editor";
@@ -44,8 +51,10 @@ import {
   addTag,
   openEditorLink,
   removeTag,
+  usePageBreadcrumb,
   usePageImages,
   usePageMentions,
+  usePageSubpages,
   usePageTags,
 } from "./page-editing";
 
@@ -137,6 +146,9 @@ export function PageView({ page }: { page: Page }) {
   // 페이지 멘션 (EDIT-13) — 에디터는 이 함수들로 찾고 제목을 읽고 연다
   const backlinks = useBacklinks(page.id, all);
   const mentions = usePageMentions(page.id);
+  // 하위 페이지·경로 표시 블록 (EDIT-29, EDIT-30) — 구조를 구독해 이름·휴지통 변화를 바로 반영한다
+  const subpages = usePageSubpages();
+  const breadcrumb = usePageBreadcrumb(page.id);
   const favorite = useMeta((s) => s.meta?.favorites.includes(page.id) ?? false);
   const [moving, setMoving] = React.useState(false);
   // "빈 페이지로 시작"을 누른 페이지 — 안내를 닫는다(이 화면을 연 동안만. 다시 열면 비어 있으면 또 보인다)
@@ -308,6 +320,9 @@ export function PageView({ page }: { page: Page }) {
                 onOpenLink={openEditorLink}
                 mentions={mentions}
                 images={images}
+                subpages={subpages}
+                createSubpage={() => createSubpageOf(page.id).id}
+                breadcrumb={breadcrumb}
                 spellCheck={editorPrefs.spellcheck}
                 dimChecked={editorPrefs.dimChecked}
                 onEditor={setFindEditor}

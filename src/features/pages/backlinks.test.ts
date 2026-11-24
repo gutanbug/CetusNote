@@ -72,3 +72,17 @@ describe("백링크 (PAGE-09)", () => {
     expect(s.text.slice(...s.highlight)).toBe("@대상");
   });
 });
+
+describe("하위 페이지 블록 (EDIT-29)", () => {
+  it("하위 페이지 블록도 언급으로 세어, 상위 페이지가 백링크에 든다", () => {
+    const child = page("하위 백링크", [], "2026-11-01");
+    const parent = page(
+      "상위 백링크",
+      [{ type: "subpage", attrs: { pageId: child.id } }],
+      "2026-11-10",
+    );
+    const links = findBacklinks({ [child.id]: child, [parent.id]: parent }, child.id);
+    expect(links.map((b) => b.page.id)).toEqual([parent.id]);
+    expect(links[0]!.count).toBe(1);
+  });
+});
