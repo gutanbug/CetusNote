@@ -139,7 +139,7 @@ describe("본문 요약 (SYS-10, ADR-022)", () => {
     const v0 = index.version;
     index.setMany([]);
     expect(index.version).toBe(v0);
-    index.setMany([[ID(1), { links: new Map(), todos: [], asset: null }]]);
+    index.setMany([[ID(1), { links: new Map(), todos: [], asset: null, reminders: [] }]]);
     expect(index.version).toBe(v0 + 1);
     index.remove(ID(9));
     expect(index.version).toBe(v0 + 1);
@@ -147,7 +147,7 @@ describe("본문 요약 (SYS-10, ADR-022)", () => {
     expect(index.version).toBe(v0 + 2);
     expect(listener).toHaveBeenCalledTimes(2);
     off();
-    index.setMany([[ID(2), { links: new Map(), todos: [], asset: null }]]);
+    index.setMany([[ID(2), { links: new Map(), todos: [], asset: null, reminders: [] }]]);
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
@@ -180,5 +180,45 @@ describe("본문 요약 (SYS-10, ADR-022)", () => {
     expect(summaries.size).toBe(0);
     await vi.runAllTimersAsync();
     expect(summaries.size).toBe(2);
+  });
+});
+
+describe("요약의 날짜 알림 (EDIT-37)", () => {
+  it("알림이 켜진 날짜 칩만 요약에 든다", () => {
+    const chip = (attrs: Record<string, unknown>) => ({ type: "dateChip", attrs });
+    const summary = summarizePage({
+      id: "p9",
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              chip({ date: "2026-12-01", time: null, reminder: { kind: "none" }, done: false }),
+            ],
+          },
+          {
+            type: "paragraph",
+            content: [
+              chip({
+                date: "2026-12-02",
+                time: "09:00",
+                reminder: { kind: "custom", time: "09:00" },
+                done: false,
+              }),
+            ],
+          },
+        ],
+      } as never,
+    });
+    expect(summary.reminders).toEqual([
+      {
+        pageId: "p9",
+        date: "2026-12-02",
+        time: "09:00",
+        rule: { kind: "custom", time: "09:00" },
+        done: false,
+      },
+    ]);
   });
 });

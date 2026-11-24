@@ -14,6 +14,8 @@ import { sessionStore } from "@/features/session";
 import { useAutoUpdateChecks } from "@/features/updater";
 import { useWorkspace, workspaceStore } from "@/features/workspace";
 import { MainScreen } from "@/screens/main/main-screen";
+import { useReminderAlerts } from "@/screens/main/reminder-alerts";
+import { ReminderAlertsDialog } from "@/screens/main/reminder-dialog";
 import { UnsavedSwitchDialog } from "@/screens/main/unsaved-switch-dialog";
 import { SetupScreen } from "@/screens/setup/setup-screen";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -77,6 +79,7 @@ export default function App() {
   useAutoBackupOnOpen();
   useAutoUpdateChecks();
   useExternalChanges();
+  useReminderAlerts();
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));
   const phase = useWorkspace((s) => s.phase);
   const reduced = useReducedMotion();
@@ -97,6 +100,7 @@ export default function App() {
     <>
       <Toaster />
       <UnsavedSwitchDialog />
+      <ReminderAlertsDialog />
       <AnimatePresence mode="wait" initial={false}>
         {phase === "setup" ? (
           <motion.div

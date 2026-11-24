@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { Page } from "@/lib/storage";
 import { pageTodos, type TodoRef } from "@/features/todos/todos";
+import { collectReminders, type DateReminder } from "@/lib/dates/collect-reminders";
 import { assetRefs } from "./assets";
 import { backlinksFrom, linksOf, type Backlink, type LinkHit } from "./backlinks";
 
@@ -15,6 +16,8 @@ export type PageSummary = {
   todos: TodoRef[];
   /** 첫 그림 경로 (표지가 없을 때 홈 카드가 쓴다) */
   asset: string | null;
+  /** 알림이 켜진 날짜 칩 (EDIT-37). 앱 시작 때 알림 스케줄러가 본문 없이 이것만 본다 */
+  reminders: DateReminder[];
 };
 
 /** 본문 하나에서 요약을 뽑는다. titleOf는 멘션 칩 글에 쓴다 */
@@ -26,6 +29,7 @@ export function summarizePage(
     links: linksOf(page, titleOf),
     todos: pageTodos(page),
     asset: assetRefs({ cover: null, icon: null, content: page.content })[0] ?? null,
+    reminders: collectReminders(page.content, page.id),
   };
 }
 

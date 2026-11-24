@@ -13,7 +13,7 @@ export { ReminderScheduler, reminderKey, TICK_MS, type MissedReminder } from "./
 export function createReminderScheduler(
   callbacks: Pick<
     ReminderSchedulerDeps,
-    "pageTitle" | "onPermissionNeeded" | "onFallback" | "onMissed"
+    "pageTitle" | "onPermissionNeeded" | "onFallback" | "onMissed" | "wasMissable"
   > & { onMissed?: (items: MissedReminder[]) => void },
 ): ReminderScheduler {
   return new ReminderScheduler({

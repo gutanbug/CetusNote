@@ -51,6 +51,8 @@ export type ReminderSchedulerDeps = {
   onFallback?(items: MissedReminder[]): void;
   /** 앱이 꺼져 있던 동안 지난 알림(앱을 켰을 때 한 번씩) */
   onMissed?(items: MissedReminder[]): void;
+  /** 놓친 알림으로 칠 수 있는 페이지인가. 앱을 켠 뒤 고친 페이지는 방금 정한 시각이므로 아니다 */
+  wasMissable?(pageId: string): boolean;
 };
 
 /** 타이머는 최대 이 간격으로 깨어난다 (잠자기·시계 변경 뒤의 밀림을 줄인다) */
@@ -132,7 +134,12 @@ export class ReminderScheduler {
       // 처음 보는데 이미 지났다: 앱이 꺼져 있던 동안 놓친 알림이면 목록에 올리고, 방금 정한 과거 시각이면 조용히 넘긴다
       this.deps.fired.add(key);
       const recent = nowMs - at.getTime() <= MISSED_WINDOW_MS;
-      if (recent && at.getTime() < this.launchedAt) missed.push(this.toMissed(key, item, at));
+      if (
+        recent &&
+        at.getTime() < this.launchedAt &&
+        (this.deps.wasMissable?.(item.pageId) ?? true)
+      )
+        missed.push(this.toMissed(key, item, at));
     }
     if (missed.length > 0) this.deps.onMissed?.(missed);
 

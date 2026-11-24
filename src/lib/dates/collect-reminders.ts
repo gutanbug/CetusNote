@@ -22,9 +22,13 @@ type DocNode = {
  * 문서(Tiptap JSON)에서 알림이 켜진 날짜 칩을 모은다. 알림 없음(none)인 칩은 빼고, 문서 순서를 지킨다.
  * 순수 함수 — 저장·알림 호출은 부르는 쪽이 한다.
  */
-export function collectReminders(doc: DocNode, pageId: string): DateReminder[] {
+export function collectReminders(
+  doc: { type?: string; content?: unknown[] },
+  pageId: string,
+): DateReminder[] {
   const out: DateReminder[] = [];
-  const walk = (node: DocNode) => {
+  const walk = (raw: unknown) => {
+    const node = raw as DocNode;
     if (node.type === "dateChip") {
       const rule = normalizeReminder(node.attrs?.reminder);
       if (rule.kind !== "none") {
