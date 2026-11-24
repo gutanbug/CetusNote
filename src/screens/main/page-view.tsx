@@ -1,3 +1,4 @@
+import { enterPage, leavePage } from "./page-leave";
 import type { Editor } from "@tiptap/core";
 import { usePageIconProps } from "./page-icon-props";
 import { NoteEditor } from "@/components/editor/note-editor";
@@ -98,15 +99,17 @@ export function PageView({ page }: { page: Page }) {
   const find = useMainUi((s) => s.find);
   const closeFind = useMainUi((s) => s.closeFind);
   const [findEditor, setFindEditor] = React.useState<Editor | null>(null);
-  React.useEffect(
-    () => () => {
-      // 페이지를 떠나면 찾기·목차를 닫는다
-      const ui = useMainUi.getState();
-      ui.closeFind();
-      ui.setOutlineOpen(false);
-    },
-    [],
-  );
+  // 페이지를 떠나면 찾기·목차를 닫는다. 바깥 변경으로 같은 페이지의 화면이 다시 만들어질 때는 닫지 않는다 (page-leave.ts)
+  const pageId = page.id;
+  React.useEffect(() => {
+    enterPage(pageId);
+    return () =>
+      leavePage(pageId, () => {
+        const ui = useMainUi.getState();
+        ui.closeFind();
+        ui.setOutlineOpen(false);
+      });
+  }, [pageId]);
   // 목차 (PAGE-12) — 상단 바 메뉴. ⌥⌘O로도 연다
   const outlineOpen = useMainUi((s) => s.outlineOpen);
   const setOutlineOpen = (open: boolean) => useMainUi.getState().setOutlineOpen(open);
