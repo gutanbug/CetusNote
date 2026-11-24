@@ -35,7 +35,11 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await c.findByText("1 / 3 쪽");
+    // PDF 로딩·첫 쪽 렌더는 부하에 따라 느리다 — 고정 대기 대신 결과를 기다린다
+    await c.findByText("1 / 3 쪽", undefined, { timeout: 15000 });
+    await waitFor(() => expect(canvasElement.querySelector("canvas")).not.toBeNull(), {
+      timeout: 15000,
+    });
   },
 };
 
