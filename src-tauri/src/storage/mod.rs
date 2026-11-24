@@ -177,11 +177,11 @@ pub struct Workspace {
     pub root: PathBuf,
     /// 이 앱이 마지막으로 읽거나 쓴 파일 상태 — 외부 변경 감지(DATA-07)의 기준
     stamps: watch::Stamps,
+    /// 워크스페이스를 열 때 Rust가 받는 토큰 (DATA-03). 쓰기 커맨드는 이 값을 맞춰 본다
+    pub token: u64,
 }
 
 impl Workspace {
-    /// 워크스페이스를 열 때 Rust가 받는 토큰 (DATA-03). 쓰기 커맨드는 이 값을 맞춰 본다
-    pub token: u64,
     /// 폴더를 열고 `pages/`·`assets/`를 만든다. 지난번에 남은 임시 파일을 치운다.
     pub fn open(root: PathBuf) -> Result<Self> {
         fs::create_dir_all(root.join(PAGES_DIR))?;
@@ -189,10 +189,10 @@ impl Workspace {
         let ws = Self {
             root,
             stamps: watch::Stamps::default(),
+            token: 0,
         };
         ws.clean_temp_files();
         Ok(ws)
-            token: 0,
     }
 
     fn pages_dir(&self) -> PathBuf {

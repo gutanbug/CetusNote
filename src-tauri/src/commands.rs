@@ -1501,7 +1501,6 @@ pub fn pages_read(state: State<AppState>, ids: Vec<String>) -> Result<LoadedPage
 
 #[cfg(test)]
 mod tests {
-    #[test]
     /// DATA-03: 워크스페이스를 바꾸면 옛 토큰의 쓰기는 새 폴더에 닿지 않고 stale_workspace로 거절된다
     #[test]
     fn write_with_stale_workspace_token_is_rejected() {
@@ -1536,6 +1535,7 @@ mod tests {
         with_workspace_token(&state, ta2, |_| Ok(())).expect("새 토큰은 통과");
     }
 
+    #[test]
     fn import_image_paths_stay_in_folder() {
         use super::resolve_import_image;
         let root = tempfile::tempdir().unwrap();
