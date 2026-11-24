@@ -155,9 +155,11 @@ export function CollectionView({ page }: { page: Page }) {
     () => collectionRecords(all, page.id, order),
     [all, page.id, order],
   );
+  // 검색어 입력은 바로 보이고, 목록 거르기는 입력이 잠잠해진 뒤(늦은 값) 한다 — 키를 칠 때마다 1만 건을 다시 거르지 않게 (SYS-11)
+  const deferredSearch = React.useDeferredValue(search);
   const shown = React.useMemo(
-    () => queryRecords(records, settings, search),
-    [records, settings, search],
+    () => queryRecords(records, settings, deferredSearch),
+    [records, settings, deferredSearch],
   );
   const statuses = settings.statuses;
   const items = shown.map((p) => toRecordItem(p, tagColors, today, statuses));
