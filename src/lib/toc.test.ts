@@ -66,6 +66,29 @@ describe("collectHeadings", () => {
     expect(collectHeadings(doc(h(1, "  "), h(2, "있음"))).map((e) => e.text)).toEqual(["있음"]);
   });
 
+  it("페이지 멘션만 있는 제목은 멘션 label로 넣는다 (목차에서 사라지지 않음)", () => {
+    const mention: TocNode = { type: "pageMention", attrs: { id: "p1", label: "회의록" } };
+    const titled: TocNode = { type: "heading", attrs: { level: 2 }, content: [mention] };
+    const mixed: TocNode = {
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "자료: " }, mention],
+    };
+    expect(collectHeadings(doc(titled, mixed)).map((e) => e.text)).toEqual([
+      "회의록",
+      "자료: 회의록",
+    ]);
+  });
+
+  it("멘션 label이 비어 있으면 「제목 없음」, 글자도 덩어리도 없으면 뺀다", () => {
+    const blankMention: TocNode = {
+      type: "heading",
+      attrs: { level: 1 },
+      content: [{ type: "pageMention", attrs: { id: "p2", label: "" } }],
+    };
+    expect(collectHeadings(doc(blankMention, h(1, " "))).map((e) => e.text)).toEqual(["제목 없음"]);
+  });
+
   it("토글·콜아웃 안의 제목도 넣고, 글자 블록 안은 들어가지 않는다", () => {
     const nested: TocNode = {
       type: "callout",
@@ -88,6 +111,10 @@ describe("collectHeadings", () => {
 });
 
 describe("plainText", () => {
+  it("인라인 덩어리는 label을 쓴다", () => {
+    expect(plainText({ type: "pageMention", attrs: { id: "x", label: "메모" } })).toBe("메모");
+  });
+
   it("마크가 붙은 글자도 한 줄로 잇는다", () => {
     expect(
       plainText({

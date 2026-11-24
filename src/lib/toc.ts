@@ -1,6 +1,6 @@
 /**
  * 목차(ED-TableOfContents)와 마크다운 내보내기가 같이 쓰는 제목 계산. Tiptap JSON만 읽는 순수 함수다.
- * 규칙은 `components/editor/outline.ts`의 getHeadings와 같다: H1–H3, 빈 제목 제외, 글자 블록 안은 들어가지 않는다.
+ * 규칙은 `components/editor/outline.ts`의 getHeadings와 같다: H1–H3, 글자도 덩어리도 없는 제목 제외, 글자 블록 안은 들어가지 않는다.
  */
 
 export type TocNode = {
@@ -28,9 +28,14 @@ const MAX_LEVEL = 3;
 /** 글자가 들어 있어 제목을 찾으면 안 되는 블록 */
 const TEXT_BLOCKS = new Set(["paragraph", "heading", "codeBlock"]);
 
-/** 노드 안의 글자만 이어 붙인다 */
+/**
+ * 노드 안의 글자를 이어 붙인다. 인라인 덩어리(페이지 멘션 등, 글자가 없는 노드)는 label 속성을 쓴다.
+ * 본문 목차(outline.ts의 headingText)와 같은 규칙이다.
+ */
 export function plainText(node: TocNode): string {
-  return node.text ?? (node.content ?? []).map(plainText).join("");
+  if (node.text !== undefined) return node.text;
+  if (node.content?.length) return node.content.map(plainText).join("");
+  return typeof node.attrs?.label === "string" ? node.attrs.label : "";
 }
 
 /** 제목 수준 목록 → 들여쓰기 단계. 위로 올라가면 같거나 더 깊은 단계를 닫는다 */
@@ -63,8 +68,11 @@ export function collectHeadings(root: TocNode | undefined): TocEntry[] {
   const walk = (node: TocNode) => {
     if (node.type === "heading") {
       const level = Number(node.attrs?.level ?? 1) || 1;
-      const text = plainText(node).trim();
-      if (level <= MAX_LEVEL && text) found.push({ level, text, node });
+      const label = plainText(node).trim();
+      // 글자 없이 멘션만 있는 제목도 넣는다. 글자도 덩어리도 없는 제목만 뺀다
+      const hasInline = (node.content ?? []).some((child) => child.text === undefined);
+      if (level <= MAX_LEVEL && (label || hasInline))
+        found.push({ level, text: label || "제목 없음", node });
       return;
     }
     if (node.type && TEXT_BLOCKS.has(node.type)) return;

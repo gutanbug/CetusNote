@@ -52,6 +52,18 @@ export const LongList: Story = {
   args: { content: LONG },
 };
 
+/** 접힌 토글 안의 제목 — 목차에서 누르면 토글이 펼쳐지고 그 제목으로 간다 (EDIT-27) */
+const COLLAPSED = [
+  TOC,
+  "<h1>본문</h1>",
+  ...Array.from({ length: 40 }, () => "<p>긴 본문 문단입니다. 목차 이동을 확인하려고 여러 줄을 채웁니다.</p>"),
+  "<details><summary>접힌 토글</summary><div><h2>토글 안의 제목</h2><p>토글 안 내용</p></div></details>",
+].join("");
+
+export const CollapsedToggle: Story = {
+  args: { content: COLLAPSED },
+};
+
 /** 다크 — 항목 글자와 왼쪽 선이 다크 배경에서 같은 위계로 읽히는지 */
 export const Dark: Story = {
   args: { content: NESTED },
