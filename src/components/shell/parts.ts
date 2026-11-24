@@ -6,7 +6,7 @@ export const insetFocus =
 
 /** 사이드바 행 (프로토타입 .nav-item · .tree-row) */
 export const rowBase =
-  "flex w-full items-center rounded-md text-left text-ui text-secondary transition-colors duration-(--dur-fast) hover:bg-hover hover:text-primary force-hover:bg-hover force-hover:text-primary";
+  "flex w-full cursor-default items-center rounded-md text-left text-ui text-secondary select-none transition-colors duration-(--dur-fast) hover:bg-hover hover:text-primary force-hover:bg-hover force-hover:text-primary";
 
 /** 선택된 행 — 포인트 색 소프트 배경 + 포인트 색 글자 */
 export const rowActive =

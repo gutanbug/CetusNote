@@ -43,6 +43,16 @@ export const AllExpanded: Story = {
   args: { initialExpanded: ["work", "meetings", "study"], activeId: "m-1118" },
 };
 
+/** 행 제목 위에서 일반 커서를 쓴다(글자 커서 아님) */
+export const TitleCursor: Story = {
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const title = c.getByRole("treeitem", { name: "회의록" }).querySelector("[id$='-title']");
+    await expect(title).not.toBeNull();
+    await expect(getComputedStyle(title as Element).cursor).toBe("default");
+  },
+};
+
 /** 키보드 탐색 */
 export const Keyboard: Story = {
   play: async ({ canvasElement }) => {
