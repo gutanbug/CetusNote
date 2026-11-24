@@ -255,6 +255,12 @@ const PageTree = React.memo(function PageTree({
     setOver(undefined);
   };
 
+  /** 행 메뉴를 열거나 닫는다. 열 때는 그 행을 포커스 행으로 잡아, 구간 밖으로 밀려도 DOM에 남게 한다 */
+  const openRowMenu = (id: string | undefined) => {
+    setMenuId(id);
+    if (id !== undefined) setFocusId(id);
+  };
+
   const focusRow = (id: string) => {
     const index = indexById.get(id);
     if (index === undefined) return;
@@ -335,11 +341,11 @@ const PageTree = React.memo(function PageTree({
         break;
       case "F10":
         if (!e.shiftKey || !rowMenu) return;
-        setMenuId(node.id);
+        openRowMenu(node.id);
         break;
       case "ContextMenu":
         if (!rowMenu) return;
-        setMenuId(node.id);
+        openRowMenu(node.id);
         break;
       default:
         if (e.key.length === 1 && e.key !== " " && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -437,7 +443,7 @@ const PageTree = React.memo(function PageTree({
           rowMenu
             ? (e) => {
                 e.preventDefault();
-                setMenuId(node.id);
+                openRowMenu(node.id);
               }
             : undefined
         }
@@ -517,7 +523,7 @@ const PageTree = React.memo(function PageTree({
             {rowMenu ? (
               <DropdownMenu
                 open={menuId === node.id}
-                onOpenChange={(o) => setMenuId(o ? node.id : undefined)}
+                onOpenChange={(o) => openRowMenu(o ? node.id : undefined)}
               >
                 <DropdownMenuTrigger asChild>
                   <IconButton
@@ -539,7 +545,10 @@ const PageTree = React.memo(function PageTree({
                     keepMovedFocus(e);
                     if (e.defaultPrevented) return;
                     e.preventDefault();
-                    document.getElementById(rowId(node.id))?.focus();
+                    // 메뉴를 연 동안 행은 남아 있다(openRowMenu가 붙잡는다). 그래도 없으면 구간에 다시 올려 포커스를 준다
+                    const el = document.getElementById(rowId(node.id));
+                    if (el) el.focus({ preventScroll: true });
+                    else focusRow(node.id);
                   }}
                 >
                   {rowMenu(node)}

@@ -270,3 +270,26 @@ export const ManyPages: Story = {
     await expect(c.getByRole("treeitem", { name: "프로젝트 1" })).toHaveFocus();
   },
 };
+
+/**
+ * 행 메뉴를 연 채 멀리 스크롤해도(행이 구간 밖으로 밀려도) Esc로 닫으면 포커스는 그 행으로 돌아간다(SH-PageTree).
+ */
+export const RowMenuScrollAway: Story = {
+  args: { pages: MANY_FOLDERS, initialExpanded: MANY_IDS, activeId: "f0-0", className: "h-96" },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const tree = c.getByRole("tree");
+    const row = c.getByRole("treeitem", { name: "문서 1-1" });
+    // 우클릭은 행에 포커스를 주지 않는다 — 그래도 메뉴가 열린 동안 행은 남아 있어야 한다
+    fireEvent.contextMenu(row);
+    await waitFor(() => expect(within(document.body).getByRole("menu")).toBeVisible());
+    tree.scrollTop = tree.scrollHeight;
+    tree.dispatchEvent(new Event("scroll"));
+    await waitFor(() => expect(tree.scrollTop).toBeGreaterThan(1000));
+    const scrolled = tree.scrollTop;
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(c.getByRole("treeitem", { name: "문서 1-1" })).toHaveFocus());
+    // 포커스를 돌려주려고 목록을 맨 위로 되감지 않는다
+    expect(tree.scrollTop).toBe(scrolled);
+  },
+};
