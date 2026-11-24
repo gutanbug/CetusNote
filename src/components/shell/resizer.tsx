@@ -12,7 +12,7 @@ type ResizerProps = {
   /** ←→ 한 번에 바뀌는 너비 */
   step?: number;
   label?: string;
-  /** 핸들이 붙는 쪽 — right(기본: 사이드바 오른쪽 끝) · left(오른쪽 패널의 왼쪽 끝, 왼쪽으로 끌면 넓어진다) */
+  /** 핸들이 붙는 쪽 — right(기본: 사이드바 오른쪽 끝) · left(오른쪽 측면 패널의 왼쪽 끝, 왼쪽으로 끌면 넓어진다) */
   edge?: "right" | "left";
   className?: string;
 };

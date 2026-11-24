@@ -1,8 +1,6 @@
-import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import { pagesStore } from "@/features/pages";
 import { sessionStore, type Tab } from "@/features/session";
 import { openPage } from "./actions";
-import { openInRightPane } from "./split";
 import { resolveMention } from "./mention-model";
 import {
   addBackgroundTab,
@@ -81,13 +79,9 @@ export function openInBackgroundTab(pageId: string) {
   write(addBackgroundTab(read(), { kind: "page", id: pageId }));
 }
 
-/** ⌘클릭(⌃클릭)이면 새 탭, ⌥⌘클릭이면 오른쪽 패널(SHELL-19), 아니면 지금 탭에서 연다 */
-export function openPageFrom(
-  pageId: string,
-  e?: { metaKey: boolean; ctrlKey: boolean; altKey?: boolean } | null,
-) {
-  if (e && isModPressed(e, currentPlatform()) && e.altKey) openInRightPane(pageId);
-  else if (e && (e.metaKey || e.ctrlKey)) openInNewTab(pageId);
+/** ⌘클릭(⌃클릭)이면 새 탭, 아니면 지금 탭에서 연다 */
+export function openPageFrom(pageId: string, e?: { metaKey: boolean; ctrlKey: boolean } | null) {
+  if (e && (e.metaKey || e.ctrlKey)) openInNewTab(pageId);
   else openPage(pageId);
 }
 

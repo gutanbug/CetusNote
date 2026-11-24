@@ -66,7 +66,6 @@ import { tagColor } from "./tag-colors";
 import { TagEditor } from "./tag-editor";
 import { useMainUi } from "./ui-store";
 import { useTopBarTitleBar } from "./use-tab-bar";
-import { useInactiveSide } from "./split";
 
 /**
  * 컬렉션 화면 (COLL-01~06): 상단 바 + 이름 + CL-Toolbar + 표·보드·캘린더 + 레코드 상세.
@@ -81,7 +80,6 @@ export function CollectionView({ page }: { page: Page }) {
   const focusMode = useMainUi((s) => s.focusMode);
   const setFocusMode = useMainUi((s) => s.setFocusMode);
   const titleBar = useTopBarTitleBar();
-  const dimmed = useInactiveSide("main");
   const favorite = useMeta((s) => s.meta?.favorites.includes(page.id) ?? false);
   const [moving, setMoving] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
@@ -470,11 +468,9 @@ export function CollectionView({ page }: { page: Page }) {
   return (
     <div className="grid h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] bg-app">
       <TopBar
-        dimmed={dimmed}
         breadcrumb={
           <Breadcrumb
             items={crumbs}
-            dimmed={dimmed}
             onNavigate={(id) => {
               if (all[id]?.kind === "folder") sessionStore.getState().expand(id);
               else if (id !== page.id) sessionStore.getState().open(id);

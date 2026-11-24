@@ -86,7 +86,7 @@ export const InEditor: Story = {
     );
     // 누르면 연다
     await userEvent.click(within(canvasElement).getByRole("link", { name: /주간 회의록/ }));
-    await expect(args.onSelect).toHaveBeenCalledWith("p-weekly", { newTab: false, pane: false });
+    await expect(args.onSelect).toHaveBeenCalledWith("p-weekly", { newTab: false });
     // 칩을 골라 Enter
     let at = -1;
     editor.state.doc.descendants((n, pos) => {

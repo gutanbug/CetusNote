@@ -16,7 +16,6 @@ export {
   type Tab,
   type ThemePref,
 } from "./store";
-export { readSplit, type SplitState } from "./split-state";
 export {
   blockStartFor,
   clampSelection,

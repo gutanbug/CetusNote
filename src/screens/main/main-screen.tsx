@@ -11,7 +11,6 @@ import { openDailyNote, createIn, createNearActive, duplicatePage, openQuickNote
 import { CommandPalette } from "./command-palette";
 import { HomeView } from "./home-view";
 import { PageView } from "./page-view";
-import type { Side } from "./split-model";
 import { TagView } from "./tag-view";
 import { SettingsDialog } from "./settings-dialog";
 import { useMainUi } from "./ui-store";
@@ -34,46 +33,28 @@ import { openImportAppPicker } from "./import-app-picker";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { toast } from "@/components/ui/toast";
 import { stepZoom, zoomKey } from "@/lib/zoom";
-import { Resizer } from "@/components/shell/resizer";
-import { resolveMention } from "./mention-model";
-import { canSplit, clampPaneWidth, paneMax, PANE_MIN, PANE_STEP } from "./split-model";
-import {
-  activeSideNow,
-  closeSplit,
-  installSplitSync,
-  pageIdOf,
-  resetSplitWidth,
-  resizeSplit,
-} from "./split";
 
-/**
- * 포커스가 있는 쪽의 열린 문서를 고른다 (SHELL-19). 주 화면은 보기가 문서일 때만 쓴다.
- * 문서가 아니면 null
- */
-function focusedDoc(): { side: Side; id: string } | null {
-  const side = activeSideNow();
-  const id = pageIdOf(side);
+/** 열린 문서의 id. 보기가 문서가 아니거나 문서가 아니면 null */
+function openDocId(): string | null {
+  const id = sessionStore.getState().activeId;
   const page = id ? pagesStore.getState().pages[id] : undefined;
-  if (side === "main" && useMainUi.getState().view.kind !== "page") return null;
+  if (useMainUi.getState().view.kind !== "page") return null;
   if (!id || page?.kind !== "page") return null;
-  return { side, id };
+  return id;
 }
 
-/** 열린 문서가 있으면 찾기 막대를 연다. 연 경우 true (포커스가 있는 쪽에) */
+/** 열린 문서가 있으면 찾기 막대를 연다. 연 경우 true */
 function openFind(mode: "find" | "replace"): boolean {
-  const doc = focusedDoc();
-  if (!doc) return false;
-  useMainUi.getState().openFind(mode, doc.side);
+  if (!openDocId()) return false;
+  useMainUi.getState().openFind(mode);
   return true;
 }
 
-/** 열린 문서가 있으면 목차를 연다/닫는다 (PAGE-12). 연 경우 true (포커스가 있는 쪽에) */
+/** 열린 문서가 있으면 목차를 연다/닫는다 (PAGE-12). 연 경우 true */
 function toggleOutline(): boolean {
-  const doc = focusedDoc();
-  if (!doc) return false;
+  if (!openDocId()) return false;
   const ui = useMainUi.getState();
-  const open = ui.outlineOpen && ui.outlineSide === doc.side;
-  ui.setOutlineOpen(!open, doc.side);
+  ui.setOutlineOpen(!ui.outlineOpen);
   return true;
 }
 
@@ -110,37 +91,9 @@ export function MainScreen() {
   const view = useMainUi((s) => s.view);
   const sessionLoaded = useSession((s) => s.loaded);
   const workspace = useSession((s) => s.workspace);
-  // 분할 화면 (SHELL-19): 오른쪽 패널의 페이지와 폭, 영역 폭
-  const splitId = useSession((s) => s.splitId);
-  const splitWidth = useSession((s) => s.splitWidth);
-  const splitArea = useMainUi((s) => s.splitArea);
-  const activeSide = useMainUi((s) => s.activeSide);
-  const panePage = usePages((s) => (splitId ? s.pages[splitId] : undefined));
-  const paneExternalRev = usePages((s) => (splitId ? (s.externalRev[splitId] ?? 0) : 0));
-  const paneAlive = !!panePage && resolveMention(structure, panePage.id) !== null;
-  const paneVisible = paneAlive && !focusMode && canSplit(splitArea);
-  const paneW = clampPaneWidth(splitWidth, splitArea);
-  const areaRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    const measure = () => useMainUi.getState().setSplitArea(el.clientWidth);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  // 패널 페이지가 사라졌으면(휴지통·영구 삭제·복원 전 저장값) 패널을 닫는다 — 워크스페이스를 연 뒤에도 본다
-  React.useEffect(() => {
-    if (!loaded || !sessionLoaded || !splitId) return;
-    if (!resolveMention(structure, splitId)) closeSplit();
-  }, [loaded, sessionLoaded, splitId, structure]);
-
   // 탭 (SHELL-11): 화면 → 지금 탭 동기화를 한 번 걸고, 워크스페이스를 열 때마다 저장된 탭을 편다
   // (시작 화면 SET-02도 여기서 따른다)
   React.useEffect(() => installTabSync(), []);
-  // 분할 화면(SHELL-19): 주 화면과 패널이 겹치면 맞바꾸는 규칙
-  React.useEffect(() => installSplitSync(), []);
   React.useEffect(() => {
     if (sessionLoaded) initTabs();
   }, [sessionLoaded, workspace]);
@@ -175,14 +128,6 @@ export function MainScreen() {
       if (e.key === "Tab" && e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         stepTab(e.shiftKey ? -1 : 1);
-        return;
-      }
-      // ⌥⌘W 오른쪽 패널 닫기 (SHELL-19). ⌘W는 탭 닫기 그대로
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === "KeyW" && !e.shiftKey) {
-        if (sessionStore.getState().splitId) {
-          e.preventDefault();
-          closeSplit();
-        }
         return;
       }
       // ⌘F 찾기 · ⌥⌘F 바꾸기 (EDIT-25). 앱에서는 편집 메뉴가 먼저 받는다
@@ -222,10 +167,10 @@ export function MainScreen() {
         else createNearActive();
       } else if (e.key.toLowerCase() === "d" && !e.shiftKey) {
         // 복제 ⌘D (PAGE-05) — 열린 문서
-        const doc = focusedDoc();
-        if (doc) {
+        const id = openDocId();
+        if (id) {
           e.preventDefault();
-          duplicatePage(doc.id);
+          duplicatePage(id);
         }
       } else if (e.key === ",") {
         e.preventDefault();
@@ -258,13 +203,8 @@ export function MainScreen() {
   return (
     <div data-slot="main-screen" className="flex h-(--fit-h) overflow-hidden bg-app text-primary">
       <SidebarPanel hidden={focusMode} />
-      <div ref={areaRef} className="flex min-h-0 min-w-0 flex-1">
-        <main
-          data-side="main"
-          className="flex min-w-0 flex-1 flex-col"
-          onPointerDownCapture={() => useMainUi.getState().setActiveSide("main")}
-          onFocusCapture={() => useMainUi.getState().setActiveSide("main")}
-        >
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
           <TabsBar />
           <div className="min-h-0 flex-1">
             {view.kind === "home" ? (
@@ -280,36 +220,6 @@ export function MainScreen() {
             ) : null}
           </div>
         </main>
-        {paneVisible && panePage ? (
-          // 오른쪽 패널 (SHELL-19): 페이지 하나, 머리 + 편집기. 폭은 SH-Resizer로 바꾼다(왼쪽 끝 핸들)
-          <section
-            data-slot="split-pane"
-            aria-label="오른쪽 패널"
-            data-active={activeSide === "pane" || undefined}
-            style={{ width: paneW }}
-            className="relative flex min-w-0 shrink-0 flex-col border-l border-line bg-app"
-            onPointerDownCapture={() => useMainUi.getState().setActiveSide("pane")}
-            onFocusCapture={() => useMainUi.getState().setActiveSide("pane")}
-          >
-            <Resizer
-              width={paneW}
-              min={PANE_MIN}
-              max={paneMax(splitArea)}
-              step={PANE_STEP}
-              edge="left"
-              label="오른쪽 패널 너비 조절"
-              onWidthChange={resizeSplit}
-              onReset={resetSplitWidth}
-            />
-            <div className="min-h-0 flex-1">
-              <PageView
-                key={`pane:${panePage.id}:${contentEpoch}:${paneExternalRev}`}
-                page={panePage}
-                side="pane"
-              />
-            </div>
-          </section>
-        ) : null}
       </div>
       <CommandPalette />
       <SettingsDialog />

@@ -20,7 +20,6 @@ import {
   LayoutTemplate,
   Link,
   MoveHorizontal,
-  PanelRight,
   Star,
   StarOff,
   SquarePlus,
@@ -39,7 +38,6 @@ import {
   toggleFavorite,
 } from "./actions";
 import { openInNewTab } from "./tabs";
-import { openInRightPane } from "./split";
 import { useMainUi } from "./ui-store";
 
 const ic = { strokeWidth: 1.5 } as const;
@@ -90,11 +88,6 @@ export function PageMenu({
       <DropdownMenuItem icon={<SquarePlus {...ic} />} onSelect={() => openInNewTab(page.id)}>
         새 탭에서 열기
       </DropdownMenuItem>
-      {doc ? (
-        <DropdownMenuItem icon={<PanelRight {...ic} />} onSelect={() => openInRightPane(page.id)}>
-          오른쪽에 열기
-        </DropdownMenuItem>
-      ) : null}
       <DropdownMenuItem icon={<Link {...ic} />} onSelect={() => void copyPageLink(page.id)}>
         링크 복사
       </DropdownMenuItem>

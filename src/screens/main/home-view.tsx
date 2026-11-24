@@ -26,7 +26,6 @@ import {
   setTodo,
 } from "./actions";
 import { openPageFrom } from "./tabs";
-import { useInactiveSide } from "./split";
 import { greeting } from "./home-model";
 import { recentPages, visibleIds } from "./palette-model";
 import { countTags, tagColor } from "./tag-colors";
@@ -41,14 +40,11 @@ export function HomeTopBar({ crumbs }: { crumbs: { id: string; title: string }[]
   const collapsed = useSession((s) => s.sidebarCollapsed);
   const focusMode = useMainUi((s) => s.focusMode);
   const titleBar = useTopBarTitleBar();
-  const dimmed = useInactiveSide("main");
   return (
     <TopBar
-      dimmed={dimmed}
       breadcrumb={
         <Breadcrumb
           items={crumbs}
-          dimmed={dimmed}
           onNavigate={(id) => id === "home" && useMainUi.getState().setView({ kind: "home" })}
         />
       }

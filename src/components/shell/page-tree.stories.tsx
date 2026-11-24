@@ -110,33 +110,6 @@ export const RowMenuContextClick: Story = {
   },
 };
 
-/**
- * 오른쪽 창 버튼(SHELL-19): 페이지 행은 "<제목> 오른쪽에 열기", 패널에 있는 행은 "오른쪽 창 닫기".
- * 폴더는 버튼이 없다. 버튼은 마우스용(행은 ⌥⌘Enter로도 연다).
- */
-export const PaneButtons: Story = {
-  args: {
-    paneAction: (node) =>
-      node.title === "읽고 싶은 책" ? "close" : node.kind === "folder" ? null : "open",
-    onPaneAction: fn(),
-  },
-  play: async ({ canvasElement, args }) => {
-    const c = within(canvasElement);
-    await userEvent.click(c.getByRole("button", { name: "오른쪽 창 닫기" }));
-    await expect(args.onPaneAction).toHaveBeenLastCalledWith(
-      expect.objectContaining({ id: "reading" }),
-      "close",
-    );
-    await userEvent.click(c.getByRole("button", { name: "2027 상반기 로드맵 오른쪽에 열기" }));
-    await expect(args.onPaneAction).toHaveBeenLastCalledWith(
-      expect.objectContaining({ id: "roadmap" }),
-      "open",
-    );
-    // 행을 누르면 페이지가 열리고 버튼은 따로 동작한다
-    await expect(args.onPaneAction).toHaveBeenCalledTimes(2);
-  },
-};
-
 /** 폴더(SHELL-14) — 이름을 누르면 펼치고 접는다(열리지 않음). 문서는 이름을 누르면 열리고 펼침은 화살표로만 */
 export const Folders: Story = {
   args: { initialExpanded: [] },

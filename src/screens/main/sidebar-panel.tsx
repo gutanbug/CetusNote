@@ -49,7 +49,6 @@ import {
   Table2,
   StarOff,
   Trash2,
-  PanelRight,
   SquarePlus,
 } from "lucide-react";
 import * as React from "react";
@@ -67,8 +66,6 @@ import {
   displayTitle,
 } from "./actions";
 import { openInNewTab, openPageFrom } from "./tabs";
-import { closeSplit, openInRightPane } from "./split";
-import { canSplit, isPaneable } from "./split-model";
 import { MoveDialog } from "./move-dialog";
 import { recentPages, visibleIds } from "./palette-model";
 import { RenameDialog } from "./rename-dialog";
@@ -94,10 +91,8 @@ function defaultSidebarWidth(): number {
 /** 메인 화면 사이드바 — 워크스페이스, 페이지 트리(폴더 포함), 휴지통·저장 상태 (SHELL-01, 05, 08, 14) */
 /** 트리 콜백은 모듈 수준이라 렌더마다 새로 만들지 않는다 (SYS-10) */
 const treeExpandedChange = (ids: string[]) => sessionStore.getState().setExpanded(ids);
-const treeOpen = (id: string, o?: { newTab: boolean; pane?: boolean }) =>
-  o?.pane ? openInRightPane(id) : o?.newTab ? openInNewTab(id) : openPage(id);
-const treePaneAction = (node: PageNode, action: "open" | "close") =>
-  action === "open" ? openInRightPane(node.id) : closeSplit();
+const treeOpen = (id: string, o?: { newTab: boolean }) =>
+  o?.newTab ? openInNewTab(id) : openPage(id);
 
 /**
  * 저장 상태만 따로 구독한다 — 저장 상태가 바뀌어도(본문 입력마다) 사이드바 전체를 다시 그리지 않는다 (SYS-10)
@@ -144,19 +139,6 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
   const favorites = (favoriteIds ?? [])
     .map((id) => pages[id])
     .filter((p): p is NonNullable<typeof p> => !!p && visible.has(p.id));
-  // 행의 오른쪽 창 버튼(SHELL-19): 집중 모드·좁은 창에서는 숨기고, 패널에 있는 페이지는 닫기로 바뀐다
-  const splitId = useSession((s) => s.splitId);
-  const focusMode = useMainUi((s) => s.focusMode);
-  const splitArea = useMainUi((s) => s.splitArea);
-  const paneAvailable = !focusMode && canSplit(splitArea);
-  const paneAction = React.useCallback(
-    (node: PageNode) => {
-      if (!paneAvailable || node.kind === "folder" || node.kind === "collection") return null;
-      if (!isPaneable("page", !!pages[node.id]?.template)) return null;
-      return splitId === node.id ? "close" : "open";
-    },
-    [paneAvailable, pages, splitId],
-  );
   const canDropInTree = React.useCallback(
     (id: string, target: string, position: DropPosition) =>
       !!planDrop(pages, tree, id, target, position),
@@ -243,9 +225,6 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
       <>
         <DropdownMenuItem icon={<SquarePlus {...ic} />} onSelect={() => openInNewTab(node.id)}>
           새 탭에서 열기
-        </DropdownMenuItem>
-        <DropdownMenuItem icon={<PanelRight {...ic} />} onSelect={() => openInRightPane(node.id)}>
-          오른쪽에 열기
         </DropdownMenuItem>
         <DropdownMenuItem
           icon={favoriteIds?.includes(node.id) ? <StarOff {...ic} /> : <Star {...ic} />}
@@ -500,8 +479,6 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
               onOpen={treeOpen}
               addMenu={addMenu}
               rowMenu={rowMenu}
-              paneAction={paneAction}
-              onPaneAction={treePaneAction}
             />
           ) : (
             // 섹션 제목 글자(화살표 자리 뒤)와 줄을 맞춘다

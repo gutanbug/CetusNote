@@ -67,6 +67,6 @@ export const Keyboard: Story = {
     await userEvent.keyboard("{Enter}");
     await userEvent.tab();
     await userEvent.keyboard("{Enter}");
-    await expect(args.onOpen).toHaveBeenCalledWith("retro", { newTab: false, pane: false });
+    await expect(args.onOpen).toHaveBeenCalledWith("retro", { newTab: false });
   },
 };

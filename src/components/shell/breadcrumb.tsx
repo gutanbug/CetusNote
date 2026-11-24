@@ -16,8 +16,6 @@ type BreadcrumbProps = {
   onNavigate?: (id: string) => void;
   /** 이보다 길면 가운데를 "…"로 접는다 (첫 항목 + … + 마지막 maxItems-2개) */
   maxItems?: number;
-  /** 오른쪽 패널이 열려 이 쪽이 비활성이면 true: 글자를 text-tertiary로 낮춘다 (SHELL-19) */
-  dimmed?: boolean;
   className?: string;
 };
 
@@ -47,7 +45,7 @@ function Label({ item }: { item: Crumb }) {
  * SH-Breadcrumb — 페이지 경로 (프로토타입 `.crumbs`, shadcn breadcrumb의 nav > ol > li 구조).
  * 지금 페이지는 aria-current="page", 긴 경로는 가운데를 "…" 메뉴로 접는다.
  */
-function Breadcrumb({ items, onNavigate, maxItems = 4, dimmed, className }: BreadcrumbProps) {
+function Breadcrumb({ items, onNavigate, maxItems = 4, className }: BreadcrumbProps) {
   const collapse = items.length > maxItems;
   const hidden = collapse ? items.slice(1, items.length - (maxItems - 2)) : [];
   const shown: (Crumb | "more")[] = collapse
@@ -56,12 +54,7 @@ function Breadcrumb({ items, onNavigate, maxItems = 4, dimmed, className }: Brea
 
   return (
     <nav aria-label="경로" data-slot="breadcrumb" className={cn("min-w-0 flex-1", className)}>
-      <ol
-        className={cn(
-          "flex min-w-0 items-center gap-0.5 text-ui transition-colors duration-(--dur-fast) ease-(--ease)",
-          dimmed ? "text-tertiary" : "text-secondary",
-        )}
-      >
+      <ol className="flex min-w-0 items-center gap-0.5 text-ui text-secondary">
         {shown.map((item, i) => {
           const last = i === shown.length - 1;
           return (
@@ -95,14 +88,7 @@ function Breadcrumb({ items, onNavigate, maxItems = 4, dimmed, className }: Brea
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : last ? (
-                <span
-                  aria-current="page"
-                  className={cn(
-                    crumbClass,
-                    "transition-colors duration-(--dur-fast) ease-(--ease)",
-                    dimmed ? "text-tertiary" : "text-primary",
-                  )}
-                >
+                <span aria-current="page" className={cn(crumbClass, "text-primary")}>
                   <Label item={item} />
                 </span>
               ) : (

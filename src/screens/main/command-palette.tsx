@@ -1,4 +1,3 @@
-import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import {
   CommandDialog,
   CommandEmpty,
@@ -13,7 +12,6 @@ import { pagesStore, usePages } from "@/features/pages";
 import { searchIndex } from "@/features/search";
 import { useMeta } from "@/features/meta";
 import { markJump, sessionStore, useSession, type ThemePref } from "@/features/session";
-import { openInRightPane } from "./split";
 import {
   ArrowDownUp,
   Copy,
@@ -41,7 +39,6 @@ import {
   Trash2,
   type LucideIcon,
   X,
-  PanelRight,
   RefreshCw,
 } from "lucide-react";
 import { checkForUpdates } from "@/features/updater";
@@ -162,18 +159,6 @@ function useCommands(): Command[] {
         icon: LayoutTemplate,
         keys: ["⌘", "⇧", "T"],
         run: () => ui.setTemplatesOpen(true),
-      },
-      {
-        id: "pane-open",
-        title: "오른쪽에 열기",
-        keywords: ["split", "pane", "side", "오른쪽", "분할", "패널"],
-        icon: PanelRight,
-        keys: ["⌥", "⌘", "↵"],
-        // 페이지 고르기 상태로 다시 연다 — 고른 페이지가 오른쪽 패널에 열린다
-        run: () => {
-          useMainUi.getState().setPalettePane(true);
-          useMainUi.getState().setPaletteOpen(true);
-        },
       },
       {
         id: "quick-note",
@@ -372,9 +357,6 @@ export function CommandPalette() {
   const [query, setQuery] = React.useState("");
   /** 지금 강조된 행 — 아래 Enter 힌트가 "열기"인지 "만들기"인지 정한다 */
   const [active, setActive] = React.useState("");
-  /** ⌥⌘Enter · ⌥⌘클릭으로 고른 결과를 오른쪽 패널에 연다 (SHELL-19) */
-  const paneNext = React.useRef(false);
-  const palettePane = useMainUi((s) => s.palettePane);
   // 닫을 때 돌아갈 곳 — 트리거 없는 대화상자라 Radix가 돌려주지 않는다
   const returnTo = React.useRef<HTMLElement | null>(null);
   const commandMode = isCommandQuery(query);
@@ -404,22 +386,12 @@ export function CommandPalette() {
 
   const close = (restore: boolean) => {
     setOpen(false);
-    paneNext.current = false;
-    useMainUi.getState().setPalettePane(false);
     setQuery(""); // 다음에 열 때는 빈 검색어로
     const el = returnTo.current;
     returnTo.current = null;
     if (restore && el && el !== document.body) setTimeout(() => el.isConnected && el.focus(), 0);
   };
   const go = (id: string) => {
-    // ⌥⌘로 골랐거나 "오른쪽에 열기" 다음이면 오른쪽 패널에 연다 (SHELL-19)
-    const pane = paneNext.current || useMainUi.getState().palettePane;
-    paneNext.current = false;
-    if (pane) {
-      close(false);
-      openInRightPane(id);
-      return;
-    }
     // 검색 결과를 골랐으면 맨 위에서 연다 — 읽던 위치 복원보다 앞선다 (PAGE-15)
     if (q) markJump(id);
     close(false);
@@ -464,11 +436,8 @@ export function CommandPalette() {
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder={palettePane ? "오른쪽에 열 페이지를 고르세요" : "페이지 검색 · > 명령"}
+        placeholder="페이지 검색 · > 명령"
         onKeyDown={(e) => {
-          // ⌥⌘Enter: 고른 페이지를 오른쪽 패널에 연다 (목록의 Enter는 cmdk가 고른다)
-          if (e.key === "Enter" && isModPressed(e, currentPlatform()) && e.altKey)
-            paneNext.current = true;
           if (
             e.key === "Enter" &&
             (e.metaKey || e.ctrlKey) &&
@@ -494,9 +463,6 @@ export function CommandPalette() {
                 key={it.id}
                 value={it.id}
                 onSelect={() => go(it.id)}
-                onMouseDown={(e) => {
-                  paneNext.current = isModPressed(e, currentPlatform()) && e.altKey;
-                }}
                 icon={
                   it.icon ? (
                     <span aria-hidden className="w-4 shrink-0 text-center leading-none">

@@ -1,4 +1,3 @@
-import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import {
   Extension,
   Node,
@@ -25,19 +24,12 @@ export type MentionSource = {
   search: (query: string) => MentionTarget[];
   resolve: (id: string) => MentionTarget | null;
   /** ⌘클릭이면 newTab (SHELL-11) */
-  onOpen: (id: string, opts?: { newTab: boolean; pane?: boolean }) => void;
+  onOpen: (id: string, opts?: { newTab: boolean }) => void;
 };
 
 /** 페이지 링크 주소 (PAGE-05 링크 복사와 같다) */
 export const PAGE_LINK_PREFIX = "cetusnote://page/";
 const PAGE_LINK = /cetusnote:\/\/page\/([\w-]+)/g;
-
-/** 링크 주소가 페이지 링크면 그 페이지 id, 아니면 null (⌥⌘↵ · SHELL-19) */
-export function pageIdOfHref(href: unknown): string | null {
-  return typeof href === "string" && href.startsWith(PAGE_LINK_PREFIX)
-    ? href.slice(PAGE_LINK_PREFIX.length)
-    : null;
-}
 
 const MentionContext = React.createContext<MentionSource | null>(null);
 /** NoteEditor가 EditorContent 바깥에 둔다 — 칩(노드 뷰)이 제목을 늘 새로 읽는다 */
@@ -58,7 +50,7 @@ export function MentionChip({
   target: MentionTarget | null;
   /** 넣을 때의 제목 — 깨진 링크에서 보인다 */
   label: string;
-  onOpen?: (opts: { newTab: boolean; pane?: boolean }) => void;
+  onOpen?: (opts: { newTab: boolean }) => void;
   selected?: boolean;
 }) {
   const broken = !target;
@@ -74,10 +66,7 @@ export function MentionChip({
       onClick={(e) => {
         if (broken) return;
         e.preventDefault();
-        onOpen?.({
-          newTab: e.metaKey || e.ctrlKey,
-          pane: isModPressed(e, currentPlatform()) && e.altKey,
-        });
+        onOpen?.({ newTab: e.metaKey || e.ctrlKey });
       }}
     >
       {broken ? (

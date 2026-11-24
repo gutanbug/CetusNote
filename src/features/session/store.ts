@@ -1,5 +1,4 @@
 import { normalizeZoom } from "@/lib/zoom";
-import { readSplit } from "./split-state";
 import type { PageFont, RecordOpenMode, Storage } from "@/lib/storage";
 import { parseAppIconPref, type AppIconPref } from "@/lib/app-icon";
 import { createStore } from "zustand/vanilla";
@@ -145,9 +144,6 @@ export type SessionState = {
   /** 열린 탭과 지금 탭 — 워크스페이스마다 (SHELL-11). 비어 있으면 화면이 처음 열 때 채운다 */
   tabs: Tab[];
   activeTab: number;
-  /** 오른쪽 패널(분할 화면, SHELL-19)에 연 페이지와 폭 — 워크스페이스마다. pageId가 null이면 닫힘 */
-  splitId: string | null;
-  splitWidth: number | null;
   /** 최근에 고른 페이지 아이콘 값(새 것이 앞, 최대 24개) — 워크스페이스마다 (PAGE-10) */
   recentIcons: string[];
   /** 페이지마다 읽던 위치(가장 최근이 뒤, 최대 200개) — 워크스페이스마다 (PAGE-15) */
@@ -161,7 +157,6 @@ export type SessionState = {
   /** 고른 아이콘을 최근 목록 맨 앞에 */
   pushRecentIcon(icon: string): void;
   setTabs(tabs: Tab[], activeTab: number): void;
-  setSplit(split: { pageId: string | null; width: number | null }): void;
   load(workspacePath: string): Promise<void>;
   setAppearance(patch: Partial<Appearance>): void;
   setEditor(patch: Partial<EditorPrefs>): void;
@@ -188,7 +183,6 @@ type Remembered = {
   recent?: string[];
   tabs?: unknown;
   activeTab?: number;
-  split?: unknown;
   recentIcons?: unknown;
   positions?: unknown;
 };
@@ -227,7 +221,6 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
           recent: s.recent,
           tabs: s.tabs,
           activeTab: s.activeTab,
-          split: { pageId: s.splitId, width: s.splitWidth },
           recentIcons: s.recentIcons,
           positions: s.positions,
         };
@@ -276,8 +269,6 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
       recent: [],
       tabs: [],
       activeTab: 0,
-      splitId: null,
-      splitWidth: null,
       recentIcons: [],
       positions: [],
       async load(workspacePath) {
@@ -319,15 +310,12 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
                 .slice(0, RECENT_ICON_LIMIT)
             : [],
           ...(() => {
+            // 예전 `split`(분할 화면, 제거됨) 값은 읽지 않는다 — 다음 저장 때 사라진다
             const tabs = readTabs(mine?.tabs);
-            // 분할 화면은 여기서 읽고 본문 존재는 화면이 확인한다(SHELL-19)
-            const split = readSplit(mine?.split);
             const at = typeof mine?.activeTab === "number" ? mine.activeTab : 0;
             return {
               tabs,
               activeTab: Math.min(Math.max(0, at), Math.max(0, tabs.length - 1)),
-              splitId: split.pageId,
-              splitWidth: split.width,
             };
           })(),
         });
@@ -348,9 +336,6 @@ export function createSessionStore(storage: Storage, { delay = 400 } = {}) {
       },
       setEditor(patch) {
         change({ editor: { ...get().editor, ...patch } });
-      },
-      setSplit(split) {
-        change({ splitId: split.pageId, splitWidth: split.width });
       },
       setTabs(tabs, activeTab) {
         const list = tabs.slice(0, TAB_LIMIT);

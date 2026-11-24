@@ -147,18 +147,6 @@ export function SidebarSpecimen({
           onToggleSidebar={() => {}}
           onToggleFavorite={() => {}}
         />
-        <div className="mt-4 w-80 border-l border-line bg-app">
-          <TopBar
-            variant="pane"
-            pane={{
-              icon: "📝",
-              title: "주간 회의록",
-              onOpenMain: () => {},
-              onSwap: () => {},
-              onClose: () => {},
-            }}
-          />
-        </div>
       </div>
     </div>
   );

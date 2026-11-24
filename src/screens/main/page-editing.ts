@@ -20,7 +20,6 @@ import { openPageLink } from "./actions";
 import { resolveMention, searchMentions } from "./mention-model";
 import { nextTagColor, tagColor } from "./tag-colors";
 import { openInNewTab } from "./tabs";
-import { openInRightPane } from "./split";
 
 /**
  * 페이지 본문 편집에 드는 연결 — 페이지 화면(PageView)과 레코드 상세(COLL-05)가 함께 쓴다.
@@ -67,11 +66,7 @@ export function usePageMentions(pageId: string): MentionSource {
         }),
       resolve: (id) => resolveMention(all, id),
       onOpen: (id, o) =>
-        o?.pane && resolveMention(all, id)
-          ? openInRightPane(id)
-          : o?.newTab && resolveMention(all, id)
-            ? openInNewTab(id)
-            : openPageLink(id),
+        o?.newTab && resolveMention(all, id) ? openInNewTab(id) : openPageLink(id),
     }),
     [all, pageId, recent],
   );

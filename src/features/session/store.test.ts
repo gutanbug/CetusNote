@@ -125,26 +125,15 @@ describe("읽던 위치 저장 (PAGE-15)", () => {
     expect(other.getState().positionOf("p1")).toBeUndefined();
   });
 
-  it("분할 화면(SHELL-19): 패널 페이지와 폭은 워크스페이스마다 다시 열 때 이어지고, 잘못된 값은 버린다", async () => {
+  it("예전 분할 화면 값(split, 기능 제거됨)이 남아 있어도 무시하고 나머지 설정은 그대로 읽는다", async () => {
     const storage = createMemoryStorage();
-    const a = createSessionStore(storage, { delay: 10 });
-    await a.getState().load("/notes/A");
-    a.getState().setSplit({ pageId: "01JD0000000000000000000001", width: 412 });
-    await vi.advanceTimersByTimeAsync(10);
-
-    const b = createSessionStore(storage, { delay: 10 });
-    await b.getState().load("/notes/A");
-    expect(b.getState()).toMatchObject({ splitId: "01JD0000000000000000000001", splitWidth: 412 });
-
-    const other = createSessionStore(storage, { delay: 10 });
-    await other.getState().load("/notes/B");
-    expect(other.getState()).toMatchObject({ splitId: null, splitWidth: null });
-
     await storage.writeSettings({
-      workspaces: { "/notes/A": { split: { pageId: 7, width: "x" } } },
+      workspaces: { "/notes/A": { split: { pageId: "01JD0000000000000000000001", width: 412 } } },
     });
     const c = createSessionStore(storage, { delay: 10 });
     await c.getState().load("/notes/A");
-    expect(c.getState()).toMatchObject({ splitId: null, splitWidth: null });
+    expect(c.getState()).not.toHaveProperty("splitId");
+    expect(c.getState()).not.toHaveProperty("splitWidth");
+    expect(c.getState().activeTab).toBe(0);
   });
 });

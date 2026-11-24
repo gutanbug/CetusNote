@@ -29,22 +29,11 @@ import { docToMarkdown, type MdNode } from "@/features/export";
 import { toast } from "@/components/ui/toast";
 import type { JSONContent } from "@tiptap/core";
 import * as React from "react";
-import {
-  ancestors,
-  displayTitle,
-  isBlankDoc,
-  openPage,
-  toggleFavorite,
-  updateTemplateInfo,
-} from "./actions";
+import { ancestors, displayTitle, isBlankDoc, toggleFavorite, updateTemplateInfo } from "./actions";
 import { MoveDialog } from "./move-dialog";
 import { PageMenu } from "./page-menu";
 import { TagEditor } from "./tag-editor";
 import { openPageFrom } from "./tabs";
-import { closeSplit, openInRightPane, swapSplit, useInactiveSide } from "./split";
-import { canSplit, type Side } from "./split-model";
-import { PageIcon } from "@/components/ui/page-icon";
-import { FileText } from "lucide-react";
 import { useTopBarTitleBar } from "./use-tab-bar";
 import { useMainUi } from "./ui-store";
 import { recordFields } from "./record-fields";
@@ -96,38 +85,31 @@ function useBacklinks(id: string, all: Record<string, Page>): BacklinkItem[] {
 
 /**
  * 본문 — 상단 바(경로·편집 시각) + 페이지 머리 + 속성 + 에디터 (SHELL-09).
- * side: 주 화면(main)이나 분할 화면 오른쪽 패널(pane). 찾기·목차 상태는 쪽마다 따로 가진다 (SHELL-19).
  */
-export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
-  const isMain = side === "main";
+export function PageView({ page }: { page: Page }) {
   const iconProps = usePageIconProps(page);
   useMinuteTick();
   const all = usePages((s) => s.pages);
   const collapsed = useSession((s) => s.sidebarCollapsed);
   const focusMode = useMainUi((s) => s.focusMode);
-  const splitId = useSession((s) => s.splitId);
-  const splitArea = useMainUi((s) => s.splitArea);
-  // 패널 쪽은 사이드바·집중 모드·창 끌기 자리를 쓰지 않는다
   const titleBar = useTopBarTitleBar();
-  // 활성이 아닌 쪽의 머리는 흐리게 (SHELL-19)
-  const dimmed = useInactiveSide(side);
   const setFocusMode = useMainUi((s) => s.setFocusMode);
   // 페이지 안 찾기 (EDIT-25): 본문 에디터를 받아 둔다. 페이지를 떠나면 닫는다
-  const find = useMainUi((s) => (s.find?.side === side ? s.find : null));
+  const find = useMainUi((s) => s.find);
   const closeFind = useMainUi((s) => s.closeFind);
   const [findEditor, setFindEditor] = React.useState<Editor | null>(null);
   React.useEffect(
     () => () => {
-      // 이 쪽의 찾기·목차만 닫는다 (다른 쪽이 쓰고 있을 수 있다)
+      // 페이지를 떠나면 찾기·목차를 닫는다
       const ui = useMainUi.getState();
-      if (ui.find?.side === side) ui.closeFind();
-      if (ui.outlineSide === side) ui.setOutlineOpen(false);
+      ui.closeFind();
+      ui.setOutlineOpen(false);
     },
-    [side],
+    [],
   );
-  // 목차 (PAGE-12) — 상단 바 메뉴. ⌥⌘O로도 연다. 연 쪽에서만 보인다
-  const outlineOpen = useMainUi((s) => s.outlineOpen && s.outlineSide === side);
-  const setOutlineOpen = (open: boolean) => useMainUi.getState().setOutlineOpen(open, side);
+  // 목차 (PAGE-12) — 상단 바 메뉴. ⌥⌘O로도 연다
+  const outlineOpen = useMainUi((s) => s.outlineOpen);
+  const setOutlineOpen = (open: boolean) => useMainUi.getState().setOutlineOpen(open);
   // 고른 제목 — 메뉴가 닫힌 뒤(포커스 가둠이 풀린 뒤)에 그리로 간다
   const picked = React.useRef<Heading | null>(null);
   const [scrolled, setScrolled] = React.useState(false);
@@ -186,70 +168,31 @@ export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
 
   return (
     <div
-      data-side={side}
       className={cn(
         "grid h-full min-w-0 bg-app",
         page.template ? "grid-rows-[auto_auto_minmax(0,1fr)]" : "grid-rows-[auto_minmax(0,1fr)]",
       )}
     >
       <TopBar
-        // 오른쪽 패널(SHELL-19)은 한 줄 머리: 제목 · 목차 · 메뉴 · 바꾸기 · 닫기
-        variant={isMain ? "page" : "pane"}
-        pane={
-          isMain
-            ? undefined
-            : {
-                icon: page.icon ? (
-                  <PageIcon icon={page.icon} />
-                ) : (
-                  <FileText strokeWidth={1.5} className="size-4 text-tertiary" />
-                ),
-                title: displayTitle(page),
-                onOpenMain: () => {
-                  // 주 화면에서 연다 — 패널 페이지는 주 화면에 있으면 맞바꿔진다(installSplitSync)
-                  useMainUi.getState().setView({ kind: "page" });
-                  openPage(page.id);
-                },
-                onSwap: swapSplit,
-                onClose: closeSplit,
-              }
-        }
-        // 창이 좁아 패널이 숨었을 때만 보인다 (집중 모드 숨김은 제외). 상태는 그대로 두고 설명만 띄운다
-        paneHidden={
-          isMain && splitId && !focusMode && !canSplit(splitArea)
-            ? {
-                label: "오른쪽 패널 숨김됨 · 창을 넓히면 다시 보여요",
-                onClick: () => toast("창을 넓히면 오른쪽 패널이 다시 보여요", { id: "split" }),
-              }
-            : undefined
-        }
         breadcrumb={
           <Breadcrumb
             items={crumbs}
-            dimmed={dimmed}
             onNavigate={(id) => {
               if (all[id]?.kind === "folder") sessionStore.getState().expand(id);
-              else if (id !== page.id) {
-                if (isMain) sessionStore.getState().open(id);
-                else openInRightPane(id);
-              }
+              else if (id !== page.id) sessionStore.getState().open(id);
             }}
           />
         }
         editedAt={`${formatAgo(page.updatedAt)} 편집`}
         scrolled={scrolled}
         sidebarOpen={!collapsed && !focusMode}
-        onToggleSidebar={
-          isMain
-            ? () =>
-                // 집중 모드에서 누르면 집중 모드를 끈다(사이드바가 돌아온다)
-                focusMode ? setFocusMode(false) : sessionStore.getState().toggleSidebar()
-            : undefined
+        onToggleSidebar={() =>
+          // 집중 모드에서 누르면 집중 모드를 끈다(사이드바가 돌아온다)
+          focusMode ? setFocusMode(false) : sessionStore.getState().toggleSidebar()
         }
         focusMode={focusMode}
-        titleBar={isMain ? titleBar : undefined}
-        dimmed={dimmed}
-        onFocusMode={isMain ? () => setFocusMode(!focusMode) : undefined}
+        titleBar={titleBar}
+        onFocusMode={() => setFocusMode(!focusMode)}
         favorite={favorite}
         onToggleFavorite={() => toggleFavorite(page.id)}
         pageMenu={<PageMenu page={page} favorite={favorite} onMove={() => setMoving(true)} />}
@@ -357,8 +300,6 @@ export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
                 label={`${page.title || "제목 없음"} 본문`}
                 onChange={(content) => update(page.id, { content: content as Page["content"] })}
                 onOpenLink={openEditorLink}
-                // ⌥⌘↵ (SHELL-19): 캐럿 밑 링크·멘션의 페이지를 오른쪽 패널에 연다. 링크·멘션이 없으면 편집기가 아무것도 하지 않는다
-                onOpenPane={(linkedId) => openInRightPane(linkedId)}
                 mentions={mentions}
                 images={images}
                 spellCheck={editorPrefs.spellcheck}
@@ -380,11 +321,7 @@ export function PageView({ page, side = "main" }: { page: Page; side?: Side }) {
                   key={page.id}
                   className="mt-16"
                   items={backlinks}
-                  onOpen={(id, o) =>
-                    o.pane
-                      ? openInRightPane(id)
-                      : openPageFrom(id, { metaKey: o.newTab, ctrlKey: false })
-                  }
+                  onOpen={(id, o) => openPageFrom(id, { metaKey: o.newTab, ctrlKey: false })}
                 />
               ) : null}
             </div>

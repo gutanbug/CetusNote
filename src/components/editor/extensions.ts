@@ -1,7 +1,6 @@
 import { TabIndent } from "./tab-indent";
 import { TextAlignment } from "./text-align";
-import { Extension, type AnyExtension } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
+import type { AnyExtension } from "@tiptap/core";
 import Emoji, { emojis } from "@tiptap/extension-emoji";
 import Highlight from "@tiptap/extension-highlight";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
@@ -22,7 +21,6 @@ import { FindReplace } from "./find-replace";
 import { MarkdownPaste } from "./markdown-paste";
 import { mathExtensions, type MathClick } from "./math";
 import {
-  pageIdOfHref,
   mentionSuggestion,
   PageMention,
   type MentionCallbacks,
@@ -45,8 +43,6 @@ export type EditorExtensionOptions = {
     resolve: (id: string) => MentionTarget | null;
     open: (id: string) => void;
   };
-  /** ⌥⌘↵ (SHELL-19). 캐럿이 페이지 링크·멘션 위에 있을 때만 그 id를 넘긴다. 아니면 아무것도 하지 않는다 */
-  paneKey?: (linkedPageId: string) => void;
   /** 주면 이미지 파일 붙여넣기·끌어 놓기를 저장해 넣는다 (ED-Image). 이미지 노드 자체는 늘 읽고 쓴다 */
   upload?: ImageSource["upload"];
   /** 주면 붙여 넣은 웹 글의 이미지를 내려받아 넣는다(EDIT-24). 없으면 링크로 남긴다 */
@@ -57,28 +53,6 @@ export type EditorExtensionOptions = {
 
 /** 이모지가 아니라 글자 기호로 남길 것 (EDIT-18: (c)→© · (r)→® · (tm)→™) */
 const TEXT_SYMBOLS = new Set(["copyright", "registered", "tm"]);
-
-/**
- * ⌥⌘↵ — 캐럿 밑 링크·멘션 id를 화면에 넘긴다 (열기·포커스는 화면이 정한다, SHELL-19).
- * 링크·멘션이 없으면 키를 받기만 하고 아무것도 하지 않는다(기본 입력도 막는다).
- */
-const PaneKey = Extension.create<{ onPress?: (linkedPageId: string) => void }>({
-  name: "paneKey",
-  addKeyboardShortcuts() {
-    return {
-      "Mod-Alt-Enter": ({ editor }) => {
-        if (!this.options.onPress) return false;
-        const sel = editor.state.selection;
-        const linked =
-          sel instanceof NodeSelection && sel.node.type.name === "pageMention"
-            ? String(sel.node.attrs.id)
-            : pageIdOfHref(editor.getAttributes("link").href);
-        if (linked) this.options.onPress(linked);
-        return true;
-      },
-    };
-  },
-});
 
 /**
  * ED-Editor가 쓰는 확장 묶음 — 모두 Tiptap 오픈소스(MIT) 확장이다.
@@ -107,7 +81,6 @@ export function createExtensions({
   onMathClick = () => {},
   slash,
   mention,
-  paneKey,
   upload,
   fetchImage,
   copyAsText,
@@ -116,7 +89,6 @@ export function createExtensions({
     ...(slash ? [slashCommand(slash)] : []),
     ...(mention ? [mentionSuggestion(mention.callbacks, mention.search)] : []),
     PageMention.configure({ resolve: mention?.resolve, open: mention?.open }),
-    PaneKey.configure({ onPress: paneKey }),
     BlockKeys,
     TabIndent,
     MarkdownPaste,

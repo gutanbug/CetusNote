@@ -33,8 +33,6 @@ export type NoteEditorProps = {
   label?: string;
   /** 링크 열기(외부 브라우저). 위 계층이 준다 */
   onOpenLink?: (href: string) => void;
-  /** ⌥⌘↵ (SHELL-19). 캐럿 밑 페이지 링크·멘션의 id. 링크·멘션 위가 아니면 호출하지 않는다 */
-  onOpenPane?: (linkedPageId: string) => void;
   /** 페이지 멘션(ED-PageMention) — 찾기·제목 읽기·열기. 없으면 `@` 제안이 꺼지고 칩은 깨진 링크로 보인다 */
   mentions?: MentionSource;
   /** 이미지(ED-Image) — 읽기·저장·고르기. 없으면 이미지는 오류 상태로 보이고 붙여넣기·`/이미지`는 꺼진다 */
@@ -73,7 +71,6 @@ export function NoteEditor({
   autoFocus = false,
   label = "본문",
   onOpenLink,
-  onOpenPane,
   mentions,
   images,
   spellCheck = true,
@@ -118,8 +115,6 @@ export function NoteEditor({
   // 플러그인은 처음 받은 함수를 계속 쓰므로 최신 mentions는 바깥 상자에서 읽는다
   const [liveMentions] = React.useState(() => latest(mentions));
   React.useLayoutEffect(() => liveMentions.set(mentions), [liveMentions, mentions]);
-  const [livePane] = React.useState(() => latest(onOpenPane));
-  React.useLayoutEffect(() => livePane.set(onOpenPane), [livePane, onOpenPane]);
 
   const editor = useEditor({
     extensions: createExtensions({
@@ -136,7 +131,6 @@ export function NoteEditor({
         ? (file) =>
             liveImages.get()?.upload(file) ?? Promise.reject(new Error("이미지 저장소 없음"))
         : undefined,
-      paneKey: onOpenPane ? (id) => livePane.get()?.(id) : undefined,
       copyAsText: copyAsText ? (doc) => liveCopy.get()?.(doc) ?? "" : undefined,
       fetchImage: images?.fetch
         ? (url) => liveImages.get()?.fetch?.(url) ?? Promise.reject(new Error("이미지 저장소 없음"))

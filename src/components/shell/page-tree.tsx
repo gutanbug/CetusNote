@@ -1,15 +1,4 @@
-import { currentPlatform, isModPressed } from "@/lib/platform-labels";
-import {
-  ChevronRight,
-  Ellipsis,
-  FileText,
-  Folder,
-  FolderOpen,
-  PanelRight,
-  PanelRightClose,
-  Plus,
-  Table2,
-} from "lucide-react";
+import { ChevronRight, Ellipsis, FileText, Folder, FolderOpen, Plus, Table2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,20 +50,14 @@ type PageTreeProps = {
   /** 펼친 페이지 id (제어) */
   expanded: string[];
   onExpandedChange: (ids: string[]) => void;
-  /** 문서 열기. 폴더 행은 부르지 않고 펼침을 바꾼다. ⌘클릭 · ⌘Enter면 newTab (SHELL-11), ⌥⌘이면 pane (SHELL-19) */
-  onOpen: (id: string, opts?: { newTab: boolean; pane?: boolean }) => void;
+  /** 문서 열기. 폴더 행은 부르지 않고 펼침을 바꾼다. ⌘클릭 · ⌘Enter면 newTab (SHELL-11) */
+  onOpen: (id: string, opts?: { newTab: boolean }) => void;
   /** 행의 ＋ — 하위 페이지 추가(폴더면 폴더 안에 새 문서). addMenu가 있으면 쓰지 않는다 */
   onAddChild?: (id: string) => void;
   /** 행의 ＋ 메뉴 항목 (새 페이지 · 새 폴더 …). 주면 ＋가 바로 만들지 않고 이 메뉴를 연다 */
   addMenu?: (node: PageNode) => React.ReactNode;
   /** 행의 ··· 메뉴 항목 (OV-Menu 항목들). Shift+F10으로도 연다 */
   rowMenu?: (node: PageNode) => React.ReactNode;
-  /**
-   * 행의 오른쪽 창 버튼 (SHELL-19). open: 오른쪽에 열기 · close: 오른쪽 창 닫기 · null: 버튼 없음.
-   * 마우스를 올리거나 포커스가 오면 나타난다(키보드는 ⌥⌘Enter와 행 메뉴가 같은 일을 한다).
-   */
-  paneAction?: (node: PageNode) => "open" | "close" | null;
-  onPaneAction?: (node: PageNode, action: "open" | "close") => void;
   /** 끄는 중인 페이지 (반투명). 주지 않으면 끄는 동안 스스로 정한다 */
   draggingId?: string;
   /**
@@ -108,8 +91,6 @@ const PageTree = React.memo(function PageTree({
   onAddChild,
   addMenu,
   rowMenu,
-  paneAction,
-  onPaneAction,
   draggingId: draggingProp,
   onDrop,
   canDrop = () => true,
@@ -350,11 +331,7 @@ const PageTree = React.memo(function PageTree({
       case " ":
         if (node.kind === "folder") {
           if (hasKids) setOpen(node.id, !isOpen);
-        } else
-          onOpen(node.id, {
-            newTab: e.metaKey || e.ctrlKey,
-            pane: isModPressed(e, currentPlatform()) && e.altKey,
-          });
+        } else onOpen(node.id, { newTab: e.metaKey || e.ctrlKey });
         break;
       case "F10":
         if (!e.shiftKey || !rowMenu) return;
@@ -383,7 +360,6 @@ const PageTree = React.memo(function PageTree({
     const folder = node.kind === "folder";
     const active = !folder && node.id === activeId;
     const titleId = `${rowId(node.id)}-title`;
-    const pane = paneAction?.(node) ?? null;
     const indent = space(INDENT_UNITS * (level - 1));
     return (
       <div
@@ -468,10 +444,7 @@ const PageTree = React.memo(function PageTree({
         onClick={(e) =>
           folder
             ? hasKids && setOpen(node.id, !isOpen)
-            : onOpen(node.id, {
-                newTab: e.metaKey || e.ctrlKey,
-                pane: isModPressed(e, currentPlatform()) && e.altKey,
-              })
+            : onOpen(node.id, { newTab: e.metaKey || e.ctrlKey })
         }
         className={cn(
           "absolute",
@@ -533,7 +506,7 @@ const PageTree = React.memo(function PageTree({
                   : "제목 없음")}
           </span>
         </span>
-        {rowMenu || onAddChild || addMenu || (pane && onPaneAction) ? (
+        {rowMenu || onAddChild || addMenu ? (
           <span
             className={cn(
               "flex shrink-0 items-center pr-1",
@@ -541,25 +514,6 @@ const PageTree = React.memo(function PageTree({
               (menuId === node.id || addId === node.id) && "opacity-100",
             )}
           >
-            {pane && onPaneAction ? (
-              <IconButton
-                label={
-                  pane === "open" ? `${node.title || "제목 없음"} 오른쪽에 열기` : "오른쪽 창 닫기"
-                }
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPaneAction(node, pane);
-                }}
-                className="[&_svg]:size-3.5"
-              >
-                {pane === "open" ? (
-                  <PanelRight strokeWidth={1.5} />
-                ) : (
-                  <PanelRightClose strokeWidth={1.5} />
-                )}
-              </IconButton>
-            ) : null}
             {rowMenu ? (
               <DropdownMenu
                 open={menuId === node.id}
@@ -581,7 +535,7 @@ const PageTree = React.memo(function PageTree({
                   onClick={(e) => e.stopPropagation()}
                   // 닫히면 행으로 돌아가 트리 키보드 이동을 이어 간다
                   onCloseAutoFocus={(e) => {
-                    // 항목이 새 화면(오른쪽 패널 등)에 포커스를 줬으면 그대로 둔다
+                    // 항목이 새 화면에 포커스를 줬으면 그대로 둔다
                     keepMovedFocus(e);
                     if (e.defaultPrevented) return;
                     e.preventDefault();

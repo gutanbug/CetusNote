@@ -1,4 +1,3 @@
-import { currentPlatform, isModPressed } from "@/lib/platform-labels";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { ChevronRight, FileText } from "lucide-react";
@@ -18,7 +17,7 @@ export type BacklinkItem = {
 type BacklinksProps = {
   items: BacklinkItem[];
   /** 페이지 열기. ⌘클릭이면 newTab (SHELL-11) */
-  onOpen: (id: string, opts: { newTab: boolean; pane?: boolean }) => void;
+  onOpen: (id: string, opts: { newTab: boolean }) => void;
   /** 처음에 펼쳐 둘지 (기본 펼침) */
   defaultOpen?: boolean;
   className?: string;
@@ -73,12 +72,7 @@ function Backlinks({ items, onOpen, defaultOpen = true, className }: BacklinksPr
             <li key={item.id}>
               <button
                 type="button"
-                onClick={(e) =>
-                  onOpen(item.id, {
-                    newTab: e.metaKey || e.ctrlKey,
-                    pane: isModPressed(e, currentPlatform()) && e.altKey,
-                  })
-                }
+                onClick={(e) => onOpen(item.id, { newTab: e.metaKey || e.ctrlKey })}
                 className={cn(
                   "grid w-full gap-0.5 rounded-lg px-2 py-2 text-left transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
                   focusRing,

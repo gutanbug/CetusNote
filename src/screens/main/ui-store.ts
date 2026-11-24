@@ -1,6 +1,5 @@
 import type { SettingsTab } from "@/components/page/options";
 import { create } from "zustand";
-import type { Side } from "./split-model";
 
 /** 오른쪽에 무엇을 보이나 — 열린 문서(page) · 홈(SHELL-13) · 태그별 문서(tag) */
 export type MainView = { kind: "page" } | { kind: "home" } | { kind: "tag"; tag: string };
@@ -41,23 +40,12 @@ export const useMainUi = create<{
   printId: string | null;
   setPrintId(id: string | null): void;
   /** 페이지 안 찾기 막대 (EDIT-25). seq는 ⌘F를 다시 눌렀을 때 찾기 칸으로 돌아가게 */
-  find: { mode: "find" | "replace"; seq: number; side: Side } | null;
-  openFind(mode: "find" | "replace", side?: Side): void;
+  find: { mode: "find" | "replace"; seq: number } | null;
+  openFind(mode: "find" | "replace"): void;
   closeFind(): void;
   /** 상단 바 목차 메뉴 (PAGE-12) */
   outlineOpen: boolean;
-  /** 목차를 연 쪽 (분할 화면에서 두 쪽이 따로 가진다) */
-  outlineSide: Side;
-  setOutlineOpen(open: boolean, side?: Side): void;
-  /** 분할 화면(SHELL-19)에서 포커스가 있는 쪽. 찾기·목차·단축키가 이 쪽에 적용된다 */
-  activeSide: Side;
-  setActiveSide(side: Side): void;
-  /** 분할 화면이 차지하는 영역의 폭 (px, 화면 크기에 따라 잰다. 저장하지 않는다) */
-  splitArea: number;
-  setSplitArea(width: number): void;
-  /** 다음 페이지 고르기를 오른쪽 패널로 할 때(팔레트 "오른쪽에 열기"). 한 번 쓰고 지운다 */
-  palettePane: boolean;
-  setPalettePane(on: boolean): void;
+  setOutlineOpen(open: boolean): void;
 }>()((set) => ({
   view: { kind: "page" },
   setView: (view) => set({ view }),
@@ -82,17 +70,8 @@ export const useMainUi = create<{
   printId: null,
   setPrintId: (printId) => set({ printId }),
   find: null,
-  openFind: (mode, side = "main") =>
-    set((s) => ({ find: { mode, side, seq: (s.find?.seq ?? 0) + 1 } })),
+  openFind: (mode) => set((s) => ({ find: { mode, seq: (s.find?.seq ?? 0) + 1 } })),
   closeFind: () => set({ find: null }),
   outlineOpen: false,
-  outlineSide: "main",
-  setOutlineOpen: (outlineOpen, side) =>
-    set((s) => ({ outlineOpen, outlineSide: side ?? s.outlineSide })),
-  activeSide: "main",
-  setActiveSide: (activeSide) => set({ activeSide }),
-  splitArea: 0,
-  setSplitArea: (splitArea) => set({ splitArea }),
-  palettePane: false,
-  setPalettePane: (palettePane) => set({ palettePane }),
+  setOutlineOpen: (outlineOpen) => set({ outlineOpen }),
 }));
