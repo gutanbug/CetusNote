@@ -15,11 +15,11 @@ type MemoryOptions = {
   pages?: Page[];
   workspace?: Partial<WorkspaceMeta>;
   /** null이면 첫 실행 상태(워크스페이스 없음) */
-  info?: WorkspaceInfo | null;
+  info?: Omit<WorkspaceInfo, "token"> | null;
   /** 지난 폴더가 없어진 상태 흉내 */
   missingPath?: string;
   /** 폴더 선택 대화상자 결과 흉내 */
-  pickResult?: WorkspaceInfo | null;
+  pickResult?: Omit<WorkspaceInfo, "token"> | null;
   /** 저장 실패 흉내 — 이 함수가 오류를 돌려주면 writePage가 실패한다 */
   failWrite?: (page: Page) => StorageError | undefined;
   /** 이미지 선택 대화상자 결과 흉내 — 바이트를 주면 그 이미지를 넣은 것으로 */
@@ -37,7 +37,7 @@ type MemoryOptions = {
   /** 처음부터 있는 이미지 (경로 → 바이트) */
   assets?: Record<string, Uint8Array>;
   /** 백업 불러오기 결과 흉내 (기본: 취소) */
-  restoreResult?: WorkspaceInfo | null;
+  restoreResult?: Omit<WorkspaceInfo, "token"> | null;
   /** 처음부터 있는 자동 백업 이름 */
   backups?: string[];
 };
@@ -92,8 +92,14 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
   external(change: { pages?: Page[]; removed?: string[]; workspace?: WorkspaceMeta }): void;
 } {
   const clone = <T>(v: T): T => structuredClone(v);
-  let info: WorkspaceInfo | null =
-    options.info === undefined ? { name: "CetusNote", path: "/memory/CetusNote" } : options.info;
+  /** 워크스페이스를 열 때마다 새 토큰을 준다 (DATA-03). 메모리 구현도 Rust와 같은 규칙을 따른다 */
+  let tokenSeq = 0;
+  let info: WorkspaceInfo | null = null;
+  {
+    const first =
+      options.info === undefined ? { name: "CetusNote", path: "/memory/CetusNote" } : options.info;
+    if (first) info = { ...first, token: ++tokenSeq };
+  }
   const pages = new Map((options.pages ?? []).map((p) => [p.id, clone(p)]));
   let workspace: WorkspaceMeta | null = options.workspace
     ? normalizeWorkspace(options.workspace)
@@ -113,12 +119,12 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
 
   /** 최근 워크스페이스(맨 앞이 최근). 메모리 구현은 열 때마다 앞에 둔다 */
   const recent: WorkspaceInfo[] = info ? [{ ...info }] : [];
-  const open = (w: WorkspaceInfo) => {
-    info = w;
+  const open = (w: Omit<WorkspaceInfo, "token">): WorkspaceInfo => {
+    info = { ...w, token: ++tokenSeq };
     const i = recent.findIndex((x) => x.path === w.path);
     if (i >= 0) recent.splice(i, 1);
-    recent.unshift({ ...w });
-    return { ...w };
+    recent.unshift({ ...info });
+    return { ...info };
   };
 
   const need = () => {
@@ -142,7 +148,7 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async switchWorkspace(path) {
       const w = recent.find((x) => x.path === path);
       if (!w) throw new StorageError("invalid_path", "최근 목록에 없는 폴더예요");
-      return open({ ...w });
+      return open({ name: w.name, path: w.path });
     },
     async forgetWorkspace(path) {
       if (path === info?.path)
@@ -323,8 +329,7 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async revealBackups() {},
     async restoreBackup() {
       const picked = options.restoreResult ?? null;
-      if (picked) info = { ...picked };
-      return picked && { ...picked };
+      return picked && open(picked);
     },
     async pickDocuments() {
       if (options.pickDocuments) return options.pickDocuments();

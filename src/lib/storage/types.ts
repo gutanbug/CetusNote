@@ -159,7 +159,8 @@ export type QuickNote = {
   createdAt: string;
 };
 
-export type WorkspaceInfo = { name: string; path: string };
+/** token: Rust가 워크스페이스를 열 때 주는 값. 쓰기 커맨드에 실어 보내 바뀐 뒤의 쓰기를 거절하게 한다 (DATA-03) */
+export type WorkspaceInfo = { name: string; path: string; token: number };
 /** 최근 워크스페이스 — 이름은 workspace.json 이름(없으면 폴더 이름) */
 export type RecentWorkspace = WorkspaceInfo & { current: boolean };
 
@@ -176,6 +177,7 @@ export type LoadError = { file: string; message: string };
 
 export type StorageErrorCode =
   | "no_workspace"
+  | "stale_workspace"
   | "invalid_id"
   | "invalid_page"
   | "invalid_json"

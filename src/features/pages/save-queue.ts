@@ -1,4 +1,4 @@
-import type { Page } from "@/lib/storage";
+import { StorageError, type Page } from "@/lib/storage";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 
 /** SH-SaveStatus와 같은 값 */
@@ -76,6 +76,12 @@ export function createSaveQueue({
         await write(page);
         failed.delete(id);
       } catch (e) {
+        if (e instanceof StorageError && e.code === "stale_workspace") {
+          // 워크스페이스를 바꾼 뒤 도착한 옛 폴더의 쓰기(Rust가 거절). 다시 쓰면 안 되므로 버리고 오류로 남긴다
+          failed.add(id);
+          lastError = e;
+          return;
+        }
         // 그동안 더 새 내용이 들어왔으면 그것을 남기고, 아니면 실패한 내용을 되돌려 둔다
         if (!pending.has(id)) {
           pending.set(id, page);

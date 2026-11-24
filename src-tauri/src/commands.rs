@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -28,6 +29,55 @@ pub struct AppState {
     last_pdf: Mutex<Option<PathBuf>>,
     /// 다른 앱에서 가져오기(DATA-11)로 고른 zip·폴더와 그 목록. 항목은 경로(상대)로만 찾는다
     app_import: Mutex<Option<ImportSession>>,
+    /// 워크스페이스 토큰 발급 번호 (DATA-03). 열 때마다 1씩 올라가므로 같은 폴더를 다시 열어도 토큰이 새로 나온다
+    workspace_token: AtomicU64,
+}
+
+impl AppState {
+    fn issue_token(&self) -> u64 {
+        self.workspace_token.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// 현재 워크스페이스를 바꾼다. 잠금 아래에서 바꾸므로 진행 중인 쓰기는 끝난 뒤에야 새 워크스페이스를 본다
+    fn store(&self, ws: Workspace) -> Result<()> {
+        *self
+            .workspace
+            .lock()
+            .map_err(|_| StorageError::new("io", "상태 잠금 실패"))? = Some(ws);
+        Ok(())
+    }
+
+    /// 테스트용: 토큰을 받아 현재 워크스페이스로 세운다
+    #[cfg(test)]
+    fn install(&self, mut ws: Workspace) -> Result<u64> {
+        ws.token = self.issue_token();
+        let token = ws.token;
+        self.store(ws)?;
+        Ok(token)
+    }
+}
+
+/// 쓰기 커맨드 공통 진입점 (DATA-03). 호출한 쪽이 알고 있는 워크스페이스 토큰이 현재 것과 다르면
+/// 워크스페이스를 바꾼 뒤에 도착한 쓰기이므로 `stale_workspace`로 거절한다. 검사와 실행은 같은 잠금 아래에서 한다.
+fn with_workspace_token<T>(
+    state: &AppState,
+    token: u64,
+    f: impl FnOnce(&Workspace) -> Result<T>,
+) -> Result<T> {
+    let guard = state
+        .workspace
+        .lock()
+        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?;
+    let ws = guard
+        .as_ref()
+        .ok_or_else(|| StorageError::new("no_workspace", "워크스페이스가 열려 있지 않아요"))?;
+    if ws.token != token {
+        return Err(StorageError::new(
+            "stale_workspace",
+            "워크스페이스를 바꾸는 사이 도착한 저장이라 쓰지 않았어요",
+        ));
+    }
+    f(ws)
 }
 
 /// 다른 앱 가져오기 세션: 고른 원본과 항목 목록(ADR-020)
@@ -56,10 +106,13 @@ pub struct WorkspaceInfo {
     /// 화면 표시용 폴더 이름과 전체 경로(설정 화면). 프론트엔드가 이 경로로 파일에 접근하지는 않는다.
     name: String,
     path: String,
+    /// 쓰기 커맨드에 넘기는 워크스페이스 토큰 (DATA-03)
+    token: u64,
 }
 
 fn info(ws: &Workspace) -> WorkspaceInfo {
     WorkspaceInfo {
+        token: ws.token,
         name: ws
             .root
             .file_name()
@@ -214,7 +267,7 @@ fn valid_workspace_name(name: &str) -> Option<String> {
 }
 
 fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Result<WorkspaceInfo> {
-    let ws = Workspace::open(root)?;
+    let mut ws = Workspace::open(root)?;
     let state_file = config_dir(app)?.join(APP_STATE_FILE);
     let saved = storage::read_json_opt(&state_file).ok().flatten();
     let recent = push_recent(recent_paths(saved.as_ref()), &ws.root);
@@ -229,11 +282,9 @@ fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Res
         &state_file,
         &json!({ "workspace": ws.root, "recent": recent, "recentNames": names }),
     )?;
+    ws.token = state.issue_token();
     let out = info(&ws);
-    *state
-        .workspace
-        .lock()
-        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))? = Some(ws);
+    state.store(ws)?;
     Ok(out)
 }
 
@@ -435,8 +486,13 @@ pub fn workspace_read(state: State<AppState>) -> Result<Option<Value>> {
 }
 
 #[tauri::command]
-pub fn workspace_write(app: AppHandle, state: State<AppState>, value: Value) -> Result<()> {
-    with_workspace(&state, |ws| {
+pub fn workspace_write(
+    app: AppHandle,
+    state: State<AppState>,
+    value: Value,
+    ws_token: u64,
+) -> Result<()> {
+    with_workspace_token(&state, ws_token, |ws| {
         ws.write_meta(&value)?;
         sync_recent_name(&app, &ws.root);
         Ok(())
@@ -449,19 +505,28 @@ pub fn pages_load_all(state: State<AppState>) -> Result<LoadedPages> {
 }
 
 #[tauri::command]
-pub fn page_write(state: State<AppState>, page: Value) -> Result<()> {
-    with_workspace(&state, |ws| ws.write_page(&page))
+pub fn pages_load_meta(state: State<AppState>) -> Result<LoadedPages> {
+    with_workspace(&state, Workspace::load_meta)
 }
 
 #[tauri::command]
-pub fn page_purge(state: State<AppState>, id: String) -> Result<()> {
-    with_workspace(&state, |ws| ws.purge_page(&id))
+pub fn page_write(state: State<AppState>, page: Value, ws_token: u64) -> Result<()> {
+    with_workspace_token(&state, ws_token, |ws| ws.write_page(&page))
+}
+
+#[tauri::command]
+pub fn page_purge(state: State<AppState>, id: String, ws_token: u64) -> Result<()> {
+    with_workspace_token(&state, ws_token, |ws| ws.purge_page(&id))
 }
 
 /// 버전 기록(DATA-09): 페이지 전체를 새 버전으로 남긴다. 오래된 것은 50개까지만 둔다
 #[tauri::command]
-pub fn history_save(state: State<AppState>, page: Value) -> Result<storage::history::VersionInfo> {
-    with_workspace(&state, |ws| ws.save_version(&page))
+pub fn history_save(
+    state: State<AppState>,
+    page: Value,
+    ws_token: u64,
+) -> Result<storage::history::VersionInfo> {
+    with_workspace_token(&state, ws_token, |ws| ws.save_version(&page))
 }
 
 #[tauri::command]
@@ -478,8 +543,8 @@ pub fn history_read(state: State<AppState>, id: String, version: String) -> Resu
 }
 
 #[tauri::command]
-pub fn history_delete(state: State<AppState>, id: String) -> Result<()> {
-    with_workspace(&state, |ws| ws.delete_history(&id))
+pub fn history_delete(state: State<AppState>, id: String, ws_token: u64) -> Result<()> {
+    with_workspace_token(&state, ws_token, |ws| ws.delete_history(&id))
 }
 
 /// 앱 설정(테마, 포인트 색, 사이드바 폭 …). 내용은 프론트엔드가 정한다.
@@ -908,7 +973,13 @@ pub fn asset_write(state: State<AppState>, request: tauri::ipc::Request<'_>) -> 
         .get("x-page-id")
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| StorageError::new("invalid_id", "페이지 id가 없어요"))?;
-    with_workspace(&state, |ws| ws.write_asset(page_id, bytes))
+    let ws_token = request
+        .headers()
+        .get("x-workspace-token")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok())
+        .ok_or_else(|| StorageError::new("invalid_asset", "워크스페이스 토큰이 없어요"))?;
+    with_workspace_token(&state, ws_token, |ws| ws.write_asset(page_id, bytes))
 }
 
 /// 이미지 읽기: 바이트 그대로 돌려준다(프론트엔드가 blob URL로 그림)
@@ -1430,6 +1501,40 @@ pub fn pages_read(state: State<AppState>, ids: Vec<String>) -> Result<LoadedPage
 #[cfg(test)]
 mod tests {
     #[test]
+    /// DATA-03: 워크스페이스를 바꾸면 옛 토큰의 쓰기는 새 폴더에 닿지 않고 stale_workspace로 거절된다
+    #[test]
+    fn write_with_stale_workspace_token_is_rejected() {
+        use super::{AppState, with_workspace_token};
+        use crate::storage::Workspace;
+        let state = AppState::default();
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        let ta = state
+            .install(Workspace::open(a.path().to_path_buf()).unwrap())
+            .unwrap();
+        let tb = state
+            .install(Workspace::open(b.path().to_path_buf()).unwrap())
+            .unwrap();
+        assert_ne!(ta, tb, "워크스페이스마다 새 토큰을 받아야 한다");
+        let err = with_workspace_token(&state, ta, |_| Ok(()))
+            .err()
+            .expect("옛 토큰은 거절돼야 한다");
+        assert_eq!(err.code, "stale_workspace");
+        with_workspace_token(&state, tb, |_| Ok(())).expect("현재 토큰은 통과해야 한다");
+        // 같은 폴더를 다시 열어도 새 토큰이므로 옛 토큰은 여전히 거절된다 (A→B→A 되돌아오기)
+        let ta2 = state
+            .install(Workspace::open(a.path().to_path_buf()).unwrap())
+            .unwrap();
+        assert_eq!(
+            with_workspace_token(&state, ta, |_| Ok(()))
+                .err()
+                .expect("되돌아온 뒤에도 옛 토큰은 거절")
+                .code,
+            "stale_workspace"
+        );
+        with_workspace_token(&state, ta2, |_| Ok(())).expect("새 토큰은 통과");
+    }
+
     fn import_image_paths_stay_in_folder() {
         use super::resolve_import_image;
         let root = tempfile::tempdir().unwrap();

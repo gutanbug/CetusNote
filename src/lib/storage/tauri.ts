@@ -35,32 +35,57 @@ async function call<T>(
 
 /** 실제 앱의 저장소 — src-tauri/src/commands.rs */
 export function createTauriStorage(): Storage {
+  /** 지금 열린 워크스페이스의 토큰 (DATA-03). 워크스페이스를 열거나 확인할 때마다 갱신한다 */
+  let token: number | null = null;
+  const rememberInfo = (info: WorkspaceInfo | null): WorkspaceInfo | null => {
+    if (info) token = info.token;
+    return info;
+  };
+  const rememberStatus = (status: WorkspaceStatus): WorkspaceStatus => {
+    token = status.workspace ? status.workspace.token : null;
+    return status;
+  };
+  /**
+   * 쓰기 커맨드 호출. 토큰은 호출하는 순간의 값을 싣는다. 그래서 폴더를 바꾸기 전에 보낸 쓰기는
+   * 옛 토큰을 가지고 가고, Rust가 바뀐 뒤 도착한 것으로 거절한다.
+   */
+  const writeCall = async <T>(
+    command: string,
+    args: Record<string, unknown> = {},
+    options?: { headers: Record<string, string> },
+  ) => {
+    if (token === null) throw new StorageError("no_workspace", "워크스페이스가 열려 있지 않아요");
+    return call<T>(command, { ...args, wsToken: token }, options);
+  };
   return {
-    workspaceStatus: () => call<WorkspaceStatus>("workspace_current"),
-    pickWorkspace: () => call<WorkspaceInfo | null>("workspace_pick"),
-    openDefaultWorkspace: () => call<WorkspaceInfo>("workspace_use_default"),
+    workspaceStatus: async () => rememberStatus(await call<WorkspaceStatus>("workspace_current")),
+    pickWorkspace: async () => rememberInfo(await call<WorkspaceInfo | null>("workspace_pick")),
+    openDefaultWorkspace: async () =>
+      rememberInfo(await call<WorkspaceInfo>("workspace_use_default")) as WorkspaceInfo,
     recentWorkspaces: () => call<RecentWorkspace[]>("workspace_recent"),
-    switchWorkspace: (path) => call<WorkspaceInfo>("workspace_switch", { path }),
+    switchWorkspace: async (path) =>
+      rememberInfo(await call<WorkspaceInfo>("workspace_switch", { path })) as WorkspaceInfo,
     forgetWorkspace: (path) => call<void>("workspace_forget", { path }),
-    createWorkspace: (name) => call<WorkspaceInfo | null>("workspace_create", { name }),
+    createWorkspace: async (name) =>
+      rememberInfo(await call<WorkspaceInfo | null>("workspace_create", { name })),
     async readWorkspace() {
       const [raw, status] = await Promise.all([
         call<unknown>("workspace_read"),
-        call<WorkspaceStatus>("workspace_current"),
+        call<WorkspaceStatus>("workspace_current").then(rememberStatus),
       ]);
       return normalizeWorkspace(raw, status.workspace?.name);
     },
-    writeWorkspace: (value) => call("workspace_write", { value }),
+    writeWorkspace: (value) => writeCall("workspace_write", { value }),
     loadPages: async () => normalizeLoaded(await call("pages_load_all")),
     readPages: async (ids) => normalizeLoaded(await call("pages_read", { ids })),
     scanChanges: () => call<ExternalChanges>("workspace_scan"),
-    writePage: (page) => call("page_write", { page }),
-    purgePage: (id) => call("page_purge", { id }),
-    saveVersion: async (page) => call<PageVersion>("history_save", { page }),
+    writePage: (page) => writeCall("page_write", { page }),
+    purgePage: (id) => writeCall("page_purge", { id }),
+    saveVersion: async (page) => writeCall<PageVersion>("history_save", { page }),
     listVersions: (pageId) => call<PageVersion[]>("history_list", { id: pageId }),
     readVersion: async (pageId, versionId) =>
       normalizePage(await call<unknown>("history_read", { id: pageId, version: versionId })),
-    deleteVersions: (pageId) => call("history_delete", { id: pageId }),
+    deleteVersions: (pageId) => writeCall("history_delete", { id: pageId }),
     readSettings: () => call<Record<string, unknown> | null>("settings_read"),
     writeSettings: (value) => call("settings_write", { value }),
     setAppIcon: (theme) => call("app_icon_set", { theme }),
@@ -77,10 +102,13 @@ export function createTauriStorage(): Storage {
       new Uint8Array(await call<ArrayBuffer>("app_import_bytes", { path })),
     importDocumentImage: (pageId, dir, src) => call<string>("document_image", { pageId, dir, src }),
     // 바이트는 JSON 배열이 아니라 그대로 보낸다(큰 이미지도 빠르게)
-    writeAsset: (pageId, bytes) =>
-      call<string>("asset_write", bytes as unknown as Record<string, unknown>, {
-        headers: { "x-page-id": pageId },
-      }),
+    writeAsset: (pageId, bytes) => {
+      if (token === null)
+        return Promise.reject(new StorageError("no_workspace", "워크스페이스가 열려 있지 않아요"));
+      return call<string>("asset_write", bytes as unknown as Record<string, unknown>, {
+        headers: { "x-page-id": pageId, "x-workspace-token": String(token) },
+      });
+    },
     readAsset: async (path) => new Uint8Array(await call<ArrayBuffer>("asset_read", { path })),
     pickAsset: (pageId) => call<string | null>("asset_pick", { pageId }),
     fetchAsset: (pageId, url, o) =>
@@ -90,7 +118,7 @@ export function createTauriStorage(): Storage {
     autoBackup: (today, createdAt) => call<string | null>("backup_auto", { today, createdAt }),
     listBackups: () => call<string[]>("backup_list"),
     revealBackups: () => call("backup_reveal"),
-    restoreBackup: () => call<WorkspaceInfo | null>("backup_restore"),
+    restoreBackup: async () => rememberInfo(await call<WorkspaceInfo | null>("backup_restore")),
     renderPdfPage: (run, index, rect) => call<void>("pdf_page", { run, index, rect }),
     finishPdf: (run, count) => call<number>("pdf_finish", { run, count }),
     renderPdfPreviewPage: (index, width) => call<ArrayBuffer>("pdf_preview_page", { index, width }),

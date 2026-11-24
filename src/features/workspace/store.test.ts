@@ -46,7 +46,7 @@ describe("워크스페이스 열기 (DATA-03)", () => {
     let fail = true;
     storage.pickWorkspace = async () => {
       if (fail) throw new StorageError("permission_denied", "denied");
-      return { name: "노트", path: "/x/노트" };
+      return { name: "노트", path: "/x/노트", token: 1 };
     };
     const store = createWorkspaceStore(storage);
     await store.getState().init();
@@ -63,7 +63,7 @@ describe("워크스페이스 열기 (DATA-03)", () => {
     storage.openDefaultWorkspace = async () => {
       calls++;
       await new Promise((r) => setTimeout(r, 10));
-      return { name: "CetusNote", path: "/x" };
+      return { name: "CetusNote", path: "/x", token: 1 };
     };
     const store = createWorkspaceStore(storage);
     await Promise.all([store.getState().openDefault(), store.getState().openDefault()]);
@@ -80,6 +80,7 @@ describe("워크스페이스 만들기·전환 (SHELL-15)", () => {
     expect(store.getState().workspace).toEqual({
       name: "업무 노트",
       path: "/memory/Documents/업무 노트",
+      token: expect.any(Number),
     });
     await store.getState().loadRecent();
     expect(store.getState().recent.map((w) => [w.name, w.current])).toEqual([

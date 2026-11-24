@@ -20,7 +20,7 @@ function routedStorage(options: { failWrite?: (page: Page) => StorageError | und
     ...base,
     async switchWorkspace(path) {
       root = path;
-      return { name: path.slice(3), path };
+      return { name: path.slice(3), path, token: 1 };
     },
     async writePage(page) {
       writes.push({ root, id: page.id });
