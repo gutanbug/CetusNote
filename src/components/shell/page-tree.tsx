@@ -479,25 +479,24 @@ const PageTree = React.memo(function PageTree({
         >
           <ChevronRight strokeWidth={1.5} className="size-3.5" />
         </span>
-        <span className="flex min-h-7.5 min-w-0 flex-1 items-center gap-2 pr-1">
+        <span className="flex min-h-7.5 min-w-0 flex-1 items-center gap-1.5 pr-1">
           {folder ? (
             isOpen ? (
-              <FolderOpen
-                strokeWidth={1.5}
-                aria-hidden
-                className="size-3.5 shrink-0 text-tertiary"
-              />
+              <FolderOpen strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
             ) : (
-              <Folder strokeWidth={1.5} aria-hidden className="size-3.5 shrink-0 text-tertiary" />
+              <Folder strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
             )
           ) : node.kind === "collection" && !node.emoji ? (
-            <Table2 strokeWidth={1.5} aria-hidden className="size-3.5 shrink-0 text-tertiary" />
+            <Table2 strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
           ) : node.emoji ? (
-            <span aria-hidden className="w-4.5 shrink-0 text-center text-ui leading-none">
-              <PageIcon icon={node.emoji} />
+            <span
+              aria-hidden
+              className="flex size-4 shrink-0 items-center justify-center text-ui leading-none"
+            >
+              <PageIcon icon={node.emoji} className="size-4" />
             </span>
           ) : (
-            <FileText strokeWidth={1.5} aria-hidden className="size-3.5 shrink-0 text-tertiary" />
+            <FileText strokeWidth={1.5} aria-hidden className="size-4 shrink-0 text-tertiary" />
           )}
           <span
             id={titleId}
