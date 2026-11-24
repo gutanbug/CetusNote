@@ -74,6 +74,9 @@ const CALC_NAMES: Record<BoardCalcKind, string> = {
 };
 
 /** 보드 칸 하나 */
+/** 칸 하나가 한 번에 그리는 카드 수 — 넘으면 「더 보기」 (SYS-11) */
+export const BOARD_PAGE = 50;
+
 export type BoardColumn = {
   /** 칸 키 (예: "status:진행 중") */
   key: string;
@@ -270,6 +273,8 @@ function BoardView({
   const dragRef = React.useRef<Drag | undefined>(undefined);
   const [over, setOver] = React.useState<DropAt>();
   const [renaming, setRenaming] = React.useState<string>();
+  /** 칸마다 그릴 카드 수 (칸 키 → 수). 「더 보기」로 늘린다 */
+  const [cardLimits, setCardLimits] = React.useState<Record<string, number>>({});
   const [announce, setAnnounce] = React.useState("");
   const rootRef = React.useRef<HTMLDivElement>(null);
   /** 키보드로 옮긴 카드 — 옮긴 칸에서 포커스를 이어 간다 */
@@ -341,6 +346,10 @@ function BoardView({
       <div ref={rootRef} className="flex items-start gap-3 overflow-x-auto pb-4">
         {columns.map((col, ci) => {
           const headId = `board-col-${ci}`;
+          // 칸마다 카드는 BOARD_PAGE장까지만 그린다 — 나머지는 「더 보기」 (SYS-11). 인덱스는 전체 목록 기준이라 끌기·Alt+화살표는 그대로다
+          const limit = cardLimits[col.key] ?? BOARD_PAGE;
+          const visible = col.items.length > limit ? col.items.slice(0, limit) : col.items;
+          const restCount = col.items.length - visible.length;
           const dropping = over?.key === col.key;
           const cross = dropping && drag?.from !== col.key;
           const isEnd = dropping && over?.beforeId === null;
@@ -509,7 +518,7 @@ function BoardView({
                 </span>
               </div>
               <ul className="relative grid min-h-2 content-start gap-2">
-                {col.items.map((item, i) => {
+                {visible.map((item, i) => {
                   const before = dropping && over?.beforeId === item.id;
                   // 다른 자리에 스켈레톤이 보이면 원래 카드는 자리를 비운다(AppFlowy처럼)
                   const lifted = !!over && drag?.id === item.id && drag.from === col.key;
@@ -630,6 +639,19 @@ function BoardView({
                 })}
                 {isEnd && dragItem ? <DropPreview item={dragItem} /> : null}
               </ul>
+              {restCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setCardLimits((m) => ({ ...m, [col.key]: limit + BOARD_PAGE }))}
+                  className={cn(
+                    "flex min-h-7.5 w-full items-center gap-2 rounded-pill px-2 py-1 text-caption text-secondary",
+                    "hover:bg-hover hover:text-primary force-hover:bg-hover force-hover:text-primary",
+                    focusRing,
+                  )}
+                >
+                  더 보기 · {restCount}개
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => onNew(col.key)}

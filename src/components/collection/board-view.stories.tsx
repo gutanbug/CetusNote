@@ -2,7 +2,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { DEFAULT_STATUS_OPTIONS, type StatusOption } from "@/components/ui/status-chip";
 import * as React from "react";
 import { expect, fireEvent, fn, userEvent, within } from "storybook/test";
-import { BoardView, type BoardColumn, type BoardPlace, type BoardViewProps } from "./board-view";
+import {
+  BOARD_PAGE,
+  BoardView,
+  type BoardColumn,
+  type BoardPlace,
+  type BoardViewProps,
+} from "./board-view";
 import type { RecordItem } from "./fields";
 import { SAMPLE_RECORDS } from "./sample";
 
@@ -257,5 +263,29 @@ export const CardProperties: Story = {
       ),
       DEFAULT_STATUS_OPTIONS,
     ),
+  },
+};
+
+/** 레코드 1만 개 — 칸마다 카드는 BOARD_PAGE장까지만 그리고 「더 보기」로 늘린다 (SYS-11) */
+const tenThousandColumns = columnsOf(
+  Array.from({ length: 10_000 }, (_, i) => ({
+    id: `b${i}`,
+    title: `카드 ${i + 1}`,
+    status: DEFAULT_STATUS_OPTIONS[i % DEFAULT_STATUS_OPTIONS.length]!.name,
+    statusColor: "gray" as const,
+    tags: [],
+  })),
+  DEFAULT_STATUS_OPTIONS,
+);
+export const TenThousandCards: Story = {
+  // 큰 데이터는 args로 두지 않는다 — 테스트 채널의 메시지 크기를 넘는다
+  args: { columns: [] },
+  render: (args) => <Live {...args} columns={tenThousandColumns} />,
+  play: async ({ canvasElement }) => {
+    const cards = () => canvasElement.querySelectorAll("[data-card]").length;
+    await expect(cards()).toBeLessThanOrEqual(4 * BOARD_PAGE);
+    const more = within(canvasElement).getAllByRole("button", { name: /더 보기 · \d+개/ })[0]!;
+    await userEvent.click(more);
+    await expect(cards()).toBeGreaterThan(BOARD_PAGE);
   },
 };
