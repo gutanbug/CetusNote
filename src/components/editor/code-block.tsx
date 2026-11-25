@@ -110,7 +110,6 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
   copyBtn.type = "button";
   copyBtn.setAttribute("data-press", "");
   copyBtn.setAttribute("aria-label", "코드 복사");
-  copyBtn.title = "코드 복사";
   const copyIcon = el("span", "inline-grid place-items-center");
   copyBtn.append(copyIcon);
   const pre = el("pre");
