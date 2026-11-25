@@ -89,8 +89,20 @@ function collapsedDecorations(state: EditorState) {
   return DecorationSet.create(state.doc, decos);
 }
 
+/**
+ * 제목 수준별 행 맞춤. 제목의 위 여백(editor.css `.sn-prose h1·h2·h3`의 mt)은 행(wrapper)의 위 여백으로 옮기고,
+ * 제목 글자 크기·줄 높이(text-h*)는 펼침 단추 칸에도 준다. 칸 높이를 `1lh`(= 제목 한 줄)로 두면 단추가
+ * 제목 첫 줄 가운데에 놓이고, 제목이 여러 줄로 줄어도 첫 줄 기준이 유지된다.
+ */
+const HEADING_ROW: Record<number, { pad: string; text: string }> = {
+  1: { pad: "pt-6", text: "text-h1" },
+  2: { pad: "pt-4", text: "text-h2" },
+  3: { pad: "pt-3", text: "text-h3" },
+};
+
 function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
   const open = node.attrs.open !== false;
+  const row = HEADING_ROW[Number(node.firstChild?.attrs.level)] ?? HEADING_ROW[1];
   const onToggle = () => {
     const pos = getPos();
     if (typeof pos !== "number") return;
@@ -100,30 +112,36 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
     <NodeViewWrapper
       data-type="toggleHeading"
       data-open={String(open)}
-      className="flex items-start"
+      className={cn("flex items-start", row.pad)}
     >
-      <button
-        type="button"
+      <div
         contentEditable={false}
-        disabled={!editor.isEditable}
-        aria-expanded={open}
-        aria-label={open ? "토글 접기" : "토글 펼치기"}
-        onClick={onToggle}
-        className={cn(
-          "mt-1.5 grid size-6 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover",
-          focusRing,
-        )}
+        // 높이 1lh = 제목 한 줄. 제목 줄의 위 패딩(py-0.75)만큼 내린다
+        className={cn("mt-0.75 flex h-[1lh] shrink-0 items-center", row.text)}
       >
-        <ChevronRight
+        <button
+          type="button"
+          disabled={!editor.isEditable}
+          aria-expanded={open}
+          aria-label={open ? "토글 접기" : "토글 펼치기"}
+          onClick={onToggle}
           className={cn(
-            "size-4 transition-transform duration-(--dur-fast) ease-(--ease)",
-            open && "rotate-90",
+            "grid size-6 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover",
+            focusRing,
           )}
-          strokeWidth={1.5}
-          aria-hidden
-        />
-      </button>
-      <NodeViewContent className="min-w-0 flex-1" />
+        >
+          <ChevronRight
+            className={cn(
+              "size-4 transition-transform duration-(--dur-fast) ease-(--ease)",
+              open && "rotate-90",
+            )}
+            strokeWidth={1.5}
+            aria-hidden
+          />
+        </button>
+      </div>
+      {/* 제목의 위 여백은 행(wrapper)이 가져가므로 제목 자신의 mt는 지운다 */}
+      <NodeViewContent className="min-w-0 flex-1 [&>*>:first-child]:!mt-0" />
     </NodeViewWrapper>
   );
 }

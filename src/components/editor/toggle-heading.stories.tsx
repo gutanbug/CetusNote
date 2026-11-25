@@ -32,6 +32,37 @@ export const Collapsed: Story = {
   },
 };
 
+const LONG_TITLE =
+  "분기 검토 회의에서 나온 결정 사항을 모두 정리하고 담당자와 기한을 다시 확인한 뒤 공유 문서에 옮긴다";
+
+/**
+ * 첫 줄 맞춤: H1–H3, 펼침·접힘, 여러 줄로 줄어드는 긴 제목.
+ * 단추 가운데와 제목 첫 줄 가운데의 차이가 2px 이내여야 한다 (다크·라이트 모두 같은 기하).
+ */
+export const Alignment: Story = {
+  args: {
+    content: `<div data-type="toggleHeading" data-open="true"><h1>${LONG_TITLE}</h1><p>본문 1</p></div><div data-type="toggleHeading" data-open="false"><h1>회의록</h1><p>숨은 본문</p></div><div data-type="toggleHeading" data-open="true"><h2>${LONG_TITLE}</h2><p>본문 2</p></div><div data-type="toggleHeading" data-open="false"><h2>결정 사항</h2><p>숨은 본문</p></div><div data-type="toggleHeading" data-open="true"><h3>${LONG_TITLE}</h3><p>본문 3</p></div><div data-type="toggleHeading" data-open="false"><h3>세부 작업</h3><p>숨은 본문</p></div>`,
+  },
+  play: async ({ canvasElement }) => {
+    const rows = [...canvasElement.querySelectorAll<HTMLElement>('[data-type="toggleHeading"]')];
+    await expect(rows).toHaveLength(6);
+    for (const row of rows) {
+      const heading = row.querySelector<HTMLElement>("h1, h2, h3");
+      const button = row.querySelector<HTMLElement>("button");
+      await expect(heading).not.toBeNull();
+      await expect(button).not.toBeNull();
+      // 제목 첫 줄의 글자 상자 (여러 줄이면 첫 번째 줄 조각)
+      const range = document.createRange();
+      range.selectNodeContents(heading!);
+      const line = range.getClientRects()[0];
+      const lineCenter = line.top + line.height / 2;
+      const box = button!.getBoundingClientRect();
+      const buttonCenter = box.top + box.height / 2;
+      await expect(Math.abs(buttonCenter - lineCenter)).toBeLessThanOrEqual(2);
+    }
+  },
+};
+
 /** 읽기 전용 (휴지통 미리보기 등): 펼침 단추는 눌리지 않고 상태만 보인다 */
 export const ReadOnly: Story = {
   args: { editable: false },
