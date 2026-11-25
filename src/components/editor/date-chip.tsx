@@ -102,6 +102,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
   const key = reminderOptionKey(value.reminder);
 
   const setReminder = (next: ReminderRule) => onChange({ reminder: next });
+  const reminderHintId = React.useId();
 
   return (
     <div data-slot="date-chip-editor" className={cn("grid w-70 gap-3 p-1", className)}>
@@ -166,6 +167,8 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
               />
             ) : null}
             <select
+              aria-label="알림"
+              aria-describedby={key === "custom" ? reminderHintId : undefined}
               value={key}
               onChange={(e) => {
                 const option = REMINDER_OPTIONS.find((o) => o.key === e.target.value);
@@ -191,7 +194,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
           </span>
         </label>
         {value.reminder.kind === "custom" ? (
-          <p className="text-caption text-tertiary">
+          <p id={reminderHintId} className="text-caption text-tertiary">
             {value.reminder.time === value.time
               ? "시간과 같은 시각에 알려요"
               : "시간과 따로 정한 시각에 알려요"}
