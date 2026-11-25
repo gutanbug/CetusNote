@@ -17,7 +17,7 @@ const Toggle = Details.extend({
   persist: true,
   HTMLAttributes: { class: "sn-toggle" },
   renderToggleButton: ({ element, isOpen }) => {
-    element.setAttribute("aria-label", isOpen ? "토글 접기" : "토글 펼치기");
+    element.setAttribute("aria-label", "토글");
     element.setAttribute("aria-expanded", String(isOpen));
     element.className = "sn-toggle-button";
   },
