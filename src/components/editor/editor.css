@@ -197,7 +197,7 @@
     @apply text-h3;
   }
   & .sn-callout-emoji {
-    @apply grid size-7 shrink-0 place-items-center rounded-pill text-h3 leading-none hover:bg-active disabled:hover:bg-transparent force-hover:bg-active;
+    @apply grid size-7 shrink-0 place-items-center rounded-pill text-h3 leading-none hover:bg-hover disabled:hover:bg-transparent force-hover:bg-hover;
   }
   & .sn-callout-body {
     @apply min-w-0 flex-1;
@@ -217,7 +217,7 @@
   }
   /* 화살표: 회전한 테두리. 버튼(배경)이 아니라 화살표만 돌린다 — 버튼째 돌리면 hover 배경이 옆으로 삐져나온다 */
   & .sn-toggle-button::before {
-    @apply mr-0.5 size-1.5 -rotate-45 border-r-(length:--bw-control) border-b-(length:--bw-control) border-current transition-transform duration-(--dur-fast) content-[''];
+    @apply mr-0.5 size-1.5 -rotate-45 border-r-(length:--bw-control) border-b-(length:--bw-control) border-current transition-transform duration-(--dur-fast) content-[''] motion-reduce:transition-none;
   }
   & .sn-toggle.is-open > .sn-toggle-button::before {
     @apply mr-0 mb-0.5 rotate-45;
