@@ -201,7 +201,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
           value={Math.min(time, duration || 0)}
           disabled={!duration}
           onChange={(e) => seek(Number(e.target.value))}
-          className="mx-1 min-w-0 flex-1 accent-accent disabled:opacity-40"
+          className={cn("mx-1 min-w-0 flex-1 accent-accent disabled:opacity-40", focusRing)}
         />
         <span className="shrink-0 px-1 text-caption text-secondary tabular-nums">{shownTime}</span>
         <Tooltip>
@@ -235,7 +235,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
           aria-valuetext={`음량 ${Math.round((muted ? 0 : volume) * 100)}%`}
           value={muted ? 0 : volume}
           onChange={(e) => changeVolume(Number(e.target.value))}
-          className="w-20 shrink-0 accent-accent"
+          className={cn("w-20 shrink-0 accent-accent", focusRing)}
         />
         {isVideo && (
           <IconButton
