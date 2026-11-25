@@ -129,3 +129,23 @@ export const Keyboard: Story = {
     await expect(button.getAttribute("aria-label")).toBe("토글 펼치기");
   },
 };
+
+/** 펼침 단추 툴팁: 마우스를 올리면 「토글 접기」가 보이고, 포커스는 옮겨 가지 않는다 */
+export const Tooltip: Story = {
+  args: {
+    content: OPEN_H1,
+  },
+  play: async ({ canvasElement }) => {
+    const button = canvasElement.querySelector<HTMLElement>('[data-type="toggleHeading"] button');
+    await expect(button).not.toBeNull();
+    const before = document.activeElement;
+    await userEvent.hover(button!);
+    await waitFor(() =>
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("토글 접기"),
+    );
+    await expect(document.activeElement).toBe(before);
+    await expect(
+      canvasElement.querySelector('[data-type="toggleHeading"]')?.getAttribute("data-open"),
+    ).toBe("true");
+  },
+};

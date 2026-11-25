@@ -16,6 +16,7 @@ import {
 } from "@tiptap/react";
 import { ChevronRight } from "lucide-react";
 import { focusRing } from "@/components/ui/styles";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 declare module "@tiptap/core" {
@@ -102,6 +103,7 @@ const HEADING_ROW: Record<number, { pad: string; text: string }> = {
 
 function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
   const open = node.attrs.open !== false;
+  const label = open ? "토글 접기" : "토글 펼치기";
   const row = HEADING_ROW[Number(node.firstChild?.attrs.level)] ?? HEADING_ROW[1];
   const onToggle = () => {
     const pos = getPos();
@@ -119,26 +121,31 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
         // 높이 1lh = 제목 한 줄. 제목 줄의 위 패딩(py-0.75)만큼 내린다
         className={cn("mt-0.75 flex h-[1lh] shrink-0 items-center", row.text)}
       >
-        <button
-          type="button"
-          disabled={!editor.isEditable}
-          aria-expanded={open}
-          aria-label={open ? "토글 접기" : "토글 펼치기"}
-          onClick={onToggle}
-          className={cn(
-            "grid size-6 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover",
-            focusRing,
-          )}
-        >
-          <ChevronRight
-            className={cn(
-              "size-4 transition-transform duration-(--dur-fast) ease-(--ease)",
-              open && "rotate-90",
-            )}
-            strokeWidth={1.5}
-            aria-hidden
-          />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              disabled={!editor.isEditable}
+              aria-expanded={open}
+              aria-label={label}
+              onClick={onToggle}
+              className={cn(
+                "grid size-6 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover",
+                focusRing,
+              )}
+            >
+              <ChevronRight
+                className={cn(
+                  "size-4 transition-transform duration-(--dur-fast) ease-(--ease)",
+                  open && "rotate-90",
+                )}
+                strokeWidth={1.5}
+                aria-hidden
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
       </div>
       {/* 제목의 위 여백은 행(wrapper)이 가져가므로 제목 자신의 mt는 지운다 */}
       <NodeViewContent className="min-w-0 flex-1 [&>*>:first-child]:!mt-0" />
