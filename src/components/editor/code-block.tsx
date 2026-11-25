@@ -232,6 +232,7 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
       copyTimer = setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
+      status.textContent = "복사 실패";
     }
   });
 
