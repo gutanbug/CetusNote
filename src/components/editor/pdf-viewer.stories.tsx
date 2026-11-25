@@ -5,6 +5,12 @@ import samplePdf from "@/debug/samples/sample-notes.pdf?url";
 import { PdfViewer } from "./pdf-viewer";
 
 /**
+ * pdf.js 문서 열기는 워커 시작·파일 읽기·쪽 해석을 거치므로 전체 스토리 실행(부하)에서 기본 1초(findBy 기본값)를 넘길 수 있다.
+ * 1초에 맞추지 않고 결과(쪽 번호·오류 안내)가 나올 때까지 기다린다. 단독 실행에서는 보통 100ms대에 끝난다.
+ */
+const PDF_WAIT = { timeout: 15000 };
+
+/**
  * PDF 블록 — 번들한 pdf.js로 쪽을 세로로 그린다. 확대·축소·쪽 번호, 실패하면 파일 카드로 대체.
  * 견본은 3쪽짜리 PDF 한 개(src/debug/samples/sample-notes.pdf).
  */
@@ -36,10 +42,8 @@ export const Default: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     // PDF 로딩·첫 쪽 렌더는 부하에 따라 느리다 — 고정 대기 대신 결과를 기다린다
-    await c.findByText("1 / 3 쪽", undefined, { timeout: 15000 });
-    await waitFor(() => expect(canvasElement.querySelector("canvas")).not.toBeNull(), {
-      timeout: 15000,
-    });
+    await c.findByText("1 / 3 쪽", undefined, PDF_WAIT);
+    await waitFor(() => expect(canvasElement.querySelector("canvas")).not.toBeNull(), PDF_WAIT);
   },
 };
 
@@ -47,7 +51,7 @@ export const Default: Story = {
 export const Zoom: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await c.findByText("1 / 3 쪽");
+    await c.findByText("1 / 3 쪽", undefined, PDF_WAIT);
     await userEvent.click(c.getByRole("button", { name: "확대" }));
     await c.findByText("125%");
     await userEvent.click(c.getByRole("button", { name: "축소" }));
@@ -59,7 +63,7 @@ export const Zoom: Story = {
 export const KeyboardZoom: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await c.findByText("1 / 3 쪽");
+    await c.findByText("1 / 3 쪽", undefined, PDF_WAIT);
     const region = c.getByRole("group", { name: /미리 보기/ });
     region.focus();
     await userEvent.keyboard("{Control>}={/Control}");
@@ -82,7 +86,7 @@ export const LoadError: Story = {
   },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await c.findByText("미리 보기를 열 수 없어요");
+    await c.findByText("미리 보기를 열 수 없어요", undefined, PDF_WAIT);
   },
 };
 
