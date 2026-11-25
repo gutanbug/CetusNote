@@ -88,6 +88,8 @@ const START = "<p>회의 메모</p><p></p>";
 const body = () => within(document.body);
 const LIST = { name: "블록 넣기" } as const;
 const tick = (ms = 250) => new Promise((r) => setTimeout(r, ms));
+/** 다음 프레임까지 기다린다. Tiptap의 focus()는 편집기 포커스를 rAF로 되돌리므로, 그 전에 Enter가 들어가면 피커가 닫힌다 */
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /** 내용을 바꾸고 끝에 캐럿. 포커스는 다음 프레임에 들어오므로 기다린다(키 입력이 에디터로 가게) */
 async function reset(editor: Editor, html = START) {
@@ -103,10 +105,12 @@ async function reset(editor: Editor, html = START) {
     editor.chain().focus().setTextSelection(at).run();
   }
   await waitFor(() => expect(editor.view.hasFocus()).toBe(true));
+  await nextFrame();
 }
 /** 캐럿 자리에 `/검색어`를 넣고 열린 목록을 돌려준다 */
 async function slash(editor: Editor, query: string) {
   editor.chain().focus().insertContent(`/${query}`).run();
+  await nextFrame();
   return body().findByRole("listbox", LIST);
 }
 /** 첨부 블록이 있는지 (종류를 주면 그 종류만) */
