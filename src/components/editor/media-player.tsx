@@ -90,6 +90,8 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
     if (e.altKey || e.metaKey || e.ctrlKey) return;
     const target = e.target as HTMLElement;
     const native = target.tagName === "BUTTON" || target.tagName === "INPUT";
+    // 입력(재생 위치·음량 슬라이더)에 포커스가 있으면 방향키는 그 입력의 동작을 따른다
+    if (target.tagName === "INPUT" && (e.key.startsWith("Arrow") || e.key === " ")) return;
     switch (e.key) {
       case " ":
         if (native) return;
@@ -221,6 +223,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
           min={0}
           max={1}
           step={0.05}
+          aria-valuetext={`음량 ${Math.round((muted ? 0 : volume) * 100)}%`}
           value={muted ? 0 : volume}
           onChange={(e) => changeVolume(Number(e.target.value))}
           className="w-20 shrink-0 accent-accent"
