@@ -37,6 +37,20 @@ type Story = StoryObj<typeof meta>;
 
 export const Video: Story = {};
 
+/** 재생 전 첫 프레임: 메타데이터만 받으면(readyState 1) 회색으로 남는다. 현재 프레임까지 디코딩돼야(2 이상) 통과 */
+export const FirstFrame: Story = {
+  play: async ({ canvasElement }) => {
+    const video = canvasElement.querySelector("video")!;
+    await waitFor(
+      () => expect(video.readyState).toBeGreaterThanOrEqual(HTMLMediaElement.HAVE_CURRENT_DATA),
+      { timeout: 15000 },
+    );
+    // 조각이 붙어 있어야 한다 (Chromium은 조각 없이도 첫 프레임을 그려서, 이 줄이 회귀를 막는다)
+    await expect(video.getAttribute("src")).toContain("#t=0.001");
+    await expect(video.paused).toBe(true);
+  },
+};
+
 export const Audio: Story = {
   args: {
     kind: "audio",

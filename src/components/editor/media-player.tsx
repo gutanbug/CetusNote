@@ -1,5 +1,6 @@
 import { IconButton } from "@/components/ui/icon-button";
 import { formatTime } from "@/lib/attachments/format";
+import { withFirstFrame } from "@/lib/attachments/media-url";
 import { cn } from "@/lib/utils";
 import { Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import * as React from "react";
@@ -164,7 +165,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
       {isVideo ? (
         <video
           ref={mediaRef as React.RefObject<HTMLVideoElement>}
-          src={url}
+          src={withFirstFrame(url)}
           aria-label={name}
           preload="metadata"
           playsInline
