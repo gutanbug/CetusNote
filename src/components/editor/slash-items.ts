@@ -71,6 +71,12 @@ export type SlashContext = {
 };
 
 const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
+/**
+ * 팝오버(이모지·수식 편집)를 바로 여는 항목용: focus()를 붙이지 않는다.
+ * Tiptap의 focus는 다음 프레임(rAF)에 편집기로 포커스를 되돌리는데, 팝오버가 그 전에 안쪽에 포커스를 잡으면
+ * 편집기 포커스가 팝오버를 바깥 클릭처럼 닫는다. 수식은 닫힐 때 빈 식을 지우므로 글자가 사라진다.
+ */
+const chainNoFocus = (editor: Editor, range: Range) => editor.chain().deleteRange(range);
 
 /**
  * ED-SlashMenu 항목 — 프로토타입 app.js `SLASH`와 같은 순서·문구.
@@ -329,7 +335,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     hint: "$$$",
     keywords: ["math", "latex", "equation", "katex", "수학"],
     run: (e, r, ctx) => {
-      chain(e, r).run();
+      chainNoFocus(e, r).run();
       // 빈 문단이면 그 자리를, 글이 있으면 다음 자리를 수식 블록으로 채운다
       const { $from } = e.state.selection;
       const empty = $from.parent.content.size === 0;
@@ -350,7 +356,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "인라인",
     keywords: ["emoji", "emoticon", "smile", "이모지", "이모티콘", "감정"],
     run: (e, r, ctx) => {
-      chain(e, r).run();
+      chainNoFocus(e, r).run();
       ctx.pickEmoji?.();
     },
   },
@@ -364,7 +370,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     keywords: ["inline math", "math", "equation", "latex", "katex", "수식", "인라인"],
     // 커서 자리에 빈 수식을 넣고 바로 편집 팝오버를 연다
     run: (e, r, ctx) => {
-      chain(e, r).run();
+      chainNoFocus(e, r).run();
       const pos = e.state.selection.from;
       e.chain()
         .insertContentAt(pos, { type: "inlineMath", attrs: { latex: "" } })
