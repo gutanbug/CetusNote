@@ -80,13 +80,15 @@ export const Keyboard: Story = {
       });
       return out;
     };
-    const caretAtEnd = (text: string) => {
+    // 캐럿을 두고 포커스가 실제로 에디터에 들어올 때까지 기다린다 (키 입력이 에디터로 가도록)
+    const caretAtEnd = async (text: string) => {
       let at = -1;
       editor.state.doc.descendants((n, pos) => {
         if (at < 0 && n.isTextblock && n.textContent === text) at = pos + 1 + n.content.size;
         return at < 0;
       });
       editor.chain().focus().setTextSelection(at).run();
+      await waitFor(() => expect(editor.view.hasFocus()).toBe(true));
     };
     const bodyOf = (index: number) =>
       canvasElement
@@ -99,7 +101,7 @@ export const Keyboard: Story = {
     // Tiptap의 Mod는 맥에서 ⌘(Meta), 그 밖에서 Ctrl
     const m = navigator.platform.includes("Mac") ? "Meta" : "Control";
     // 1) 첫 번째 토글 제목 끝에서 ⌘⇧↵ → 접힌다. 내용은 숨긴다
-    caretAtEnd("1분기 계획");
+    await caretAtEnd("1분기 계획");
     await userEvent.keyboard(`{${m}>}{Shift>}{Enter}{/Shift}{/${m}}`);
     await expect(toggles()[0].open).toBe(false);
     await waitFor(() => expect(bodyOf(0)).not.toBeNull());
@@ -111,7 +113,7 @@ export const Keyboard: Story = {
     await expect(bodyOf(0)).toBeNull();
 
     // 3) 접힌 두 번째 토글의 제목 끝에서 Enter → 문단이 생기고 토글이 펼쳐진다
-    caretAtEnd("배포 체크리스트");
+    await caretAtEnd("배포 체크리스트");
     await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(toggles()[1].open).toBe(true));
     await expect(toggles()[1].body).toBe(2);
