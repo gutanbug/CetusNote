@@ -151,6 +151,51 @@ export const ClearTimeResetsReminder: Story = {
   },
 };
 
+/** 칩에 시각만 있어도 「시간 지정」 알림은 그 시각을 따른다. 알림 시각을 따로 고치면 칩 시각을 따라가지 않는다 */
+function FollowDemo() {
+  const [value, setValue] = useState<DateChipValue>(v({ date: "2026-11-25", time: "14:30" }));
+  return (
+    <div className="inline-block rounded-lg bg-elevated p-1 shadow-popover">
+      <DateChipEditor
+        value={value}
+        now={NOW}
+        onChange={(patch) => setValue((s) => ({ ...s, ...patch }))}
+      />
+    </div>
+  );
+}
+
+export const ReminderFollowsTime: Story = {
+  render: () => <FollowDemo />,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement);
+    // 시각 입력은 키보드로 지우기 어려워 값을 직접 넣고 input 이벤트를 보낸다(React가 받는 방식)
+    const setInput = (el: HTMLInputElement, next: string) => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setValue.call(el, next);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const chipTime = () => canvasElement.querySelector<HTMLInputElement>('input[type="time"]')!;
+    const alarmTime = () => body.getByLabelText("알림 시각") as HTMLInputElement;
+
+    await userEvent.selectOptions(body.getByRole("combobox"), "custom");
+    await expect(alarmTime().value).toBe("14:30");
+    await expect(body.getByText("시간과 같은 시각에 알려요")).toBeInTheDocument();
+
+    // 칩 시각을 옮기면 알림도 같이 간다
+    setInput(chipTime(), "15:00");
+    await waitFor(() => expect(alarmTime().value).toBe("15:00"));
+
+    // 알림 시각을 따로 고치면 이후 칩 시각을 바꿔도 그대로 둔다
+    setInput(alarmTime(), "08:15");
+    await waitFor(() => expect(alarmTime().value).toBe("08:15"));
+    await expect(body.getByText("시간과 따로 정한 시각에 알려요")).toBeInTheDocument();
+    setInput(chipTime(), "16:00");
+    await waitFor(() => expect(chipTime().value).toBe("16:00"));
+    await expect(alarmTime().value).toBe("08:15");
+  },
+};
+
 /** 본문 안의 칩: 노드 뷰 + 날짜 팝오버. Enter로 열고 「다음 주 월요일」을 고른다 */
 function InEditorDemo() {
   const editor = useEditor({

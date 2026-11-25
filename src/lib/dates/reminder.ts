@@ -68,6 +68,32 @@ export function reminderOptionKey(rule: ReminderRule): ReminderOptionKey {
   }
 }
 
+/** 칩에 시각이 없을 때 「시간 지정」 알림이 쓰는 시각 */
+export const FALLBACK_REMINDER_TIME: TimeOfDay = "09:00";
+
+/**
+ * 「시간 지정」을 고를 때의 알림 시각: 칩 시각이 있으면 그 시각, 없으면 09:00.
+ */
+export function customReminderTime(chipTime: TimeOfDay | null): TimeOfDay {
+  return chipTime ?? FALLBACK_REMINDER_TIME;
+}
+
+/**
+ * 칩 시각이 바뀔 때 「시간 지정」 알림 시각이 따라가야 하는지 정한다.
+ * 알림 시각이 이전 칩 시각(없었으면 09:00)과 같을 때만 새 시각을 따른다.
+ * 사용자가 따로 고친 알림 시각(이전 칩 시각과 다른 값)은 그대로 둔다.
+ * 새 시각이 없으면(시각 지우기) 바꾸지 않는다 — 그 경우는 호출하는 쪽이 알림을 없앤다.
+ */
+export function followChipTime(
+  rule: ReminderRule,
+  prevChipTime: TimeOfDay | null,
+  nextChipTime: TimeOfDay | null,
+): ReminderRule {
+  if (rule.kind !== "custom" || nextChipTime === null) return rule;
+  if (rule.time !== customReminderTime(prevChipTime)) return rule;
+  return rule.time === nextChipTime ? rule : { kind: "custom", time: nextChipTime };
+}
+
 /** 시각이 없을 때 "N분 전"·"시간 지정"은 고를 수 없다 */
 export function isReminderOptionEnabled(key: ReminderOptionKey, time: TimeOfDay | null): boolean {
   const option = REMINDER_OPTIONS.find((o) => o.key === key);

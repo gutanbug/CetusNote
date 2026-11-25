@@ -3,6 +3,8 @@ import { formatAbsoluteLabel, formatDateLabel, formatDateTimeLabel } from "./dat
 import { addDays, dayDiff, isIsoDate, nextMonday, parseIsoDate, toIsoDate } from "./local-date";
 import {
   computeReminderAt,
+  customReminderTime,
+  followChipTime,
   isOverdue,
   NO_REMINDER,
   reminderOptionKey,
@@ -134,6 +136,43 @@ describe("알림 시각 계산", () => {
   it("선택지 키", () => {
     expect(reminderOptionKey({ kind: "before", minutes: 1440 })).toBe("before-1440");
     expect(reminderOptionKey({ kind: "custom", time: "07:00" })).toBe("custom");
+  });
+});
+
+describe("시간 지정 알림의 시각 따라가기", () => {
+  it("「시간 지정」의 기본 시각은 칩 시각, 칩 시각이 없으면 09:00", () => {
+    expect(customReminderTime("14:30")).toBe("14:30");
+    expect(customReminderTime(null)).toBe("09:00");
+  });
+
+  it("알림 시각이 이전 칩 시각과 같으면 새 칩 시각을 따라간다", () => {
+    expect(followChipTime({ kind: "custom", time: "14:30" }, "14:30", "15:00")).toEqual({
+      kind: "custom",
+      time: "15:00",
+    });
+  });
+
+  it("이전 칩 시각이 없던 경우 알림 09:00은 새 칩 시각을 따라간다", () => {
+    expect(followChipTime({ kind: "custom", time: "09:00" }, null, "16:20")).toEqual({
+      kind: "custom",
+      time: "16:20",
+    });
+  });
+
+  it("사용자가 따로 고친 알림 시각은 칩 시각이 바뀌어도 그대로 둔다", () => {
+    const rule = { kind: "custom", time: "08:15" } as const;
+    expect(followChipTime(rule, "14:30", "15:00")).toBe(rule);
+  });
+
+  it("시각을 지우면(새 칩 시각 null) 규칙을 바꾸지 않는다", () => {
+    const rule = { kind: "custom", time: "14:30" } as const;
+    expect(followChipTime(rule, "14:30", null)).toBe(rule);
+  });
+
+  it("「시간 지정」이 아닌 규칙은 건드리지 않는다 (N분 전은 칩 시각에서 계산된다)", () => {
+    const rule = { kind: "before", minutes: 10 } as const;
+    expect(followChipTime(rule, "14:30", "15:00")).toBe(rule);
+    expect(followChipTime(NO_REMINDER, "14:30", "15:00")).toBe(NO_REMINDER);
   });
 });
 

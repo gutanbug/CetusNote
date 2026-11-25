@@ -7,6 +7,8 @@ import {
   type TimeOfDay,
 } from "@/lib/dates/local-date";
 import {
+  customReminderTime,
+  followChipTime,
   isReminderOptionEnabled,
   NO_REMINDER,
   REMINDER_OPTIONS,
@@ -98,7 +100,6 @@ export type DateChipEditorProps = {
 function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipEditorProps) {
   const today = now ?? new Date();
   const key = reminderOptionKey(value.reminder);
-  const customTime = value.reminder.kind === "custom" ? value.reminder.time : "09:00";
 
   const setReminder = (next: ReminderRule) => onChange({ reminder: next });
 
@@ -139,9 +140,12 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
             value={value.time ?? ""}
             onChange={(e) => {
               const time: TimeOfDay | null = e.target.value || null;
-              // 시각이 없어지면 시각 기준 알림은 쓸 수 없다
+              // 시각이 없어지면 시각 기준 알림은 쓸 수 없다. 있으면 「시간 지정」 알림이 새 시각을 따라간다
               const keep = time !== null || isReminderOptionEnabled(key, null);
-              onChange({ time, ...(keep ? {} : { reminder: NO_REMINDER }) });
+              onChange({
+                time,
+                reminder: keep ? followChipTime(value.reminder, value.time, time) : NO_REMINDER,
+              });
             }}
             className={cn(inputClass, "min-h-8 w-32")}
           />
@@ -150,11 +154,11 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
         <label className="flex items-center justify-between gap-3 text-label font-medium text-secondary">
           알림
           <span className="flex items-center gap-2">
-            {key === "custom" ? (
+            {value.reminder.kind === "custom" ? (
               <input
                 type="time"
                 aria-label="알림 시각"
-                value={customTime}
+                value={value.reminder.time}
                 onChange={(e) =>
                   e.target.value && setReminder({ kind: "custom", time: e.target.value })
                 }
@@ -167,7 +171,9 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
                 const option = REMINDER_OPTIONS.find((o) => o.key === e.target.value);
                 if (!option) return;
                 setReminder(
-                  option.key === "custom" ? { kind: "custom", time: customTime } : option.rule,
+                  option.key === "custom"
+                    ? { kind: "custom", time: customReminderTime(value.time) }
+                    : option.rule,
                 );
               }}
               className={cn(inputClass, "min-h-8 w-32")}
@@ -184,6 +190,13 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
             </select>
           </span>
         </label>
+        {value.reminder.kind === "custom" ? (
+          <p className="text-caption text-tertiary">
+            {value.reminder.time === value.time
+              ? "시간과 같은 시각에 알려요"
+              : "시간과 따로 정한 시각에 알려요"}
+          </p>
+        ) : null}
 
         <label className="flex items-center justify-between gap-3 text-label font-medium text-secondary">
           완료
