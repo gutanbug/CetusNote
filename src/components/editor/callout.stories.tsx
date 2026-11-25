@@ -99,9 +99,7 @@ export const Tooltip: Story = {
     const before = document.activeElement;
     await userEvent.hover(button!);
     await waitFor(() =>
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(
-        "콜아웃 아이콘과 색 바꾸기",
-      ),
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("아이콘과 색"),
     );
     await expect(document.activeElement).toBe(before);
     // 키보드 포커스에서도 툴팁이 열리고, 포커스는 단추에 남는다
@@ -109,9 +107,7 @@ export const Tooltip: Story = {
     await waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull());
     button!.focus();
     await waitFor(() =>
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(
-        "콜아웃 아이콘과 색 바꾸기",
-      ),
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("아이콘과 색"),
     );
     await expect(document.activeElement).toBe(button);
   },

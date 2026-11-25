@@ -49,7 +49,7 @@ function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
                 </button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>콜아웃 아이콘과 색 바꾸기</TooltipContent>
+            <TooltipContent>아이콘과 색</TooltipContent>
           </Tooltip>
           <PopoverContent aria-label="콜아웃 꾸미기" className="grid w-auto min-w-0 gap-2 p-2">
             <div role="group" aria-label="아이콘" className="grid grid-cols-6 gap-1">
@@ -76,7 +76,6 @@ function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
                   type="button"
                   aria-pressed={c === color}
                   aria-label={`배경색 ${COLOR_NAMES[c]}`}
-                  title={COLOR_NAMES[c]}
                   onClick={() => updateAttributes({ color: c })}
                   className={cn(
                     "size-6 rounded-pill border border-line aria-pressed:ring-2 aria-pressed:ring-accent",
