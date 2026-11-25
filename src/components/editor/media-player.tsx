@@ -1,4 +1,6 @@
 import { IconButton } from "@/components/ui/icon-button";
+import { focusRing, press } from "@/components/ui/styles";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatTime } from "@/lib/attachments/format";
 import { withFirstFrame } from "@/lib/attachments/media-url";
 import { cn } from "@/lib/utils";
@@ -174,7 +176,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
           {...events}
           onClick={toggle}
           onError={onFail}
-          className="block max-h-[60vh] w-full cursor-pointer bg-inverse"
+          className="block max-h-[calc(var(--fit-h)*0.6)] w-full cursor-pointer bg-inverse"
         />
       ) : (
         <audio
@@ -202,18 +204,25 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
           className="mx-1 min-w-0 flex-1 accent-accent disabled:opacity-40"
         />
         <span className="shrink-0 px-1 text-caption text-secondary tabular-nums">{shownTime}</span>
-        <button
-          type="button"
-          aria-label={`재생 속도 ${rate}×`}
-          onClick={() => setRateIndex((i) => (i + 1) % RATES.length)}
-          className={cn(
-            "h-6 min-w-10 shrink-0 rounded-md px-1.5 text-caption text-secondary tabular-nums",
-            "hover:bg-active hover:text-primary force-hover:bg-active force-hover:text-primary",
-            "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:outline-solid",
-          )}
-        >
-          {rate}×
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`재생 속도 ${rate}×`}
+              data-press=""
+              onClick={() => setRateIndex((i) => (i + 1) % RATES.length)}
+              className={cn(
+                "h-6.5 min-w-10 shrink-0 rounded-md px-1.5 text-caption text-secondary tabular-nums",
+                "hover:bg-active hover:text-primary force-hover:bg-active force-hover:text-primary",
+                focusRing,
+                press,
+              )}
+            >
+              {rate}×
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>재생 속도</TooltipContent>
+        </Tooltip>
         <IconButton label={muted ? "소리 켜기" : "음소거"} shortcut="M" onClick={toggleMute}>
           {muted || volume === 0 ? <VolumeX strokeWidth={1.5} /> : <Volume2 strokeWidth={1.5} />}
         </IconButton>
