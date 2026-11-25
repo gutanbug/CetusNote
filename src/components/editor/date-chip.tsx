@@ -71,7 +71,12 @@ function DateChip({ value, now, selected, open, className, ...props }: DateChipP
         >
           <span>{view.label}</span>
           {view.hasReminder ? (
-            <Bell aria-label="알림 설정됨" className="size-4 shrink-0" strokeWidth={1.5} />
+            <Bell
+              role="img"
+              aria-label="알림 설정됨"
+              className="size-4 shrink-0"
+              strokeWidth={1.5}
+            />
           ) : null}
         </button>
       </TooltipTrigger>
@@ -138,6 +143,8 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
           시간
           <input
             type="time"
+            name="time"
+            autoComplete="off"
             value={value.time ?? ""}
             onChange={(e) => {
               const time: TimeOfDay | null = e.target.value || null;
@@ -158,6 +165,8 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
             {value.reminder.kind === "custom" ? (
               <input
                 type="time"
+                name="reminder-time"
+                autoComplete="off"
                 aria-label="알림 시각"
                 value={value.reminder.time}
                 onChange={(e) =>
@@ -167,6 +176,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
               />
             ) : null}
             <select
+              name="reminder"
               aria-label="알림"
               aria-describedby={key === "custom" ? reminderHintId : undefined}
               value={key}
@@ -213,7 +223,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
       {onRemove ? (
         <div className="flex justify-end border-t border-line pt-2">
           <Button size="sm" variant="ghost" onClick={onRemove}>
-            제거
+            날짜 제거
           </Button>
         </div>
       ) : null}
