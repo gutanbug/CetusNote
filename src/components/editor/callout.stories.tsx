@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, userEvent, waitFor } from "storybook/test";
 import { EditorSpecimen } from "@/debug/editor-specimen";
 
 const CONTENT =
@@ -87,5 +87,22 @@ export const Alignment: Story = {
     // 모든 경우의 차이를 한 번에 보고한다 (|이모지 가운데 − 첫 줄 가운데| ≤ 2px)
     const failing = offsets.filter((o) => Math.abs(o.diff) > 2);
     await expect(failing, JSON.stringify(offsets)).toEqual([]);
+  },
+};
+
+/** 아이콘 단추 툴팁: 마우스를 올리면 「콜아웃 아이콘과 색 바꾸기」가 보이고, 포커스는 옮겨 가지 않는다 */
+export const Tooltip: Story = {
+  args: { content: CONTENT },
+  play: async ({ canvasElement }) => {
+    const button = canvasElement.querySelector<HTMLElement>(".sn-callout-emoji");
+    await expect(button).not.toBeNull();
+    const before = document.activeElement;
+    await userEvent.hover(button!);
+    await waitFor(() =>
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(
+        "콜아웃 아이콘과 색 바꾸기",
+      ),
+    );
+    await expect(document.activeElement).toBe(before);
   },
 };

@@ -6,6 +6,7 @@ import {
   type ReactNodeViewProps,
 } from "@tiptap/react";
 import { focusRing } from "@/components/ui/styles";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COLOR_NAMES } from "@/components/ui/color-popover";
 import { SOFT_COLORS, softColor, type SoftColor } from "@/components/ui/tag-chip";
@@ -35,16 +36,21 @@ function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
     >
       <div contentEditable={false} className="sn-callout-emoji-cell">
         <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              disabled={!editor.isEditable}
-              aria-label="콜아웃 아이콘과 색 바꾸기"
-              className={cn("sn-callout-emoji", focusRing)}
-            >
-              {emoji}
-            </button>
-          </PopoverTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!editor.isEditable}
+                  aria-label="콜아웃 아이콘과 색 바꾸기"
+                  className={cn("sn-callout-emoji", focusRing)}
+                >
+                  {emoji}
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>콜아웃 아이콘과 색 바꾸기</TooltipContent>
+          </Tooltip>
           <PopoverContent aria-label="콜아웃 꾸미기" className="grid w-auto min-w-0 gap-2 p-2">
             <div role="group" aria-label="아이콘" className="grid grid-cols-6 gap-1">
               {CALLOUT_EMOJIS.map((e) => (
