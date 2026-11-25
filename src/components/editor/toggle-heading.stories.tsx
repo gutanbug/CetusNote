@@ -126,7 +126,8 @@ export const Keyboard: Story = {
     await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(toggles()[2].open).toBe(false));
     await expect(button.getAttribute("aria-expanded")).toBe("false");
-    await expect(button.getAttribute("aria-label")).toBe("토글 펼치기");
+    await expect(button.getAttribute("aria-label")).toBe("토글");
+    await expect(button.getAttribute("aria-expanded")).toBe("false");
   },
 };
 
@@ -141,11 +142,19 @@ export const Tooltip: Story = {
     const before = document.activeElement;
     await userEvent.hover(button!);
     await waitFor(() =>
-      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("토글 접기"),
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("접기"),
     );
     await expect(document.activeElement).toBe(before);
     await expect(
       canvasElement.querySelector('[data-type="toggleHeading"]')?.getAttribute("data-open"),
     ).toBe("true");
+    // 키보드 포커스에서도 툴팁이 열리고, 열린 뒤에도 포커스는 단추에 남는다
+    await userEvent.unhover(button!);
+    await waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull());
+    button!.focus();
+    await waitFor(() =>
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe("접기"),
+    );
+    await expect(document.activeElement).toBe(button);
   },
 };

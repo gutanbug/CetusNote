@@ -196,7 +196,7 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 
 - **ED-ToggleHeading 설계 결정:** ED-Toggle(Details) 재사용은 하지 않았다. Details의 요약은 `detailsSummary`(인라인)라 `heading`이 아니어서 목차(`getHeadings`)와 Markdown 제목 변환에서 빠진다. 별도 노드 `toggleHeading`(content `heading block*`)로 제목을 진짜 `heading`으로 두고, 열림 상태는 `open` 속성(`data-open`), 접힌 동안 뒤 블록은 ProseMirror 노드 장식 `hidden`으로 숨긴다(문서 JSON에는 장식이 없다).
 - **목차·검색:** 접힌 제목도 목차에 남는다(제목은 보이는 줄이므로 이동 대상이 항상 보인다). 검색은 문서 글자를 그대로 본다.
-- **ED-ToggleHeading 키보드:** ⌘⇧↵ = 캐럿이 든 토글 접기·펼치기(접을 때 캐럿이 숨은 내용에 있으면 제목 끝으로). 펼침 단추 = 마우스 클릭, 포커스 후 Enter·Space(`aria-expanded`, 「토글 접기」「토글 펼치기」). Enter: 접힌 제목 끝에서 Enter를 치면 아래 문단이 생기고 토글이 펼쳐진다(appendTransaction). Tab은 탭 문자(EDIT-22) 그대로.
+- **ED-ToggleHeading 키보드:** ⌘⇧↵ = 캐럿이 든 토글 접기·펼치기(접을 때 캐럿이 숨은 내용에 있으면 제목 끝으로). 펼침 단추 = 마우스 클릭, 포커스 후 Enter·Space(이름 「토글」 고정, 상태는 `aria-expanded`; 툴팁은 「접기」「펼치기」). 화살표 회전은 `motion-reduce`에서 멈춘다. Enter: 접힌 제목 끝에서 Enter를 치면 아래 문단이 생기고 토글이 펼쳐진다(appendTransaction). Tab은 탭 문자(EDIT-22) 그대로.
 - **ED-Columns 설계:** `columns`(content `column{2,4}`) > `column`(content `block+`, 비율 `width` = flex-grow). 열 안 Tab은 탭 문자(EDIT-22)라 열을 옮기지 않는다.
 - **ED-Columns 키보드:** ⌘⌥←/→ = 앞·뒤 열 첫 줄로(끝 열에서는 멈춤), ⌘⌥⇧←/→ = 캐럿 열 폭 0.25씩(옆 열에서 가져옴, 최소 0.5). 손잡이는 마우스 전용(`aria-hidden`, 포인터 드래그 후 놓을 때 저장).
 - **좁은 폭:** 단 나누기 너비 32rem 아래에서 열이 세로로 쌓인다(컨테이너 쿼리). 그때 손잡이는 숨긴다.

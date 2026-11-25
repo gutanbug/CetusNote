@@ -103,7 +103,7 @@ const HEADING_ROW: Record<number, { pad: string; text: string }> = {
 
 function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
   const open = node.attrs.open !== false;
-  const label = open ? "토글 접기" : "토글 펼치기";
+  // 이름은 고정(「토글」), 상태는 aria-expanded가 전한다. 툴팁 문구만 동작을 말한다
   const row = HEADING_ROW[Number(node.firstChild?.attrs.level)] ?? HEADING_ROW[1];
   const onToggle = () => {
     const pos = getPos();
@@ -127,7 +127,7 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
               type="button"
               disabled={!editor.isEditable}
               aria-expanded={open}
-              aria-label={label}
+              aria-label="토글"
               onClick={onToggle}
               className={cn(
                 "grid size-6 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover",
@@ -136,7 +136,7 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
             >
               <ChevronRight
                 className={cn(
-                  "size-4 transition-transform duration-(--dur-fast) ease-(--ease)",
+                  "size-4 transition-transform duration-(--dur-fast) ease-(--ease) motion-reduce:transition-none",
                   open && "rotate-90",
                 )}
                 strokeWidth={1.5}
@@ -144,7 +144,7 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
               />
             </button>
           </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
+          <TooltipContent>{open ? "접기" : "펼치기"}</TooltipContent>
         </Tooltip>
       </div>
       {/* 제목의 위 여백은 행(wrapper)이 가져가므로 제목 자신의 mt는 지운다 */}
