@@ -177,6 +177,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
             ) : null}
             <select
               name="reminder"
+              autoComplete="off"
               aria-label="알림"
               aria-describedby={key === "custom" ? reminderHintId : undefined}
               value={key}
