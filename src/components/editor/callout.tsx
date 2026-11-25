@@ -33,55 +33,56 @@ function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
       data-color={color}
       className={cn("sn-callout", softColor({ color }))}
     >
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            contentEditable={false}
-            disabled={!editor.isEditable}
-            aria-label="콜아웃 아이콘과 색 바꾸기"
-            className={cn("sn-callout-emoji", focusRing)}
-          >
-            {emoji}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent aria-label="콜아웃 꾸미기" className="grid w-auto min-w-0 gap-2 p-2">
-          <div role="group" aria-label="아이콘" className="grid grid-cols-6 gap-1">
-            {CALLOUT_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                aria-pressed={e === emoji}
-                aria-label={`아이콘 ${e}`}
-                onClick={() => updateAttributes({ emoji: e })}
-                className={cn(
-                  "grid size-8 place-items-center rounded-pill text-body hover:bg-hover aria-pressed:bg-active force-hover:bg-hover",
-                  focusRing,
-                )}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
-          <div role="group" aria-label="배경색" className="grid grid-cols-9 gap-1">
-            {SOFT_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-pressed={c === color}
-                aria-label={`배경색 ${COLOR_NAMES[c]}`}
-                title={COLOR_NAMES[c]}
-                onClick={() => updateAttributes({ color: c })}
-                className={cn(
-                  "size-6 rounded-pill border border-line aria-pressed:ring-2 aria-pressed:ring-accent",
-                  softColor({ color: c }),
-                  focusRing,
-                )}
-              />
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+      <div contentEditable={false} className="sn-callout-emoji-cell">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              disabled={!editor.isEditable}
+              aria-label="콜아웃 아이콘과 색 바꾸기"
+              className={cn("sn-callout-emoji", focusRing)}
+            >
+              {emoji}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent aria-label="콜아웃 꾸미기" className="grid w-auto min-w-0 gap-2 p-2">
+            <div role="group" aria-label="아이콘" className="grid grid-cols-6 gap-1">
+              {CALLOUT_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  aria-pressed={e === emoji}
+                  aria-label={`아이콘 ${e}`}
+                  onClick={() => updateAttributes({ emoji: e })}
+                  className={cn(
+                    "grid size-8 place-items-center rounded-pill text-body hover:bg-hover aria-pressed:bg-active force-hover:bg-hover",
+                    focusRing,
+                  )}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            <div role="group" aria-label="배경색" className="grid grid-cols-9 gap-1">
+              {SOFT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={c === color}
+                  aria-label={`배경색 ${COLOR_NAMES[c]}`}
+                  title={COLOR_NAMES[c]}
+                  onClick={() => updateAttributes({ color: c })}
+                  className={cn(
+                    "size-6 rounded-pill border border-line aria-pressed:ring-2 aria-pressed:ring-accent",
+                    softColor({ color: c }),
+                    focusRing,
+                  )}
+                />
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
       <NodeViewContent className="sn-callout-body" />
     </NodeViewWrapper>
   );
