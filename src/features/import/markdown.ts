@@ -10,6 +10,8 @@ export type ParsedMarkdown = {
   /** 제목 앞 이모지 (없으면 null) */
   icon: string | null;
   tags: string[];
+  /** front matter의 원래 페이지 id (CetusNote가 내보낸 파일에만 있다). 페이지 링크를 잇는 데 쓴다 */
+  id: string | null;
   body: string;
 };
 
@@ -60,6 +62,7 @@ export function parseMarkdownFile(name: string, raw: string): ParsedMarkdown {
   let text = raw.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   let title: string | null = null;
   let tags: string[] = [];
+  let id: string | null = null;
   const front = frontMatter(text);
   if (front) {
     text = front.rest;
@@ -67,6 +70,8 @@ export function parseMarkdownFile(name: string, raw: string): ParsedMarkdown {
     if (t !== undefined) title = scalar(t).trim() || null;
     const tg = front.fields.get("tags");
     if (tg !== undefined) tags = [...new Set(list(tg))];
+    const i = front.fields.get("id");
+    if (i !== undefined) id = scalar(i).trim() || null;
   }
   // 본문 맨 앞의 H1은 페이지 제목으로 (front matter 제목이 따로 있고 다르면 본문에 남긴다)
   let icon: string | null = null;
@@ -86,6 +91,7 @@ export function parseMarkdownFile(name: string, raw: string): ParsedMarkdown {
     title: (title || name.trim() || "제목 없음").slice(0, TITLE_MAX),
     icon,
     tags,
+    id,
     body: text.replace(/^\s*\n/, ""),
   };
 }

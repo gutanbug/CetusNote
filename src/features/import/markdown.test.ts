@@ -17,6 +17,7 @@ describe("문서 가져오기 — 머리 읽기 (DATA-08)", () => {
       "",
     ].join("\n");
     expect(parseMarkdownFile("파일", text)).toEqual({
+      id: null,
       title: "회의 *정리*",
       icon: "🐳",
       tags: ["업무", "회의"],
@@ -26,7 +27,13 @@ describe("문서 가져오기 — 머리 읽기 (DATA-08)", () => {
 
   it("지금 내보내기 모양(front matter 없음, `# 아이콘 제목` 한 번)을 되돌린다 (DATA-04/10)", () => {
     const r = parseMarkdownFile("파일", "# 🐳 회의 \\*정리\\*\n\n본문 첫 줄\n");
-    expect(r).toEqual({ title: "회의 *정리*", icon: "🐳", tags: [], body: "본문 첫 줄\n" });
+    expect(r).toEqual({
+      title: "회의 *정리*",
+      icon: "🐳",
+      tags: [],
+      id: null,
+      body: "본문 첫 줄\n",
+    });
   });
 
   it("front matter 없이 맨 앞 H1이 제목", () => {

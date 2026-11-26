@@ -27,8 +27,14 @@ const mention = (id: string, label = "") => ({
 const mentionPara = (...parts: unknown[]) => ({ type: "paragraph", content: parts });
 const txt = (text: string) => ({ type: "text", text });
 
-function build(pages: Page[], order: Record<string, string[]> = {}) {
-  return buildWorkspaceExport({ pages, order, workspaceName: "내 노트", date: "2026-11-21" });
+function build(pages: Page[], order: Record<string, string[]> = {}, frontMatter = false) {
+  return buildWorkspaceExport({
+    pages,
+    order,
+    workspaceName: "내 노트",
+    date: "2026-11-21",
+    frontMatter,
+  });
 }
 const paths = (files: ExportFile[]) => files.map((f) => f.path);
 const textOf = (files: ExportFile[], path: string) => {
@@ -341,18 +347,19 @@ describe("내보내기 전체", () => {
 });
 
 describe("가져오기와 왕복", () => {
-  it("내보낸 글을 DATA-08 가져오기가 H1의 제목·아이콘으로 다시 읽는다 (태그는 front matter가 없어 남지 않는다)", () => {
+  it("내보낸 글을 DATA-08 가져오기가 H1의 제목·아이콘으로 다시 읽는다 (front matter를 켜면 태그와 id도 남는다)", () => {
     const p = pg({
       title: "회의: 11/21",
       icon: "📝",
       content: doc(para("본문 줄")),
       props: { tags: ["회의", "주간"], status: null, assignee: null, due: null, values: {} },
     });
-    const text = textOf(build([p]).manifest.files, "회의 11 21.md");
+    const text = textOf(build([p], {}, true).manifest.files, "회의 11 21.md");
     const back = parseMarkdownFile("회의 11 21", text);
     // 파일 이름만 정리하고, 머리글의 제목은 원래 글자 그대로
     expect(back.title).toBe("회의: 11/21");
-    expect(back.tags).toEqual([]);
+    expect(back.tags).toEqual(["회의", "주간"]);
+    expect(back.id).toBe(p.id);
     expect(back.icon).toBe("📝");
     expect(back.body).toContain("본문 줄");
   });

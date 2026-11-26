@@ -37,6 +37,8 @@ export type WorkspaceExportInput = {
   workspaceName: string;
   /** 지역 날짜 YYYY-MM-DD */
   date: string;
+  /** 각 Markdown 파일 맨 위에 front matter(id·tags·날짜)를 쓴다. 기본 켬 */
+  frontMatter?: boolean;
 };
 
 const UNTITLED = "제목 없음";
@@ -92,6 +94,7 @@ type Node = { page: Page; children: Node[]; md?: string; index?: string; dir?: s
 
 type Env = {
   pages: Map<string, Page>;
+  frontMatter: boolean;
   /** 내보낸 페이지 id → 멘션이 가리킬 파일 (글 문서는 md, 컬렉션은 index.md) */
   targets: Map<string, string>;
   /** 본문이 쓰는 워크스페이스 이미지 경로(assets/…) */
@@ -222,7 +225,9 @@ function renderDoc(page: Page, from: string, env: Env) {
     ...(page.content as MdNode),
     content: content.flatMap((c) => convert(c, from, env)),
   };
-  return pageToMarkdown({ ...page, content: body } as Page);
+  return pageToMarkdown({ ...page, content: body } as Page, undefined, undefined, {
+    frontMatter: env.frontMatter,
+  });
 }
 
 const localDate = (iso: string) => {
@@ -274,7 +279,12 @@ export function buildWorkspaceExport(input: WorkspaceExportInput): WorkspaceExpo
   const { tree, skipped, byId } = collect(input.pages, input);
   assign(tree, [], []);
 
-  const env: Env = { pages: byId, targets: new Map(), assets: new Set() };
+  const env: Env = {
+    pages: byId,
+    targets: new Map(),
+    assets: new Set(),
+    frontMatter: input.frontMatter !== false,
+  };
   eachNode(tree, (n) => {
     const target =
       n.page.kind === "collection" ? n.index : n.page.kind === "folder" ? undefined : n.md;

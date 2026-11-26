@@ -1,3 +1,6 @@
+// @vitest-environment happy-dom
+import { markdownToDoc } from "@/components/editor/markdown-import";
+import { parseMarkdownFile } from "@/features/import/markdown";
 import { createPage } from "@/lib/storage";
 import { describe, expect, it } from "vitest";
 import { docToMarkdown, markdownFileName, pageToMarkdown, type MdNode } from "./markdown";
@@ -117,7 +120,7 @@ describe("블록", () => {
     ).toBe("- 하나\n  - 하나-하나\n- 둘\n\n3. 셋\n4. 넷\n\n- [x] 끝남\n- [ ] 남음");
   });
 
-  it("콜아웃 → 이모지 인용, 토글 → <details>", () => {
+  it("콜아웃 → 종류 표지 인용, 토글 → <details>", () => {
     expect(
       doc(
         {
@@ -138,7 +141,7 @@ describe("블록", () => {
         },
       ),
     ).toBe(
-      "> ⚠️ 주의\n>\n> 둘째 줄\n\n<details open>\n<summary>지난 회의 요약</summary>\n\n- 일정 확정\n\n</details>",
+      "> [!CAUTION] ⚠️ 주의\n>\n> 둘째 줄\n\n<details open>\n<summary>지난 회의 요약</summary>\n\n- 일정 확정\n\n</details>",
     );
   });
 
@@ -266,6 +269,89 @@ describe("편집 블록 phase 2 (EDIT-28·29·34·36)", () => {
   });
 });
 
+// ── 왕복: 내보낸 Markdown을 다시 가져와 같은 구조가 되는지 (DATA-04 · DATA-08 · DATA-10) ──
+
+type Json = { type?: string; attrs?: Record<string, unknown>; content?: Json[]; text?: string };
+/** 문서 트리에서 종류가 type인 노드를 차례로 모은다 */
+function nodesOf(node: Json, type: string): Json[] {
+  const own = node.type === type ? [node] : [];
+  return [...own, ...(node.content ?? []).flatMap((c) => nodesOf(c, type))];
+}
+const textOf = (node: Json): string => node.text ?? (node.content ?? []).map(textOf).join("");
+
+describe("왕복: 내보내기 → 가져오기", () => {
+  it("콜아웃: 이모지·색·글이 그대로 돌아온다 (표준 종류와 CETUS 종류 모두)", async () => {
+    const md = doc(
+      { type: "callout", attrs: { emoji: "⚠️", color: "red" }, content: [p(t("주의"))] },
+      {
+        type: "callout",
+        attrs: { emoji: "🌿", color: "brown" },
+        content: [p(t("첫 줄")), p(t("둘째 줄"))],
+      },
+    );
+    expect(md).toContain("> [!CAUTION] ⚠️ 주의");
+    expect(md).toContain("> [!CETUS-brown] 🌿 첫 줄");
+    const boxes = nodesOf((await markdownToDoc(md)) as Json, "callout");
+    expect(boxes.map((b) => [b.attrs?.emoji, b.attrs?.color, textOf(b)])).toEqual([
+      ["⚠️", "red", "주의"],
+      ["🌿", "brown", "첫 줄둘째 줄"],
+    ]);
+  });
+
+  it("Obsidian 콜아웃(이모지 없음)도 가져온다: 종류는 색으로, 이모지는 기본 💡", async () => {
+    const [box] = nodesOf((await markdownToDoc("> [!TIP]\n> 물을 자주 마셔요")) as Json, "callout");
+    expect(box?.attrs).toMatchObject({ emoji: "💡", color: "green" });
+    expect(textOf(box!)).toBe("물을 자주 마셔요");
+  });
+
+  it("토글: <details>와 요약·내용이 토글 블록으로 돌아온다", async () => {
+    const md = doc({
+      type: "details",
+      attrs: { open: true },
+      content: [
+        { type: "detailsSummary", content: [t("지난 회의 요약")] },
+        { type: "detailsContent", content: [p(t("숨은 본문"))] },
+      ],
+    });
+    const back = (await markdownToDoc(md)) as Json;
+    const [d] = nodesOf(back, "details");
+    expect(d?.attrs?.open).toBe(true);
+    expect(textOf(nodesOf(d!, "detailsSummary")[0]!)).toBe("지난 회의 요약");
+    expect(textOf(nodesOf(d!, "detailsContent")[0]!)).toBe("숨은 본문");
+  });
+
+  it("페이지 링크: 워크스페이스에 있는 id는 페이지 멘션으로, 없으면 링크 글로 남는다", async () => {
+    const md = doc(p(t("보기 "), { type: "pageMention", attrs: { id: "P1", label: "옛" } }));
+    expect(md).toContain("[옛](cetusnote://page/P1)");
+    const titles: Record<string, string> = { P1: "새 제목" };
+    const found = (await markdownToDoc(md, undefined, (id) => titles[id])) as Json;
+    expect(nodesOf(found, "pageMention")[0]?.attrs).toMatchObject({ id: "P1", label: "새 제목" });
+    const missing = (await markdownToDoc(md, undefined, () => undefined)) as Json;
+    expect(nodesOf(missing, "pageMention")).toHaveLength(0);
+  });
+
+  it("front matter: id·tags·아이콘이 파일에서 돌아온다 (페이지 링크를 잇는 근거)", () => {
+    const page = {
+      ...createPage({ title: "회의록", icon: "📝" }),
+      id: "01PAGE",
+      props: { tags: ["회의", "기획"], status: null, assignee: null, due: null, values: {} },
+      content: { type: "doc" as const, content: [p(t("안건 1"))] },
+      createdAt: "2026-11-19T09:00:00.000Z",
+      updatedAt: "2026-11-19T09:12:00.000Z",
+    };
+    const md = pageToMarkdown(page);
+    expect(md.startsWith('---\nid: "01PAGE"\ntags: ["회의", "기획"]\n')).toBe(true);
+    const head = parseMarkdownFile("회의록.md", md);
+    expect(head).toMatchObject({
+      title: "회의록",
+      id: "01PAGE",
+      tags: ["회의", "기획"],
+      icon: "📝",
+    });
+    expect(head.body).toContain("안건 1");
+  });
+});
+
 describe("페이지", () => {
   it("front matter 없이 `# 아이콘 제목` 한 번 + 본문", () => {
     const page = {
@@ -281,7 +367,9 @@ describe("페이지", () => {
       createdAt: "2026-11-19T09:00:00.000Z",
       updatedAt: "2026-11-19T09:12:00.000Z",
     };
-    expect(pageToMarkdown(page)).toBe("# 📝 회의록\n\n안건 1\n");
+    expect(pageToMarkdown(page, undefined, undefined, { frontMatter: false })).toBe(
+      "# 📝 회의록\n\n안건 1\n",
+    );
   });
 
   it("본문 맨 앞 H1이 제목과 같으면 한 번만 쓴다 (아이콘은 머리에)", () => {
@@ -294,17 +382,21 @@ describe("페이지", () => {
       ...createPage({ title: "회의록", icon: "📝" }),
       content: { type: "doc" as const, content: [h1("회의록"), p(t("안건 1"))] },
     };
-    expect(pageToMarkdown(page)).toBe("# 📝 회의록\n\n안건 1\n");
+    expect(pageToMarkdown(page, undefined, undefined, { frontMatter: false })).toBe(
+      "# 📝 회의록\n\n안건 1\n",
+    );
     // 제목과 다른 H1은 그대로 남긴다
     const other = {
       ...createPage({ title: "회의록" }),
       content: { type: "doc" as const, content: [h1("다른 제목"), p(t("본문"))] },
     };
-    expect(pageToMarkdown(other)).toBe("# 회의록\n\n# 다른 제목\n\n본문\n");
+    expect(pageToMarkdown(other, undefined, undefined, { frontMatter: false })).toBe(
+      "# 회의록\n\n# 다른 제목\n\n본문\n",
+    );
   });
 
   it("빈 제목은 “제목 없음”, 속성은 적지 않는다", () => {
-    const md = pageToMarkdown(createPage());
+    const md = pageToMarkdown(createPage(), undefined, undefined, { frontMatter: false });
     expect(md).toBe("# 제목 없음\n");
   });
 
