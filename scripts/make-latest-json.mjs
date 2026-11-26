@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // 업데이트 목록(latest.json)을 릴리스의 .sig 파일들로 만든다 (SYS-07, SYS-08).
+// notes는 CHANGELOG.md의 버전 섹션이다(SYS-12). 섹션이 없으면 실패한다.
 // 세 OS 작업이 같은 릴리스에 올린 서명 파일을 한 번에 모은다. tauri-action이 작업마다 latest.json을 덮어쓰지 않게 하려고 따로 만든다.
 //
 // 사용: node scripts/make-latest-json.mjs --tag v0.1.2 --dir <.sig 폴더> --repo owner/name --out latest.json
@@ -7,6 +8,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { releaseNotes } from "./release-notes.mjs";
 
 /** 번들 이름 → 업데이트 플랫폼 키. 위에서부터 맞는 첫 규칙을 쓴다 */
 const RULES = [
@@ -58,7 +60,7 @@ function main() {
   const platforms = buildPlatforms(sigFiles, { repo, tag });
   const doc = {
     version,
-    notes: `Cetus Note ${tag}`,
+    notes: releaseNotes(tag),
     pub_date: new Date().toISOString(),
     platforms,
   };

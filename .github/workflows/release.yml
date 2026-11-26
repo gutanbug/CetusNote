@@ -33,18 +33,30 @@ jobs:
       - name: 태그와 버전 파일 확인
         run: node scripts/version.mjs --check "$GITHUB_REF_NAME"
 
-      - name: 릴리스 없으면 만들기 (이미 있으면 그대로)
+      - name: 릴리스 노트 만들기 (CHANGELOG.md의 버전 섹션)
+        # 섹션이 없거나 비어 있으면 여기서 멈춘다. 릴리스 본문은 이 파일을 쓴다(SYS-12)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/release-notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "이미 설치한 앱은 설정 › 일반 › 업데이트에서 바로 업데이트할 수 있어요."
+            echo "처음 설치하는 경우 서명이 없어서 macOS는 우클릭 › 열기, Windows는 SmartScreen의 「추가 정보 › 실행」으로 열어 주세요."
+          } >> "$RUNNER_TEMP/release-notes.md"
+
+      - name: 릴리스 만들기 (이미 있으면 본문만 갱신)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "릴리스가 이미 있어요: $TAG"
+            gh release edit "$TAG" --title "Cetus Note $TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           else
-            gh release create "$TAG" --title "Cetus Note $TAG" --notes "Cetus Note $TAG
-
-          이미 설치한 앱은 설정 › 일반 › 업데이트에서 바로 업데이트할 수 있어요.
-          처음 설치하는 경우 서명이 없어서 macOS는 우클릭 › 열기, Windows는 SmartScreen의 「추가 정보 › 실행」으로 열어 주세요."
+            gh release create "$TAG" --title "Cetus Note $TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
 
   build:

@@ -5,9 +5,11 @@
 //   node scripts/version.mjs --check v0.2.0   네 파일이 모두 0.2.0인지 확인한다(릴리스 워크플로가 쓴다). 다르면 실패
 //
 // 바꾼 뒤에는 `cd src-tauri && cargo check`로 Cargo.lock을 확인하고, 커밋 메시지에 버전을 적는다.
+// CHANGELOG.md의 [Unreleased]가 비어 있으면 아무 파일도 바꾸지 않고 실패한다(SYS-12).
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promoteUnreleased, today } from "./changelog.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const files = {
@@ -15,6 +17,7 @@ const files = {
   cargoToml: join(root, "src-tauri/Cargo.toml"),
   tauriConf: join(root, "src-tauri/tauri.conf.json"),
   cargoLock: join(root, "src-tauri/Cargo.lock"),
+  changelog: join(root, "CHANGELOG.md"),
 };
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
@@ -58,6 +61,17 @@ function check(tag) {
 
 function set(version) {
   if (!SEMVER.test(version)) fail(`버전 "${version}"은 X.Y.Z 형식이어야 해요. 예: 0.2.0`);
+  // 릴리스 노트: [Unreleased]를 새 버전 섹션으로 옮긴다(SYS-12). 실패하면 아무 파일도 바꾸지 않는다
+  let changelog;
+  try {
+    changelog = promoteUnreleased(readFileSync(files.changelog, "utf8"), {
+      version,
+      date: today(),
+    });
+  } catch (error) {
+    fail(error.message);
+  }
+
   const pkg = JSON.parse(readFileSync(files.packageJson, "utf8"));
   pkg.version = version;
   writeFileSync(files.packageJson, `${JSON.stringify(pkg, null, 2)}\n`);
@@ -65,7 +79,10 @@ function set(version) {
   replaceFirst(files.cargoToml, patterns.cargoToml, `version = "${version}"`);
   replaceFirst(files.tauriConf, patterns.tauriConf, `$1"${version}"`);
   replaceFirst(files.cargoLock, patterns.cargoLock, `$1${version}$3`);
-  console.log(`버전을 ${version}으로 맞췄어요. Cargo.lock은 cargo check로 한 번 확인해 주세요.`);
+  writeFileSync(files.changelog, changelog);
+  console.log(
+    `버전을 ${version}으로 맞췄어요. CHANGELOG.md의 [Unreleased]를 ${version} 섹션으로 옮겼어요. Cargo.lock은 cargo check로 한 번 확인해 주세요.`,
+  );
 }
 
 function replaceFirst(path, pattern, replacement) {
