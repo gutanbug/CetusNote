@@ -232,7 +232,7 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
                 setBodyWidth(node.id, v === "inherit" ? undefined : (v as "default" | "wide"))
               }
             >
-              <DropdownMenuRadioItem value="inherit">전체 설정 따르기</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="inherit">기본 설정 따르기</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="default">기본</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="wide">전체 폭</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
