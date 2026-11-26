@@ -219,6 +219,8 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 - macOS 앱 메뉴(`src-tauri/src/menu.rs`, 2026-11-19): 기본 메뉴와 같되 ⌘W를 "탭 닫기"로, 창 닫기를 ⇧⌘W로 옮겼다. 새 탭 · 탭 닫기는 `app-menu` 이벤트로 프런트엔드(`lib/storage/app-menu.ts`)에 알린다. 메뉴 단축키는 웹뷰 keydown보다 먼저 받는다. 창 닫기는 `close()`로 닫기 요청을 거쳐 저장을 끝낸다.
 - `tauri-plugin-mcp-bridge`는 `#[cfg(debug_assertions)]`에서만 등록한다. 권한(`mcp-bridge:default`)도 `tauri.dev.conf.json`의 개발 전용 capability에만 둔다(2026-11-19). 릴리스에는 등록도 권한도 없다(크레이트가 의존성이라 권한 이름 문자열만 바이너리에 남는다).
 - Debug 화면 코드도 개발 빌드에서만 번들에 들어가게 한다(`import.meta.env.DEV` 조건부 동적 import).
+- **식별자 분리 (SYS-13, 2026-11-27):** 릴리스 식별자 `dev.cetusnote.app`(`tauri.conf.json`)은 바꾸지 않는다. 설치된 사용자의 설정·권한·웹뷰 데이터가 그대로 남고, macOS가 새 앱으로 보지 않게 하려고다. 개발 실행(`pnpm app`, `tauri.dev.conf.json` 병합)은 `dev.cetusnote.app.dev`와 제품 이름 「Cetus Note (Dev)」를 써서, 앱 설정 폴더(`app-state.json`)와 웹뷰 데이터가 릴리스와 섞이지 않는다. 식별자는 런타임에 `context.config().identifier`로 읽는다. `--mcp`의 마지막 워크스페이스 조회(`mcp/mod.rs`의 `last_workspace`)와 `commands.rs`의 `app_config_dir()`도 같은 값을 쓴다(경로를 하드코딩하지 않는다). 키체인·딥링크·알림 권한은 쓰지 않는다. `tauri.dev.conf.json`의 창 제목은 그대로 두었다(배열은 병합 시 통째로 바뀌어서).
+  - 검증: `scripts/tauri-config.test.mjs` 단위 테스트가 두 식별자가 다름을 확인한다. 앱을 띄워 실제 경로를 확인하지는 않았다(GUI 실행 금지 원칙).
 
 ### CSP (ADR-007, 2026-11-19 · 첨부 보완 2026-11-24, ADR-025)
 
