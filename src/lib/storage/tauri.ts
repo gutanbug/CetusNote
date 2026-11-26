@@ -93,6 +93,7 @@ export function createTauriStorage(): Storage {
     writeSettings: (value) => call("settings_write", { value }),
     setAppIcon: (theme) => call("app_icon_set", { theme }),
     appExecutablePath: () => call<string>("app_executable_path"),
+    exportCsv: (fileName, text) => call<string | null>("export_csv", { fileName, text }),
     exportMarkdown: (fileName, text, assets = []) =>
       call<MarkdownExportResult | null>("export_markdown", { fileName, text, assets }),
     exportWorkspaceMarkdown: (manifest) =>

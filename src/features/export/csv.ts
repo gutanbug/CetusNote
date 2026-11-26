@@ -35,6 +35,19 @@ export function collectionCsvHeader(collection: Page): string[] {
   return ["제목", "상태", "담당", "마감", "태그", ...fields.map((f) => f.name)];
 }
 
+/**
+ * 컬렉션의 레코드(컬렉션 바로 아래 글, 휴지통 제외)를 제목 순으로 고른다. 순수 함수.
+ * CSV는 필터·정렬과 상관없이 전부 내보낸다(DATA-13).
+ */
+export function collectionRecords(
+  collectionId: string,
+  all: Readonly<Record<string, Page>>,
+): Page[] {
+  return Object.values(all)
+    .filter((p) => p.kind === "page" && p.parentId === collectionId && !p.trashedAt)
+    .sort((a, b) => (a.title || "").localeCompare(b.title || "", "ko"));
+}
+
 /** 컬렉션 레코드를 CSV 텍스트(UTF-8 BOM 포함)로 바꾼다. 순수 함수 */
 export function collectionToCsv(collection: Page, records: readonly Page[]): string {
   const fields = collection.collection?.fields ?? [];

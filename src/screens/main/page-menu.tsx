@@ -27,12 +27,14 @@ import {
   SquarePlus,
   Trash2,
   Type,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   copyPageLink,
   deleteTemplate,
   duplicatePage,
   duplicateTemplate,
+  exportCsv,
   exportMarkdown,
   exportPdf,
   moveToTrash,
@@ -181,6 +183,14 @@ export function PageMenu({
           <DropdownMenuItem icon={<Printer {...ic} />} onSelect={() => void exportPdf(page.id)}>
             PDF로 내보내기…
           </DropdownMenuItem>
+          {page.kind === "collection" && (
+            <DropdownMenuItem
+              icon={<FileSpreadsheet {...ic} />}
+              onSelect={() => void exportCsv(page.id)}
+            >
+              CSV로 내보내기
+            </DropdownMenuItem>
+          )}
         </>
       ) : null}
       {doc ? (

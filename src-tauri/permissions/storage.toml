@@ -25,6 +25,7 @@ permissions = [
   "allow-settings-write",
   "allow-app-icon-set",
   "allow-export-markdown",
+  "allow-export-csv",
   "allow-workspace-export-markdown",
   "allow-workspace-export-reveal",
   "allow-asset-write",

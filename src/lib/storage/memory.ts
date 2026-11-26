@@ -382,6 +382,10 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       // 브라우저 미리보기에는 실행 파일이 없다. 명령을 보여 주기만 하도록 예시 경로를 준다
       return "/Applications/CetusNote.app/Contents/MacOS/cetusnote";
     },
+    async exportCsv(fileName, text) {
+      exports.push({ fileName, text });
+      return fileName;
+    },
     async exportMarkdown(fileName, text) {
       exports.push({ fileName, text });
       return { name: fileName, skipped: 0 };

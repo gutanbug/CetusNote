@@ -48,6 +48,7 @@ pub fn run() {
             commands::settings_write,
             commands::app_icon_set,
             commands::export_markdown,
+            commands::export_csv,
             commands::document_pick,
             commands::document_bytes,
             commands::document_pdf_text,

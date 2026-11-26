@@ -68,3 +68,23 @@ describe("collectionToCsv", () => {
     expect(lines).toHaveLength(4); // 머리글 + 레코드 2 + 끝의 빈 줄
   });
 });
+
+describe("컬렉션 레코드 선택 (DATA-13)", () => {
+  it("컬렉션 바로 아래 글만, 휴지통 제외, 제목 순으로 고른다", async () => {
+    const { collectionRecords } = await import("./csv");
+    const col = record({ id: "c", kind: "collection", title: "보드" });
+    const all = {
+      c: col,
+      b: record({ id: "b", title: "나", parentId: "c" }),
+      a: record({ id: "a", title: "가", parentId: "c" }),
+      t: record({
+        id: "t",
+        title: "버림",
+        parentId: "c",
+        trashedAt: "2026-11-01T00:00:00.000Z" as Page["trashedAt"],
+      }),
+      o: record({ id: "o", title: "다른", parentId: "zz" }),
+    };
+    expect(collectionRecords("c", all).map((p) => p.id)).toEqual(["a", "b"]);
+  });
+});

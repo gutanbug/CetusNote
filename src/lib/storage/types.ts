@@ -300,6 +300,8 @@ export interface Storage {
     text: string,
     assets?: readonly { src: string; name: string }[],
   ): Promise<MarkdownExportResult | null>;
+  /** 저장 대화상자(.csv) → 파일 쓰기(DATA-13). 취소하면 null, 저장하면 파일 이름 */
+  exportCsv(fileName: string, text: string): Promise<string | null>;
   /**
    * 워크스페이스 전체 Markdown 내보내기(DATA-10): 폴더 고르기 → 새 폴더에 목록대로 쓴다.
    * 취소하면 null. 쓰지 못한 항목은 failed에 경로로 남는다(나머지는 쓴다).

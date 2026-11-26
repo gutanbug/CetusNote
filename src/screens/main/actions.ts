@@ -1,7 +1,7 @@
 export { displayTitle } from "@/features/pages/title";
 import { displayTitle } from "@/features/pages/title";
 import { toast } from "@/components/ui/toast";
-import { exportPageMarkdown } from "@/features/export";
+import { exportCollectionCsv, exportPageMarkdown } from "@/features/export";
 import { metaStore } from "@/features/meta";
 import type { DropPosition } from "@/components/shell/drop-indicator";
 import type { Crumb } from "@/components/shell/breadcrumb";
@@ -502,6 +502,19 @@ export async function exportMarkdown(id: string) {
           : `“${name}” 파일로 내보냈어요.`,
       );
     }
+  } catch {
+    toast.error("내보내지 못했어요. 다른 위치를 골라 보세요.");
+  }
+}
+
+/** 컬렉션 CSV 내보내기 (DATA-13): 레코드를 모두 내보낸다(필터·정렬은 따르지 않는다) */
+export async function exportCsv(id: string) {
+  const collection = pages()[id];
+  if (!collection || collection.kind !== "collection") return;
+  try {
+    const result = await exportCollectionCsv(collection, pages());
+    if (result)
+      toast(`“${result.name}” 파일로 내보냈어요. 레코드 ${result.records}개를 모두 담았어요.`);
   } catch {
     toast.error("내보내지 못했어요. 다른 위치를 골라 보세요.");
   }

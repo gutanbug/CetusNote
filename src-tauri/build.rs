@@ -23,6 +23,7 @@ const COMMANDS: &[&str] = &[
     "settings_write",
     "app_icon_set",
     "export_markdown",
+    "export_csv",
     "workspace_export_markdown",
     "workspace_export_reveal",
     "asset_write",

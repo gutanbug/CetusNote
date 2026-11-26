@@ -634,6 +634,28 @@ pub async fn export_markdown(
         }))
 }
 
+/// 컬렉션 CSV 내보내기(DATA-13): 저장 대화상자(.csv) → 원자적 쓰기. 취소하면 None, 저장하면 파일 이름.
+#[tauri::command]
+pub async fn export_csv(app: AppHandle, file_name: String, text: String) -> Result<Option<String>> {
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("CSV로 내보내기")
+        .add_filter("CSV", &["csv"])
+        .set_file_name(file_name);
+    if let Ok(docs) = app.path().document_dir() {
+        dialog = dialog.set_directory(docs);
+    }
+    let Some(picked) = dialog.blocking_save_file() else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|e| StorageError::new("io", e.to_string()))?;
+    storage::atomic_write(&path, text.as_bytes())?;
+    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()))
+}
+
 /// 워크스페이스 전체 Markdown 내보내기(DATA-10): 폴더 고르기 → 새 폴더에 목록대로 쓴다. 취소하면 None.
 /// 목록의 경로는 storage::export가 검사한다. 프론트엔드는 폴더 경로를 받지 않는다.
 #[tauri::command]
