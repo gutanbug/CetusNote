@@ -24,8 +24,15 @@ pub const ASSETS_DIR: &str = "assets";
 pub const WORKSPACE_FILE: &str = "workspace.json";
 /// 다시 만들 수 있는 캐시(페이지 구조 색인, SYS-10). 백업에 넣지 않는다
 pub const CACHE_DIR: &str = ".cache";
-/// 빈 폴더가 아닌 곳을 고르면 그 안에 이 이름으로 워크스페이스를 만든다
-pub const DEFAULT_FOLDER_NAME: &str = "CetusNote";
+/// 빈 폴더가 아닌 곳을 고르면 그 안에 이 이름으로 워크스페이스를 만든다.
+/// 개발 빌드는 실사용 폴더(`CetusNote`)를 건드리지 않도록 다른 이름을 쓴다.
+pub fn default_folder_name() -> &'static str {
+    if cfg!(debug_assertions) {
+        "CetusNote Dev"
+    } else {
+        "CetusNote"
+    }
+}
 
 /// 프론트엔드로 돌려주는 오류. `code`로 분기하고 `message`는 로그·개발용이다.
 #[derive(Debug, Serialize, PartialEq)]
@@ -155,7 +162,7 @@ pub fn resolve_workspace_dir(chosen: &Path) -> Result<PathBuf> {
     Ok(if is_workspace || is_empty {
         chosen.to_path_buf()
     } else {
-        chosen.join(DEFAULT_FOLDER_NAME)
+        chosen.join(default_folder_name())
     })
 }
 
@@ -877,7 +884,7 @@ mod tests {
         fs::write(p.join("report.pdf"), b"").unwrap();
         assert_eq!(
             resolve_workspace_dir(p).unwrap(),
-            p.join(DEFAULT_FOLDER_NAME)
+            p.join(default_folder_name())
         );
         fs::write(p.join(WORKSPACE_FILE), b"{}").unwrap();
         assert_eq!(resolve_workspace_dir(p).unwrap(), p);

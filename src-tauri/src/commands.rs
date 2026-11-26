@@ -318,7 +318,7 @@ fn default_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path()
         .document_dir()
         .ok()
-        .map(|d| d.join(storage::DEFAULT_FOLDER_NAME))
+        .map(|d| d.join(storage::default_folder_name()))
 }
 
 /// 지금 열린 워크스페이스. 없으면 지난번 경로를 다시 연다. 그 폴더가 사라졌으면 `missing_path`로 알린다.
