@@ -677,6 +677,44 @@ mod tests {
     }
 
     #[test]
+    fn opening_pages_writes_nothing_and_keeps_no_history() {
+        let (_d, ws) = ws();
+        let old = page(ID);
+        fs::write(ws.page_path(ID), serde_json::to_vec(&old).unwrap()).unwrap();
+        let before = fs::read(ws.page_path(ID)).unwrap();
+
+        // 구조만 읽기·본문 읽기 둘 다 파일을 건드리지 않는다 (버전 기록도 없다)
+        ws.load_meta().unwrap();
+        assert!(ws.read_page(ID).unwrap().is_some());
+        assert_eq!(fs::read(ws.page_path(ID)).unwrap(), before);
+        assert!(ws.list_versions(ID).unwrap().is_empty());
+    }
+
+    #[test]
+    fn first_save_of_a_loaded_page_keeps_no_copy() {
+        // 구조만 읽은 페이지의 첫 저장 (본문 지연 로딩 경로)
+        let (_d, ws) = ws();
+        fs::write(ws.page_path(ID), serde_json::to_vec(&page(ID)).unwrap()).unwrap();
+        ws.load_meta().unwrap();
+        let mut edited = page(ID);
+        edited
+            .as_object_mut()
+            .unwrap()
+            .insert("title".into(), json!("앱에서 고친 제목"));
+        assert!(!ws.write_page(&edited).unwrap());
+        assert!(ws.list_versions(ID).unwrap().is_empty());
+    }
+
+    #[test]
+    fn first_save_after_reading_a_body_keeps_no_copy() {
+        let (_d, ws) = ws();
+        fs::write(ws.page_path(ID), serde_json::to_vec(&page(ID)).unwrap()).unwrap();
+        let loaded = ws.read_page(ID).unwrap().unwrap();
+        assert!(!ws.write_page(&loaded).unwrap());
+        assert!(ws.list_versions(ID).unwrap().is_empty());
+    }
+
+    #[test]
     fn write_page_reports_no_kept_copy_when_nothing_changed_outside() {
         let (_d, ws) = ws();
         assert!(!ws.write_page(&page(ID)).unwrap());

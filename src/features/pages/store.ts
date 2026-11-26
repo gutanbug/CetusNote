@@ -17,7 +17,7 @@ import { createStore } from "zustand/vanilla";
 import { createSaveQueue, type SaveState } from "./save-queue";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import { createHistoryRecorder, fingerprint, type HistoryRecorder } from "../history/recorder";
-import { isBodyLoaded, UNLOADED_BODY } from "./body";
+import { isBodyLoaded, sameValue, UNLOADED_BODY } from "./body";
 import { notifyKeptExternal } from "./kept-external";
 
 /** 본문을 한 번에 읽는 페이지 수 (IPC 한 번의 크기와 화면 갱신 간격) */
@@ -289,6 +289,8 @@ export function createPagesStore(
       update(id, patch) {
         const page = get().pages[id];
         if (!page) return;
+        // 값이 그대로인 갱신은 편집이 아니다: 저장·updatedAt 갱신·버전 기록을 일으키지 않는다 (DATA-07 열기 쓰기 방지)
+        if (Object.entries(patch).every(([k, v]) => sameValue(v, page[k as keyof Page]))) return;
         if (patch.parentId !== undefined && patch.parentId !== page.parentId) {
           const parent = patch.parentId ? get().pages[patch.parentId] : null;
           if (!canContain(parent, page.kind)) throw new Error("컬렉션 안에는 문서만 둘 수 있어요");
