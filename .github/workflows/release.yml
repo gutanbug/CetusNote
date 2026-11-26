@@ -154,3 +154,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: gh release upload "$TAG" "$RUNNER_TEMP/latest.json" --clobber
+
+      - name: 릴리스 노트 다시 적용 (빌드 단계가 본문을 바꿨을 때 대비)
+        # tauri-action이 기존 릴리스의 본문을 덮어쓰는 경우가 있어 마지막에 CHANGELOG 섹션으로 되돌린다(SYS-12)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/release-notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "이미 설치한 앱은 설정 › 일반 › 업데이트에서 바로 업데이트할 수 있어요."
+            echo "처음 설치하는 경우 서명이 없어서 macOS는 우클릭 › 열기, Windows는 SmartScreen의 「추가 정보 › 실행」으로 열어 주세요."
+          } >> "$RUNNER_TEMP/release-notes.md"
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
