@@ -12,14 +12,128 @@ import { imagesToFigures } from "./remote-images";
 
 /** 줄 맨 앞 블록 기호: 제목 · 목록 · 할 일 · 인용 · 코드 울타리 · 표 · 구분선 */
 const BLOCK_LINE =
-  /^\s{0,3}(#{1,6}\s|[-*+]\s|\d{1,9}[.)]\s|>|```|~~~|\|.*\||(?:-{3,}|\*{3,}|_{3,})\s*$)/;
-/** 글 안 서식: 굵게 · 기울임 · 취소선 · 코드 · 링크 */
-const INLINE = /\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+\)/;
+  /^\s{0,3}(#{1,6}\s|[-*+]\s|\d{1,9}[.)]\s|>|```|~~~|\|.*\||\$\$\s*$|(?:-{3,}|\*{3,}|_{3,})\s*$)/;
+/** 글 안 서식: 굵게 · 기울임 · 취소선 · 코드 · 링크 · 인라인 수식 */
+const INLINE =
+  /\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+\)|(?<![\\$])\$[^\s$](?:[^$\n]*?[^\s$])?\$(?!\d|\$)/;
 
 /** 마크다운으로 보이는 글인지 — 평범한 글은 지금처럼 줄마다 문단으로 붙인다 */
 export function looksLikeMarkdown(text: string): boolean {
   const lines = text.split(/\r\n?|\n/);
   return lines.some((l) => BLOCK_LINE.test(l)) || INLINE.test(text);
+}
+
+/**
+ * 수식은 marked에 넘기기 전에 글자 토큰으로 바꿔 둔다. marked가 \{ 나 \\ 같은 역슬래시를
+ * 풀어 버리면 LaTeX가 깨지기 때문이다. 코드 울타리·코드 span 안의 $는 건드리지 않는다.
+ * 블록: 줄 맨 앞 `$$`·줄바꿈·`$$` (내보내기 형식). 인라인: `$x$` (앞뒤가 공백이 아니고 뒤에 숫자가 오지 않아야 한다 —
+ * `$5 and $10`은 수식이 아니다).
+ */
+const MATH_OR_CODE =
+  /(?<fence>^[ \t]{0,3}(?<fc>`{3,}|~{3,})[^\n]*\n[\s\S]*?\n[ \t]{0,3}\k<fc>[ \t]*$)|(?<span>(?<bt>`+)[^`\n]+?\k<bt>(?!`))|(?<bmath>^\$\$\n(?<bl>[\s\S]*?)\n\$\$[ \t]*$)|(?<imath>(?<![\\$])\$(?<il>[^\s$](?:[^$\n]*?[^\s$])?)\$(?!\d|\$))/gm;
+
+type MathSlot = { block: boolean; latex: string };
+
+function protectMath(text: string): { text: string; slots: MathSlot[] } {
+  const slots: MathSlot[] = [];
+  const out = text.replace(MATH_OR_CODE, (...args) => {
+    const groups = args[args.length - 1] as Record<string, string | undefined>;
+    if (groups.fence || groups.span) return args[0] as string;
+    if (groups.bmath !== undefined) {
+      slots.push({ block: true, latex: groups.bl ?? "" });
+      return `\n\nCETUSMATHB${slots.length - 1}END\n\n`;
+    }
+    slots.push({ block: false, latex: groups.il ?? "" });
+    return `CETUSMATHI${slots.length - 1}END`;
+  });
+  return { text: out, slots };
+}
+
+/** 글자 노드 안에서 패턴에 맞는 곳을 make가 돌려준 요소로 바꾼다 (코드·코드 블록 안은 건너뛴다) */
+function replaceInText(
+  root: HTMLElement,
+  pattern: RegExp,
+  make: (match: RegExpExecArray) => Element | null,
+): void {
+  const doc = root.ownerDocument;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const text = n as Text;
+    if (!text.parentElement?.closest("code,pre")) texts.push(text);
+  }
+  for (const text of texts) {
+    const value = text.data;
+    const re = new RegExp(pattern.source, pattern.flags);
+    const frag = doc.createDocumentFragment();
+    let last = 0;
+    let changed = false;
+    for (let m = re.exec(value); m; m = re.exec(value)) {
+      const el = make(m);
+      if (!el) continue;
+      changed = true;
+      frag.append(value.slice(last, m.index), el);
+      last = m.index + m[0].length;
+    }
+    if (!changed) continue;
+    frag.append(value.slice(last));
+    text.replaceWith(frag);
+  }
+}
+
+/** 보존해 둔 수식 토큰을 수식 노드(div·span[data-type=…], 원래 LaTeX는 data-latex)로 되돌린다 */
+function restoreMath(root: HTMLElement, slots: MathSlot[]): void {
+  const doc = root.ownerDocument;
+  for (const p of [...root.querySelectorAll("p")]) {
+    const m = /^CETUSMATHB(\d+)END$/.exec(p.textContent?.trim() ?? "");
+    const slot = m && slots[Number(m[1])];
+    if (!slot?.block) continue;
+    const div = doc.createElement("div");
+    div.setAttribute("data-type", "block-math");
+    div.setAttribute("data-latex", slot.latex);
+    p.replaceWith(div);
+  }
+  replaceInText(root, /CETUSMATHI(\d+)END/g, (m) => {
+    const slot = slots[Number(m[1])];
+    if (!slot || slot.block) return null;
+    const span = doc.createElement("span");
+    span.setAttribute("data-type", "inline-math");
+    span.setAttribute("data-latex", slot.latex);
+    return span;
+  });
+}
+
+/** `@2026-11-27` (내보내기 날짜 칩 형식) → 날짜 칩. 실제 없는 날짜는 글자 그대로 둔다 */
+function restoreDateChips(root: HTMLElement): void {
+  replaceInText(root, /(?<![\w@])@(\d{4}-\d{2}-\d{2})(?![\w-])/g, (m) => {
+    const date = m[1]!;
+    if (new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) return null;
+    const span = root.ownerDocument.createElement("span");
+    span.setAttribute("data-type", "date-chip");
+    span.setAttribute("data-date", date);
+    span.textContent = m[0];
+    return span;
+  });
+}
+
+/**
+ * `<details><summary><h2>제목</h2></summary>…` (내보내기 형식 · 토글 제목) → 토글 제목 블록.
+ * 요약 안에 H1–H3 하나만 있을 때만 바꾼다. 그 밖의 토글은 기존 details 변환을 따른다.
+ */
+function toggleHeadingsFromDetails(root: HTMLElement): void {
+  for (const details of [...root.querySelectorAll("details")]) {
+    const summary = details.firstElementChild;
+    const heading = summary?.tagName === "SUMMARY" ? summary.firstElementChild : null;
+    if (!heading || !/^H[1-3]$/.test(heading.tagName) || summary?.children.length !== 1) continue;
+    const doc = root.ownerDocument;
+    const h = doc.createElement(heading.tagName.toLowerCase());
+    h.textContent = heading.textContent;
+    const box = doc.createElement("div");
+    box.setAttribute("data-type", "toggleHeading");
+    box.setAttribute("data-open", String(details.hasAttribute("open")));
+    box.append(h, ...[...details.childNodes].filter((n) => n !== summary));
+    details.replaceWith(box);
+  }
 }
 
 /** `[!NOTE] 💡` 머리의 콜아웃 종류 표지 (내보내기 형식 · Obsidian 형식 모두) */
@@ -76,8 +190,13 @@ export function markdownToDom(
   images?: Parameters<typeof imagesToFigures>[1],
   links?: { pageLabel?: (id: string) => string | undefined },
 ): HTMLElement {
-  const html = marked.parse(text.replace(/\r\n?/g, "\n")) as string;
+  const protectedMath = protectMath(text.replace(/\r\n?/g, "\n"));
+  const html = marked.parse(protectedMath.text) as string;
   const doc = new window.DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+  // 토글 제목 (<details><summary><h2>…) 과 수식·날짜 칩 (DATA-04 왕복)
+  toggleHeadingsFromDetails(doc.body);
+  restoreMath(doc.body, protectedMath.slots);
+  restoreDateChips(doc.body);
   // GFM 할 일(<li><input type=checkbox> …)을 TaskList/TaskItem 모양으로
   for (const box of doc.querySelectorAll<HTMLInputElement>('li > input[type="checkbox"]')) {
     const li = box.parentElement!;

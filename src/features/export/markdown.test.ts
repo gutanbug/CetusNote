@@ -215,7 +215,7 @@ describe("페이지 멘션 (EDIT-13)", () => {
 });
 
 describe("편집 블록 phase 2 (EDIT-28·29·34·36)", () => {
-  it("토글 제목 → <details>, 요약은 제목 글, 접힌 내용은 나머지 블록 (단계는 글로 남지 않는다)", () => {
+  it("토글 제목 → <details>, 요약은 <h2> 제목 줄, 접힌 내용은 나머지 블록", () => {
     const md = doc({
       type: "toggleHeading",
       attrs: { open: false },
@@ -224,14 +224,14 @@ describe("편집 블록 phase 2 (EDIT-28·29·34·36)", () => {
         p(t("숨은 본문")),
       ],
     });
-    expect(md).toBe("<details>\n<summary>접힌 제목</summary>\n\n숨은 본문\n\n</details>");
+    expect(md).toBe("<details>\n<summary><h2>접힌 제목</h2></summary>\n\n숨은 본문\n\n</details>");
     expect(
       doc({
         type: "toggleHeading",
         attrs: { open: true },
         content: [{ type: "heading", attrs: { level: 1 }, content: [t("빈")] }],
       }),
-    ).toBe("<details open>\n<summary>빈</summary>\n</details>");
+    ).toBe("<details open>\n<summary><h1>빈</h1></summary>\n</details>");
   });
 
   it("단 나누기 → 열 순서대로 이어 쓴다 (가로 배치는 손실)", () => {
@@ -254,14 +254,14 @@ describe("편집 블록 phase 2 (EDIT-28·29·34·36)", () => {
     expect(pageToMarkdown(page)).toContain("[하위 페이지](cetusnote://page/c1)");
   });
 
-  it("날짜 칩 → YYYY-MM-DD 글자 (시각·알림은 글로 옮기지 않는다)", () => {
+  it("날짜 칩 → @YYYY-MM-DD 글자 (시각·알림은 글로 옮기지 않는다)", () => {
     const md = doc(
       p(t("마감 "), {
         type: "dateChip",
         attrs: { date: "2026-12-01", time: "09:30", reminder: { kind: "morning" } },
       }),
     );
-    expect(md).toBe("마감 2026-12-01");
+    expect(md).toBe("마감 @2026-12-01");
   });
 
   it("경로 표시 블록은 글로 남지 않는다 (손실)", () => {
@@ -541,5 +541,70 @@ describe("단일 페이지 이미지 링크 (DATA-04)", () => {
     expect(md).toContain("![](<assets/a b.png>)");
     expect(md).toContain("[c.pdf](assets/c.pdf)");
     expect(md).not.toContain("01JD0000");
+  });
+});
+
+describe("왕복: 토글 제목·수식·날짜 칩 (DATA-04 · DATA-08)", () => {
+  it("토글 제목은 단계(H1–H3)와 열림 상태가 그대로 돌아온다", async () => {
+    const md = doc(
+      {
+        type: "toggleHeading",
+        attrs: { open: false },
+        content: [
+          { type: "heading", attrs: { level: 3 }, content: [t("세 번째")] },
+          p(t("본문 셋")),
+        ],
+      },
+      {
+        type: "toggleHeading",
+        attrs: { open: true },
+        content: [
+          { type: "heading", attrs: { level: 1 }, content: [t("첫째")] },
+          p(t("본문 하나")),
+        ],
+      },
+    );
+    const back = (await markdownToDoc(md)) as Json;
+    const boxes = nodesOf(back, "toggleHeading");
+    expect(
+      boxes.map((b) => [
+        b.attrs?.open,
+        b.content?.[0]?.type,
+        b.content?.[0]?.attrs?.level,
+        textOf(b.content![0]!),
+      ]),
+    ).toEqual([
+      [false, "heading", 3, "세 번째"],
+      [true, "heading", 1, "첫째"],
+    ]);
+    expect(textOf(boxes[0]!)).toContain("본문 셋");
+    expect(nodesOf(back, "details")).toHaveLength(0);
+  });
+
+  it("인라인·블록 수식은 LaTeX 역슬래시를 살려 수식 노드로 돌아온다", async () => {
+    const md = doc(
+      p(t("식 "), { type: "inlineMath", attrs: { latex: "\\{x\\} + y_1" } }, t(" 끝")),
+      { type: "blockMath", attrs: { latex: "a \\\\ b\n\\sum_{i} x_i" } },
+    );
+    const back = (await markdownToDoc(md)) as Json;
+    expect(nodesOf(back, "inlineMath")[0]?.attrs).toEqual({ latex: "\\{x\\} + y_1" });
+    expect(nodesOf(back, "blockMath")[0]?.attrs).toEqual({ latex: "a \\\\ b\n\\sum_{i} x_i" });
+  });
+
+  it("통화 표기 $5 and $10은 수식이 아니다", async () => {
+    const back = (await markdownToDoc("가격은 $5 and $10 이에요")) as Json;
+    expect(nodesOf(back, "inlineMath")).toHaveLength(0);
+    expect(textOf(back)).toContain("$5 and $10");
+  });
+
+  it("날짜 칩은 @YYYY-MM-DD로 돌아오고, 없는 날짜는 글자로 남는다", async () => {
+    const md = doc(
+      p(t("마감 "), { type: "dateChip", attrs: { date: "2026-12-01" } }, t(" 또는 @2026-02-31")),
+    );
+    const [chip] = nodesOf((await markdownToDoc(md)) as Json, "dateChip");
+    expect(chip?.attrs?.date).toBe("2026-12-01");
+    const back = (await markdownToDoc("기한 @2026-02-31")) as Json;
+    expect(nodesOf(back, "dateChip")).toHaveLength(0);
+    expect(textOf(back)).toContain("@2026-02-31");
   });
 });

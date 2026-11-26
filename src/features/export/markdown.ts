@@ -149,8 +149,9 @@ function inline(nodes: MdNode[] = [], mode: InlineMode = "block"): string {
       const title = mentionTitle?.(id) ?? String(node.attrs?.label ?? "");
       text = `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
     } else if (node.type === "dateChip") {
-      // 날짜 칩(EDIT-36)은 YYYY-MM-DD 글자로 (알림·시각은 글로 옮기지 않는다)
-      text = String(node.attrs?.date ?? "");
+      // 날짜 칩(EDIT-36)은 `@YYYY-MM-DD`로 쓴다. 가져오기가 이 형식만 날짜 칩으로 되돌린다.
+      // 시각·알림·완료 표시는 글로 옮기지 않는다 (손실). 날짜가 없으면 빈 글
+      text = node.attrs?.date ? `@${String(node.attrs.date)}` : "";
     } else if (node.type === "emoji") {
       const name = String(node.attrs?.name ?? "");
       text = shortcodeToEmoji(name, emojis)?.emoji ?? `:${name}:`;
@@ -297,9 +298,12 @@ function block(node: MdNode): string {
       ].join("\n");
     }
     case "toggleHeading": {
-      // 제목 줄이 요약이고 나머지 블록이 접히는 내용 (EDIT-28). 제목 단계(H1–H3)는 글로 남지 않는다 (손실)
+      // 제목 줄이 요약이고 나머지 블록이 접히는 내용 (EDIT-28). 요약은 <h1>–<h3>로 감싸 단계를 남긴다
+      // (GitHub·Obsidian이 제목으로 그리고, 가져오기가 같은 단계의 토글 제목으로 되돌린다)
       const [head, ...rest] = node.content ?? [];
-      const summary = head?.type === "heading" ? inline(head.content, "heading") : "";
+      const level = Math.min(3, Math.max(1, Number(head?.attrs?.level) || 1));
+      const summary =
+        head?.type === "heading" ? `<h${level}>${inline(head.content, "heading")}</h${level}>` : "";
       const body = blocks(rest);
       return [
         node.attrs?.open !== false ? "<details open>" : "<details>",
