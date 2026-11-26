@@ -164,6 +164,13 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 5. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
 6. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
 
+## 릴리스 노트
+
+- 바뀐 내용은 `CHANGELOG.md`의 `## [Unreleased]` 아래에 `### Added / Changed / Deprecated / Removed / Fixed / Security` 항목으로 적어요. 사용자가 이해할 문장으로, 영어로 써요(예: `- Add CSV export for collections.`). 내부 기능 ID나 커밋 해시는 쓰지 않아요.
+- 릴리스할 때 `node scripts/version.mjs 0.2.0`이 `[Unreleased]`를 `## [0.2.0] - 날짜`로 옮기고 비교 링크를 고쳐요. `[Unreleased]`가 비어 있으면 아무 파일도 바꾸지 않고 멈춰요.
+- 태그 워크플로는 그 버전 섹션을 GitHub Release 본문과 `latest.json`의 `notes`로 써요. 섹션이 없거나 비어 있으면 빌드 전에 멈춰요. 앱은 같은 내용을 「업데이트 내용」 대화상자로 보여 줘요.
+- 확인: `node scripts/release-notes.mjs v0.2.0`
+
 ## 프로젝트 구조
 
 ```
