@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-26
+
 ### Added
 
 - Page body width can inherit from the page, its folder, or the global setting.
@@ -99,7 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial development version. Not released publicly.
 
-[Unreleased]: https://github.com/gutanbug/CetusNote/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/gutanbug/CetusNote/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/gutanbug/CetusNote/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/gutanbug/CetusNote/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/gutanbug/CetusNote/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/gutanbug/CetusNote/compare/v0.1.2...v0.1.3
