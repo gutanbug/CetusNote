@@ -164,6 +164,17 @@ UI만 빠르게 보려면 `pnpm dev`로 브라우저 미리보기(http://localho
 5. **업데이트 서명 키(`~/.tauri/cetusnote.key`)를 잃으면 이미 설치된 앱이 더는 업데이트를 받을 수 없어요.** 비밀번호 관리 도구 같은 안전한 곳에 백업해 두세요. 저장소에는 올라가지 않아요(`*.key` 무시). 공개 키는 `src-tauri/tauri.conf.json`의 `plugins.updater.pubkey`에 있어요.
 6. 로컬에서 릴리스 빌드만 해 볼 때는 `pnpm tauri build`를 써요. 업데이트 파일은 만들지 않아서 서명 키가 없어도 돼요.
 
+### 로컬 릴리스 (Docker)
+
+GitHub Actions를 쓸 수 없을 때(사용량 초과 등) 이 Mac에서 세 플랫폼을 모두 만들어요. 위 3번의 태그까지는 같고, 워크플로 대신 스크립트를 써요.
+
+- `scripts/release-local.sh v0.2.0`: 태그 소스를 `git archive`로 꺼내서 macOS universal은 이 Mac에서, Linux(AppImage · deb)와 Windows(NSIS)는 Docker 컨테이너에서 빌드하고 서명해요. 이어서 `latest.json`을 만들고 Release를 **draft**로 올려요.
+- 확인 뒤 공개해요: 바로 공개하려면 `--publish`를 붙이고, 아니면 `gh release edit v0.2.0 --draft=false --latest`를 실행해요. 플랫폼 하나라도 실패하면 Release를 만들지 않아요.
+- 옵션: `--skip-mac` · `--skip-linux` · `--skip-windows`(이미 만든 산출물을 쓸 때), `--build-only`(빌드만 하고 Release는 만들지 않음).
+- 서명 키는 `~/.tauri/cetusnote.key`를 읽기 전용으로만 넘겨요. 비밀번호가 있으면 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`를 환경 변수로 넘겨요.
+- Docker 이미지: `docker/release-linux.Dockerfile`(Ubuntu 22.04, amd64 에뮬레이션), `docker/release-windows.Dockerfile`(cargo-xwin + NSIS). 캐시는 named volume에 남아서 다음 빌드가 빨라요. Docker 디스크가 가득 차면 실패하니 `docker builder prune`으로 빌드 캐시를 비워요.
+- 산출물은 `~/.cache/cetusnote-release/<태그>/`에 남아요.
+
 ## 릴리스 노트
 
 - 바뀐 내용은 `CHANGELOG.md`의 `## [Unreleased]` 아래에 `### Added / Changed / Deprecated / Removed / Fixed / Security` 항목으로 적어요. 사용자가 이해할 문장으로, 영어로 써요(예: `- Add CSV export for collections.`). 내부 기능 ID나 커밋 해시는 쓰지 않아요.
