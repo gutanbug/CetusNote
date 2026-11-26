@@ -10,9 +10,9 @@ use std::sync::{Arc, Mutex};
 use std::time::UNIX_EPOCH;
 
 /// (수정 시각 ns, 크기)
-type Stamp = (u128, u64);
+pub(crate) type Stamp = (u128, u64);
 
-fn stamp_of(path: &Path) -> Option<Stamp> {
+pub(crate) fn stamp_of(path: &Path) -> Option<Stamp> {
     let m = fs::symlink_metadata(path).ok()?;
     if !m.is_file() {
         return None;
