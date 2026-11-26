@@ -155,6 +155,7 @@ pub fn write_json(path: &Path, value: &Value) -> Result<()> {
 }
 
 /// 살아 있는 프로세스인가 (kill -0). 권한이 없어도 살아 있는 것으로 본다
+#[cfg(unix)]
 pub fn process_alive(pid: u32) -> bool {
     // 0 이하는 프로세스 그룹을 뜻하므로 개별 프로세스로 취급하지 않는다
     let Ok(pid) = i32::try_from(pid) else {
@@ -170,21 +171,87 @@ pub fn process_alive(pid: u32) -> bool {
     }
 }
 
+/// 신호를 보낼 수 없는 플랫폼에서는 살아 있다고 본다(잠금을 쉽게 풀지 않는 쪽).
+#[cfg(not(unix))]
+pub fn process_alive(_pid: u32) -> bool {
+    true
+}
+
+/// 프로세스가 시작된 시각 표식(마이크로초 또는 jiffies). pid가 다른 프로세스에 재사용됐는지 가리는 데 쓴다.
+/// 읽을 수 없으면 None.
+#[cfg(target_os = "macos")]
+pub fn process_started_at(pid: u32) -> Option<u64> {
+    let pid = i32::try_from(pid).ok().filter(|p| *p > 0)?;
+    // SAFETY: proc_bsdinfo는 정수 필드만 있어 0으로 채운 값이 유효하다. 반환 크기가 구조체 크기와 같을 때만 쓴다
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+    let written = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            (&mut info as *mut libc::proc_bsdinfo).cast(),
+            size,
+        )
+    };
+    (written == size).then(|| info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec)
+}
+
+/// /proc/<pid>/stat의 starttime(22번째 필드, jiffies). comm 필드는 괄호로 싸여 공백이 있을 수 있어 마지막 `)` 뒤부터 센다.
+#[cfg(target_os = "linux")]
+pub fn process_started_at(pid: u32) -> Option<u64> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let rest = stat.get(stat.rfind(')')? + 1..)?;
+    // `)` 뒤 첫 필드가 state(3번째)이므로 starttime은 인덱스 19다
+    rest.split_whitespace().nth(19)?.parse().ok()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub fn process_started_at(_pid: u32) -> Option<u64> {
+    None
+}
+
+/// 잠금 파일 내용을 읽는다. `pid` 또는 `pid 시작표식`(예전 형식은 pid만)
+fn parse_lock(text: &str) -> Option<(u32, Option<u64>)> {
+    let mut parts = text.split_whitespace();
+    let pid = parts.next()?.parse::<u32>().ok()?;
+    let started = parts.next().and_then(|s| s.parse::<u64>().ok());
+    Some((pid, started))
+}
+
+/// 잠금 파일에 쓸 내용. 시작 시각을 알 수 있으면 함께 적는다.
+fn lock_text(pid: u32) -> String {
+    match process_started_at(pid) {
+        Some(started) => format!("{pid} {started}"),
+        None => pid.to_string(),
+    }
+}
+
+/// 잠금을 잡았던 프로세스가 아직 그 프로세스인가. 시작 시각이 다르면 pid가 재사용된 것이다.
+/// 기록된 시각이나 현재 시각을 알 수 없으면 pid만으로 판단한다(예전 방식과 같다).
+fn is_same_owner(owner: u32, recorded_start: Option<u64>) -> bool {
+    match (recorded_start, process_started_at(owner)) {
+        (Some(then), Some(now)) => then == now,
+        _ => true,
+    }
+}
+
 /// 앱 창이 이 폴더를 쓰기 전에 잠금을 잡는다. 다른 살아 있는 프로세스가 잡고 있으면 `locked`로 거절한다.
-/// 죽은 프로세스의 잠금(예: 강제 종료)은 이어받는다.
+/// 죽은 프로세스의 잠금(예: 강제 종료)은 이어받는다. pid만 같고 시작 시각이 다른 잠금(재사용된 pid)도 이어받는다.
 pub fn acquire_app_lock(root: &Path, pid: u32, is_alive: impl Fn(u32) -> bool) -> Result<()> {
     let path = root.join(APP_LOCK_FILE);
-    if let Ok(text) = fs::read_to_string(&path) {
-        if let Ok(owner) = text.trim().parse::<u32>() {
-            if owner != pid && is_alive(owner) {
-                return Err(StorageError::new(
-                    "locked",
-                    "이 워크스페이스는 다른 CetusNote 창에서 열려 있어요. 그 창을 닫은 뒤 다시 열어 주세요.",
-                ));
-            }
+    let held = fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| parse_lock(&text));
+    if let Some((owner, started)) = held {
+        if owner != pid && is_alive(owner) && is_same_owner(owner, started) {
+            return Err(StorageError::new(
+                "locked",
+                "이 워크스페이스는 다른 CetusNote 창에서 열려 있어요. 그 창을 닫은 뒤 다시 열어 주세요.",
+            ));
         }
     }
-    atomic_write(&path, pid.to_string().as_bytes())?;
+    atomic_write(&path, lock_text(pid).as_bytes())?;
     Ok(())
 }
 
@@ -193,7 +260,8 @@ pub fn release_app_lock(root: &Path, pid: u32) {
     let path = root.join(APP_LOCK_FILE);
     let owner = fs::read_to_string(&path)
         .ok()
-        .and_then(|t| t.trim().parse::<u32>().ok());
+        .and_then(|text| parse_lock(&text))
+        .map(|(owner, _)| owner);
     if owner == Some(pid) {
         let _ = fs::remove_file(&path);
     }
@@ -567,14 +635,14 @@ mod tests {
         let root = dir.path();
         // 잠금이 없으면 잡는다
         acquire_app_lock(root, 100, |_| false).unwrap();
-        assert_eq!(fs::read_to_string(root.join(APP_LOCK_FILE)).unwrap(), "100");
+        assert_eq!(lock_owner_pid(root), 100);
         // 다른 살아 있는 프로세스가 잡고 있으면 거절한다
         let err = acquire_app_lock(root, 200, |p| p == 100).unwrap_err();
         assert_eq!(err.code, "locked");
         assert!(err.message.contains("다른 CetusNote 창"));
         // 죽은 프로세스의 잠금은 이어받는다
         acquire_app_lock(root, 200, |_| false).unwrap();
-        assert_eq!(fs::read_to_string(root.join(APP_LOCK_FILE)).unwrap(), "200");
+        assert_eq!(lock_owner_pid(root), 200);
         // 자기 잠금은 다시 잡아도 된다
         acquire_app_lock(root, 200, |_| true).unwrap();
     }
@@ -597,6 +665,84 @@ mod tests {
     fn process_alive_sees_this_process() {
         assert!(process_alive(std::process::id()));
         assert!(!process_alive(0));
+    }
+
+    fn lock_owner_pid(root: &Path) -> u32 {
+        let text = fs::read_to_string(root.join(APP_LOCK_FILE)).unwrap();
+        parse_lock(&text).unwrap().0
+    }
+
+    /// 잠금 주인 자리에 무관한 살아 있는 프로세스(sleep)를 세워 둔다. 끝나면 정리한다.
+    #[cfg(unix)]
+    struct Sleeper(std::process::Child);
+
+    #[cfg(unix)]
+    impl Sleeper {
+        fn spawn() -> Self {
+            Sleeper(
+                std::process::Command::new("sleep")
+                    .arg("30")
+                    .spawn()
+                    .unwrap(),
+            )
+        }
+        fn pid(&self) -> u32 {
+            self.0.id()
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for Sleeper {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    /// 예전 형식(pid만)의 잠금은 살아 있는 pid면 여전히 거절한다. 재사용 구분이 없는 한계는 그대로다.
+    #[cfg(unix)]
+    #[test]
+    fn old_pid_only_lock_still_refuses_a_live_pid() {
+        let other = Sleeper::spawn();
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(APP_LOCK_FILE), other.pid().to_string()).unwrap();
+        let err = acquire_app_lock(dir.path(), 200, process_alive).unwrap_err();
+        assert_eq!(err.code, "locked");
+    }
+
+    /// pid가 재사용됐다(같은 pid, 다른 시작 시각)면 거짓 거절하지 않고 이어받는다
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[test]
+    fn lock_with_a_reused_pid_is_taken_over() {
+        let other = Sleeper::spawn();
+        let started = process_started_at(other.pid()).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        // 잠금을 남긴 앱은 이 프로세스가 아니었다고 기록돼 있다
+        fs::write(
+            dir.path().join(APP_LOCK_FILE),
+            format!("{} {}", other.pid(), started + 1),
+        )
+        .unwrap();
+        acquire_app_lock(dir.path(), 200, process_alive).unwrap();
+        assert_eq!(lock_owner_pid(dir.path()), 200);
+    }
+
+    /// 시작 시각까지 같은 살아 있는 프로세스는 여전히 잠금 주인이다
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[test]
+    fn lock_with_the_same_start_time_is_refused() {
+        let other = Sleeper::spawn();
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(APP_LOCK_FILE), lock_text(other.pid())).unwrap();
+        let err = acquire_app_lock(dir.path(), 200, process_alive).unwrap_err();
+        assert_eq!(err.code, "locked");
+    }
+
+    #[test]
+    fn lock_text_round_trips_and_accepts_the_old_format() {
+        assert_eq!(parse_lock("123"), Some((123, None)));
+        assert_eq!(parse_lock("123 456\n"), Some((123, Some(456))));
+        assert_eq!(parse_lock("junk"), None);
     }
 
     use super::*;
