@@ -1,4 +1,5 @@
 import { toast } from "@/components/ui/toast";
+import { frontMatterPref } from "@/features/export/prefs";
 import { buildWorkspaceExport } from "@/features/export/workspace";
 import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
@@ -24,6 +25,7 @@ export async function exportWorkspaceMarkdown(storage: Storage = getStorage()): 
     order: meta?.order ?? {},
     workspaceName: meta?.name ?? "",
     date: todayKey(),
+    frontMatter: frontMatterPref(),
   });
   if (plan.documents === 0) {
     toast("내보낼 문서가 없어요");

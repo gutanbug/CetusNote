@@ -1,14 +1,17 @@
 import { emojiOf } from "@/lib/page-icon";
 import type { Page } from "@/lib/storage";
 import { detectLanguage } from "@/lib/code-language";
+import { calloutTypeOf } from "@/lib/callout-type";
 import { collectHeadings } from "@/lib/toc";
 import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
 
 /**
  * Tiptap JSON → Markdown (DATA-04). GitHub 호환(2026-11-19 사용자 결정):
  * - 콜아웃 → 이모지를 붙인 인용, 토글 → <details>, 밑줄·하이라이트·첨자 → <u> <mark> <sup> <sub>
- * - front matter는 쓰지 않는다(2026-11-23 사용자 결정). 맨 위는 `# 아이콘 제목` 한 번, 그 아래 본문.
- *   본문 맨 앞이 같은 제목의 H1이면 그 줄을 머리로 써서 제목이 두 번 나오지 않게 한다.
+ * - 페이지 파일은 front matter(id·tags·created·updated·icon)를 맨 위에 쓴다. 끌 수 있다(옵션, 기본 켬).
+ *   그 아래 `# 아이콘 제목` 한 번, 그 아래 본문. 본문 맨 앞이 같은 제목의 H1이면 그 줄을 머리로 써서
+ *   제목이 두 번 나오지 않게 한다.
+ * - 콜아웃 → `> [!NOTE] 💡 …` (Obsidian·GitHub 종류 이름, lib/callout-type).
  * - 글자색은 Markdown에 없어 버린다. 모르는 블록은 안쪽 내용만 살린다.
  */
 
@@ -242,8 +245,10 @@ function block(node: MdNode): string {
     case "blockquote":
       return indentLines(blocks(node.content), "> ", "> ");
     case "callout": {
+      // Obsidian·GitHub 콜아웃: `> [!NOTE] 💡 …`. 색은 종류 이름으로 남긴다 (lib/callout-type)
       const emoji = String(node.attrs?.emoji ?? "💡");
-      return indentLines(blocks(node.content), `> ${emoji} `, "> ");
+      const type = calloutTypeOf(String(node.attrs?.color ?? "blue"));
+      return indentLines(blocks(node.content), `> [!${type}] ${emoji} `, "> ");
     }
     case "codeBlock": {
       // 끝의 줄바꿈 하나는 닫는 울타리 앞 빈 줄이 되므로 뺀다
@@ -373,11 +378,12 @@ export function pageToMarkdown(
   page: Page,
   titleOf?: (id: string) => string | undefined,
   path?: string[],
+  options: PageMarkdownOptions = {},
 ): string {
   mentionTitle = titleOf;
   pagePath = path;
   try {
-    return pageMarkdown(page);
+    return pageMarkdown(page, options);
   } finally {
     mentionTitle = undefined;
     pagePath = undefined;
@@ -390,7 +396,28 @@ function plainText(node: MdNode): string {
   return node.text ?? (node.content ?? []).map(plainText).join("");
 }
 
-function pageMarkdown(page: Page): string {
+export type PageMarkdownOptions = {
+  /** 맨 위에 front matter(id·태그·만든·고친 날짜·아이콘)를 쓴다. 기본 켬 (DATA-04, 사용자 결정) */
+  frontMatter?: boolean;
+};
+
+/**
+ * front matter 블록. 값은 JSON 문자열로 적어 YAML 큰따옴표 문자열과 같게 읽힌다.
+ * 다시 가져올 때 `id`로 페이지 링크(cetusnote://page/<id>)를 잇고, `tags`로 태그를 되살린다.
+ */
+function frontMatterOf(page: Page): string {
+  const emoji = emojiOf(page.icon);
+  const lines = [
+    `id: ${JSON.stringify(page.id)}`,
+    `tags: [${page.props.tags.map((t) => JSON.stringify(t)).join(", ")}]`,
+    `created: ${JSON.stringify(page.createdAt)}`,
+    `updated: ${JSON.stringify(page.updatedAt)}`,
+    ...(emoji ? [`icon: ${JSON.stringify(emoji)}`] : []),
+  ];
+  return `---\n${lines.join("\n")}\n---\n\n`;
+}
+
+function pageMarkdown(page: Page, options: PageMarkdownOptions = {}): string {
   const title = page.title.trim() || "제목 없음";
   const nodes = (page.content as MdNode).content ?? [];
   const [first, ...rest] = nodes;
@@ -404,7 +431,8 @@ function pageMarkdown(page: Page): string {
   // 목차는 본문에 실제로 내보내는 제목만 가리킨다(머리로 합친 첫 H1은 빼고)
   tocRoot = { content: sameTitle ? rest : nodes };
   const body = blocks(sameTitle ? rest : nodes);
-  return [heading, body].filter(Boolean).join("\n\n") + "\n";
+  const text = [heading, body].filter(Boolean).join("\n\n") + "\n";
+  return options.frontMatter === false ? text : frontMatterOf(page) + text;
 }
 
 /** 저장 대화상자의 기본 파일 이름. 파일 이름에 못 쓰는 글자를 뺀다 */

@@ -7,6 +7,7 @@ import {
 } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Marked } from "marked";
+import { calloutColorOf } from "@/lib/callout-type";
 import { imagesToFigures } from "./remote-images";
 
 /** 줄 맨 앞 블록 기호: 제목 · 목록 · 할 일 · 인용 · 코드 울타리 · 표 · 구분선 */
@@ -21,6 +22,48 @@ export function looksLikeMarkdown(text: string): boolean {
   return lines.some((l) => BLOCK_LINE.test(l)) || INLINE.test(text);
 }
 
+/** `[!NOTE] 💡` 머리의 콜아웃 종류 표지 (내보내기 형식 · Obsidian 형식 모두) */
+const CALLOUT_OPEN = /^\[!([A-Za-z][\w-]*)\][ \t]*/;
+/** 콜아웃 머리 이모지 한 개 (변형 선택자·ZWJ 묶음 포함) */
+const LEADING_EMOJI = /^(\p{Extended_Pictographic}️?(?:⃣|‍\p{Extended_Pictographic}️?)*)[ \t]*/u;
+const PAGE_LINK = "cetusnote://page/";
+
+/**
+ * `> [!NOTE] 💡 …` 인용을 콜아웃 블록(`div[data-type=callout]`)으로 바꾼다 (DATA-08).
+ * 머리 줄에 이모지가 없으면 기본 💡을 쓴다. 종류 이름은 lib/callout-type이 색으로 옮긴다.
+ */
+function calloutsFromQuotes(root: HTMLElement): void {
+  for (const quote of [...root.querySelectorAll("blockquote")]) {
+    const first = quote.firstElementChild;
+    const lead = first?.firstChild;
+    if (first?.tagName !== "P" || lead?.nodeType !== Node.TEXT_NODE) continue;
+    const open = CALLOUT_OPEN.exec(lead.textContent ?? "");
+    if (!open) continue;
+    let rest = (lead.textContent ?? "").slice(open[0].length);
+    let emoji = "💡";
+    const em = LEADING_EMOJI.exec(rest);
+    if (em) {
+      emoji = em[1]!;
+      rest = rest.slice(em[0].length);
+    }
+    lead.textContent = rest;
+    // 줄바꿈(breaks)으로 생긴 <br>과 빈 글자를 걷어내고, 남은 것이 없으면 머리 문단을 뺀다
+    while (
+      first.firstChild &&
+      (first.firstChild.nodeName === "BR" ||
+        (first.firstChild.nodeType === Node.TEXT_NODE && !first.firstChild.textContent))
+    )
+      first.firstChild.remove();
+    if (!first.childNodes.length) first.remove();
+    const box = root.ownerDocument.createElement("div");
+    box.setAttribute("data-type", "callout");
+    box.setAttribute("data-emoji", emoji);
+    box.setAttribute("data-color", calloutColorOf(open[1]!));
+    box.append(...quote.childNodes);
+    quote.replaceWith(box);
+  }
+}
+
 // gfm: 표 · 할 일 · 취소선 · 주소 자동 링크. breaks: 한 줄 바꿈도 살린다(붙여 넣은 글이 이어 붙지 않게)
 const marked = new Marked({ gfm: true, breaks: true, async: false });
 
@@ -31,6 +74,7 @@ const marked = new Marked({ gfm: true, breaks: true, async: false });
 export function markdownToDom(
   text: string,
   images?: Parameters<typeof imagesToFigures>[1],
+  links?: { pageLabel?: (id: string) => string | undefined },
 ): HTMLElement {
   const html = marked.parse(text.replace(/\r\n?/g, "\n")) as string;
   const doc = new window.DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -46,6 +90,19 @@ export function markdownToDom(
   }
   // ![설명](주소)는 내려받을 이미지 자리로 (EDIT-24)
   imagesToFigures(doc.body, images);
+  // > [!NOTE] 💡 … 인용은 콜아웃 블록으로 (DATA-08)
+  calloutsFromQuotes(doc.body);
+  // cetusnote://page/<id> 링크 중 워크스페이스에 있는 페이지는 페이지 멘션으로 (DATA-10)
+  if (links?.pageLabel)
+    for (const a of [...doc.querySelectorAll<HTMLAnchorElement>(`a[href^="${PAGE_LINK}"]`)]) {
+      const id = a.getAttribute("href")!.slice(PAGE_LINK.length);
+      const label = id ? links.pageLabel(id) : undefined;
+      if (label === undefined) continue;
+      const span = doc.createElement("span");
+      span.setAttribute("data-page-mention", id);
+      span.textContent = label || "제목 없음";
+      a.replaceWith(span);
+    }
   // marked는 코드 블록 끝에 줄바꿈을 하나 더 붙인다
   for (const code of doc.querySelectorAll("pre > code")) {
     const last = code.lastChild;

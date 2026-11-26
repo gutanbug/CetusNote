@@ -26,8 +26,12 @@ function editorSchema() {
 export async function markdownToDoc(
   text: string,
   resolveImage?: ImageResolver,
+  pageLabel?: (id: string) => string | undefined,
 ): Promise<JSONContent> {
-  return bodyToDoc(markdownToDom(text, { local: true, max: MAX_IMPORT_IMAGES }), resolveImage);
+  return bodyToDoc(
+    markdownToDom(text, { local: true, max: MAX_IMPORT_IMAGES }, { pageLabel }),
+    resolveImage,
+  );
 }
 
 /**

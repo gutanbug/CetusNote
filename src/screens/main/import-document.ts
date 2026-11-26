@@ -62,7 +62,12 @@ export async function convertDocument(
         title: head.title,
         icon: head.icon,
         tags: head.tags,
-        content: await markdownToDoc(head.body, resolve),
+        // 워크스페이스에 있는 cetusnote://page/<id> 링크는 페이지 멘션으로 잇는다 (DATA-08·DATA-10)
+        content: await markdownToDoc(
+          head.body,
+          resolve,
+          (id) => pagesStore.getState().structure[id]?.title,
+        ),
       };
     }
     case "txt":
