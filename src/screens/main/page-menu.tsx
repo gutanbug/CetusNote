@@ -43,6 +43,7 @@ import {
   toggleFavorite,
 } from "./actions";
 import { openInNewTab } from "./tabs";
+import { pageMenuSections } from "./page-menu-model";
 import { useMainUi } from "./ui-store";
 
 const ic = { strokeWidth: 1.5 } as const;
@@ -69,7 +70,7 @@ export function PageMenu({
   const body = resolveBodyWidth(page.id, structure, defaultWide);
   const inherited = inheritedBodyWidth(page.id, structure, defaultWide);
   // 컬렉션(COLL-01)은 본문 모양·복제·내보내기가 없다
-  const doc = page.kind === "page";
+  const { doc, csv } = pageMenuSections(page.kind);
   // 템플릿(PAGE-14)은 즐겨찾기·탭·링크·옮기기·내보내기가 없다
   if (page.template)
     return (
@@ -183,15 +184,15 @@ export function PageMenu({
           <DropdownMenuItem icon={<Printer {...ic} />} onSelect={() => void exportPdf(page.id)}>
             PDF로 내보내기…
           </DropdownMenuItem>
-          {page.kind === "collection" && (
-            <DropdownMenuItem
-              icon={<FileSpreadsheet {...ic} />}
-              onSelect={() => void exportCsv(page.id)}
-            >
-              CSV로 내보내기
-            </DropdownMenuItem>
-          )}
         </>
+      ) : null}
+      {csv ? (
+        <DropdownMenuItem
+          icon={<FileSpreadsheet {...ic} />}
+          onSelect={() => void exportCsv(page.id)}
+        >
+          CSV로 내보내기
+        </DropdownMenuItem>
       ) : null}
       {doc ? (
         <>
