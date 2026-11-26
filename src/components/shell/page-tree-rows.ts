@@ -56,3 +56,11 @@ export function windowRange(
   const last = Math.min(count, Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan);
   return { first: Math.min(first, count), last };
 }
+
+/** 제목이 비었을 때 행이 보여 주는 이름. 종류마다 다르다 (페이지·폴더·컬렉션) */
+export function untitledRowName(node: PageNode): string {
+  if (node.title) return node.title;
+  if (node.kind === "folder") return "이름 없는 폴더";
+  if (node.kind === "collection") return "이름 없는 컬렉션";
+  return "제목 없음";
+}

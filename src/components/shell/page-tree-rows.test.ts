@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PageNode } from "./page-tree";
-import { ROW_HEIGHT, flattenRows, windowRange } from "./page-tree-rows";
+import { ROW_HEIGHT, flattenRows, untitledRowName, windowRange } from "./page-tree-rows";
 
 const leaf = (id: string): PageNode => ({ id, title: id });
 
@@ -82,5 +82,17 @@ describe("windowRange", () => {
 
   it("높이를 아직 잴 수 없으면 처음 40행만 그린다", () => {
     expect(windowRange(0, 0, 5000)).toEqual({ first: 0, last: 40 });
+  });
+});
+
+describe("untitledRowName", () => {
+  it("제목이 있으면 제목을 쓴다", () => {
+    expect(untitledRowName({ id: "x", title: "회의록", kind: "folder" })).toBe("회의록");
+  });
+
+  it("제목이 없으면 종류별 이름을 쓴다 (페이지·폴더·컬렉션)", () => {
+    expect(untitledRowName({ id: "p", title: "" })).toBe("제목 없음");
+    expect(untitledRowName({ id: "f", title: "", kind: "folder" })).toBe("이름 없는 폴더");
+    expect(untitledRowName({ id: "c", title: "", kind: "collection" })).toBe("이름 없는 컬렉션");
   });
 });

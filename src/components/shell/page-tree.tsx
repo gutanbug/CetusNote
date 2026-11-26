@@ -12,7 +12,13 @@ import { DropIndicator, type DropPosition } from "./drop-indicator";
 import { insetFocus, revealOnRow, rowActive, rowBase } from "./parts";
 import { PageIcon } from "@/components/ui/page-icon";
 import { keepMovedFocus } from "@/components/ui/menu-focus";
-import { type FlatRow, ROW_HEIGHT, flattenRows, windowRange } from "./page-tree-rows";
+import {
+  type FlatRow,
+  ROW_HEIGHT,
+  flattenRows,
+  untitledRowName,
+  windowRange,
+} from "./page-tree-rows";
 
 const TYPEAHEAD_MS = 500;
 /** 한 단계 들여쓰기 = 12px(ml-3) + 테두리 1px + 2px(pl-0.5) = 15px */
@@ -503,12 +509,7 @@ const PageTree = React.memo(function PageTree({
             title={node.title || undefined}
             className={cn("min-w-0 flex-1 truncate", !node.title && "text-tertiary")}
           >
-            {node.title ||
-              (folder
-                ? "이름 없는 폴더"
-                : node.kind === "collection"
-                  ? "이름 없는 컬렉션"
-                  : "제목 없음")}
+            {untitledRowName(node)}
           </span>
         </span>
         {rowMenu || onAddChild || addMenu ? (
@@ -526,7 +527,7 @@ const PageTree = React.memo(function PageTree({
               >
                 <DropdownMenuTrigger asChild>
                   <IconButton
-                    label={`${node.title || "제목 없음"} 더보기`}
+                    label={`${untitledRowName(node)} 더보기`}
                     noTooltip
                     tabIndex={-1}
                     onClick={(e) => e.stopPropagation()}
