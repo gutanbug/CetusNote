@@ -187,9 +187,16 @@ pub fn snapshot(ws: &Workspace) -> Res<Snapshot> {
         }
     }
     Ok(Snapshot {
-        entries: loaded.entries,
+        entries: loaded.entries.clone(),
         sibling_rank,
-        load_errors: loaded.errors,
+        load_errors: loaded
+            .errors
+            .iter()
+            .map(|e| LoadError {
+                file: e.file.clone(),
+                message: e.message.clone(),
+            })
+            .collect(),
     })
 }
 
@@ -585,6 +592,7 @@ fn save_changes(ws: &Workspace, before: &Value, after: Value) -> Res<WriteOutcom
         )
     })?;
     ws.write_page(&after).map_err(storage_err)?;
+    super::cache::forget(ws);
     Ok(WriteOutcome {
         page: after,
         changed: true,
@@ -852,6 +860,7 @@ pub fn create(ws: &Workspace, args: CreateArgs) -> Res<WriteOut> {
         &now_iso(),
     );
     ws.write_page(&page).map_err(storage_err)?;
+    super::cache::forget(ws);
     Ok(write_out(WriteOutcome {
         page,
         changed: true,

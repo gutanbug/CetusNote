@@ -10,14 +10,20 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+/// 이 시간 안의 연속 호출은 디스크를 다시 보지 않는다 (외부 편집은 최대 이만큼 늦게 보인다)
+const FRESH: Duration = Duration::from_millis(500);
 
 #[derive(Default)]
 struct Cache {
-    root: Option<PathBuf>,
     files: HashMap<String, (Stamp, Arc<Entry>)>,
+    /// 마지막 전체 확인 시각(확인을 시작한 시점)과 그 결과
+    scanned: Option<(Instant, Arc<Loaded>)>,
 }
 
-static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
+/// 워크스페이스(pages 폴더)마다 따로 기억한다. 한 프로세스에서 여러 워크스페이스를 읽어도 서로 비우지 않는다.
+static CACHE: OnceLock<Mutex<HashMap<PathBuf, Cache>>> = OnceLock::new();
 
 /// 캐시에서 꺼낸 페이지들과 읽지 못한 파일 목록
 pub struct Loaded {
@@ -25,17 +31,36 @@ pub struct Loaded {
     pub errors: Vec<LoadError>,
 }
 
+/// 이 프로세스가 페이지를 쓴 뒤 호출한다. 다음 `load`는 디스크를 다시 본다 (내 쓰기가 바로 보이게).
+pub fn forget(ws: &Workspace) {
+    if let Some(m) = CACHE.get() {
+        if let Ok(mut all) = m.lock() {
+            if let Some(cache) = all.get_mut(&ws.pages_dir()) {
+                cache.scanned = None;
+            }
+        }
+    }
+}
+
 /// `Workspace::load_all`과 같은 규칙으로 페이지를 모으되, 안 바뀐 파일은 다시 읽지 않는다.
-pub fn load(ws: &Workspace) -> Result<Loaded, StorageError> {
+/// 마지막 확인에서 `FRESH` 안이면 디스크를 보지 않고 그 결과를 돌려준다.
+pub fn load(ws: &Workspace) -> Result<Arc<Loaded>, StorageError> {
+    load_with(ws, FRESH)
+}
+
+fn load_with(ws: &Workspace, fresh: Duration) -> Result<Arc<Loaded>, StorageError> {
     let dir = ws.pages_dir();
-    let mut cache = CACHE
-        .get_or_init(|| Mutex::new(Cache::default()))
+    let mut all = CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
         .map_err(|_| StorageError::new("io", "캐시 잠금 실패"))?;
-    if cache.root.as_deref() != Some(dir.as_path()) {
-        cache.root = Some(dir.clone());
-        cache.files.clear();
+    let cache = all.entry(dir.clone()).or_default();
+    if let Some((at, last)) = &cache.scanned {
+        if at.elapsed() < fresh {
+            return Ok(last.clone());
+        }
     }
+    let started = Instant::now();
 
     let mut seen = HashSet::new();
     let mut entries = HashMap::new();
@@ -103,14 +128,17 @@ pub fn load(ws: &Workspace) -> Result<Loaded, StorageError> {
     }
     cache.files.retain(|id, _| seen.contains(id));
     errors.sort_by(|a, b| a.file.cmp(&b.file));
-    Ok(Loaded { entries, errors })
+    let loaded = Arc::new(Loaded { entries, errors });
+    cache.scanned = Some((started, loaded.clone()));
+    Ok(loaded)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::load;
+    use super::{FRESH, forget, load_with};
     use crate::storage::Workspace;
     use serde_json::{Value, json};
+    use std::time::Duration;
 
     const A: &str = "0123456789ABCDEFGHJKMNPQRS";
     const B: &str = "0123456789ABCDEFGHJKMNPQRT";
@@ -131,26 +159,52 @@ mod tests {
         ws.write_page(&page(A, "짧음")).unwrap();
         ws.write_page(&page(B, "둘째")).unwrap();
 
-        let first = load(&ws).unwrap();
+        let first = load_with(&ws, Duration::ZERO).unwrap();
         assert_eq!(first.entries.len(), 2);
         assert_eq!(first.entries[A].title, "짧음");
 
         // 내용 길이가 바뀌면 상태가 달라져 다시 읽는다
         ws.write_page(&page(A, "조금 더 긴 제목")).unwrap();
-        let second = load(&ws).unwrap();
+        let second = load_with(&ws, Duration::ZERO).unwrap();
         assert_eq!(second.entries[A].title, "조금 더 긴 제목");
         assert_eq!(second.entries[A].title_lc, "조금 더 긴 제목");
 
         // 지운 파일은 목록에서 사라진다
         std::fs::remove_file(&file_b).unwrap();
-        let third = load(&ws).unwrap();
+        let third = load_with(&ws, Duration::ZERO).unwrap();
         assert!(!third.entries.contains_key(B));
 
         // 깨진 파일은 건너뛰고 오류로 모은다
         std::fs::write(&file_b, "{not json").unwrap();
-        let fourth = load(&ws).unwrap();
+        let fourth = load_with(&ws, Duration::ZERO).unwrap();
         assert_eq!(fourth.entries.len(), 1);
         assert_eq!(fourth.errors.len(), 1);
         assert_eq!(fourth.errors[0].file, format!("{B}.json"));
+    }
+
+    #[test]
+    fn fresh_window_skips_disk_until_forgotten_or_expired() {
+        let dir = tempfile::tempdir().unwrap();
+        let ws = Workspace::open(dir.path().to_path_buf()).unwrap();
+        ws.write_page(&page(A, "처음")).unwrap();
+        let long = Duration::from_secs(3600);
+        assert_eq!(load_with(&ws, long).unwrap().entries[A].title, "처음");
+
+        // 창 안에서는 바깥 변경이 보이지 않는다 (디스크를 보지 않음)
+        ws.write_page(&page(A, "바뀜")).unwrap();
+        ws.write_page(&page(B, "새 페이지")).unwrap();
+        assert_eq!(load_with(&ws, long).unwrap().entries[A].title, "처음");
+        assert!(!load_with(&ws, long).unwrap().entries.contains_key(B));
+
+        // 이 프로세스의 쓰기 뒤 forget이면 바로 다시 본다
+        forget(&ws);
+        let after = load_with(&ws, long).unwrap();
+        assert_eq!(after.entries[A].title, "바뀜");
+        assert!(after.entries.contains_key(B));
+    }
+
+    #[test]
+    fn default_window_is_short_enough_to_bound_staleness() {
+        assert!(FRESH <= Duration::from_secs(1));
     }
 }

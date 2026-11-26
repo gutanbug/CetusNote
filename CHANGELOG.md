@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Faster MCP search on large workspaces.
 - Folders can now be placed inside pages.
 - Evernote import uses less memory on large notebooks, because each file is read and converted before the next one.
 

@@ -45,6 +45,19 @@ fn perf_mcp_search_and_snapshot() {
             })
         })
         .collect();
+    // 창(500ms)이 지난 뒤의 호출: 전체 확인(stat)이 도는 경우
+    let paced: Vec<f64> = (0..5)
+        .map(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(600));
+            ms(|| {
+                search(&ws, args()).unwrap();
+            })
+        })
+        .collect();
+    eprintln!(
+        "PERF pages={pages} search_paced_median={:.1} ms",
+        median(paced)
+    );
     eprintln!("PERF pages={pages} search_cold={cold:.1} ms");
     eprintln!(
         "PERF pages={pages} search_warm_median={:.1} ms",
