@@ -212,7 +212,7 @@ impl Workspace {
         })
     }
 
-    fn pages_dir(&self) -> PathBuf {
+    pub(crate) fn pages_dir(&self) -> PathBuf {
         self.root.join(PAGES_DIR)
     }
 

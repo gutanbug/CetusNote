@@ -8,6 +8,7 @@ use rmcp::schemars::{self, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 페이지 스키마 번호. 앱의 `PAGE_SCHEMA_VERSION`(src/lib/storage/schema.ts)과 맞춘다.
@@ -103,12 +104,15 @@ pub struct Entry {
     pub updated_at: String,
     pub trashed: bool,
     pub template: bool,
+    /// 검색용 소문자 제목·본문. 파일을 읽을 때 한 번만 만든다(SYS-10)
+    pub title_lc: String,
+    pub body_lc: String,
     pub page: Value,
 }
 
 /// 읽지 못한 파일 목록과 함께 돌려주는 워크스페이스 스냅샷
 pub struct Snapshot {
-    pub entries: HashMap<String, Entry>,
+    pub entries: HashMap<String, Arc<Entry>>,
     /// 정렬된 형제 순서 (트리 순서): 부모 키 → 항목별 순위
     pub sibling_rank: HashMap<String, HashMap<String, usize>>,
     pub load_errors: Vec<LoadError>,
@@ -118,7 +122,7 @@ fn str_field(v: &Value, key: &str) -> String {
     v.get(key).and_then(Value::as_str).unwrap_or("").to_string()
 }
 
-fn entry_of(page: Value) -> Option<Entry> {
+pub(super) fn entry_of(page: Value) -> Option<Entry> {
     let id = page.get("id")?.as_str()?.to_string();
     let props = page.get("props").cloned().unwrap_or(Value::Null);
     let tags = props
@@ -152,19 +156,16 @@ fn entry_of(page: Value) -> Option<Entry> {
         updated_at: str_field(&page, "updatedAt"),
         trashed: page.get("trashedAt").is_some_and(|t| !t.is_null()),
         template: page.get("template").is_some_and(|t| !t.is_null()),
+        title_lc: str_field(&page, "title").to_lowercase(),
+        body_lc: doc_text(page.get("content").unwrap_or(&Value::Null)).to_lowercase(),
         id,
         page,
     })
 }
 
 pub fn snapshot(ws: &Workspace) -> Res<Snapshot> {
-    let loaded = ws.load_all().map_err(storage_err)?;
-    let mut entries = HashMap::new();
-    for page in loaded.pages {
-        if let Some(e) = entry_of(page) {
-            entries.insert(e.id.clone(), e);
-        }
-    }
+    // 안 바뀐 페이지는 캐시에서 꺼낸다 (SYS-10)
+    let loaded = super::cache::load(ws).map_err(storage_err)?;
     // 트리 순서: workspace.json의 order[부모 | "root"]가 먼저, 나머지는 폴더 먼저·만든 순 (앱과 같다)
     let order = ws
         .read_meta()
@@ -188,7 +189,7 @@ pub fn snapshot(ws: &Workspace) -> Res<Snapshot> {
         }
     }
     Ok(Snapshot {
-        entries,
+        entries: loaded.entries,
         sibling_rank,
         load_errors: loaded.errors,
     })
@@ -709,8 +710,8 @@ pub fn search(ws: &Workspace, args: SearchArgs) -> Res<SearchOut> {
         if e.trashed || e.template {
             continue;
         }
-        let title = e.title.to_lowercase();
-        let body = doc_text(e.page.get("content").unwrap_or(&Value::Null)).to_lowercase();
+        let title = e.title_lc.as_str();
+        let body = e.body_lc.as_str();
         if !terms
             .iter()
             .all(|t| title.contains(t.as_str()) || body.contains(t.as_str()))

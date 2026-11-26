@@ -5,6 +5,7 @@
 //! 워크스페이스를 생략하면 앱이 마지막으로 연 워크스페이스(`app-state.json`의 `workspace`)를 쓴다.
 //! stdout은 프로토콜 전용이다. 로그는 모두 stderr로 쓴다.
 
+pub mod cache;
 pub mod markdown;
 pub mod tools;
 
@@ -530,3 +531,6 @@ mod tests {
         assert_eq!(r.unwrap_err().0, 2);
     }
 }
+
+#[cfg(test)]
+mod bench;
