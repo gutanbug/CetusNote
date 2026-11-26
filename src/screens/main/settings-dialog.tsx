@@ -473,9 +473,69 @@ function General() {
           </Button>
         ) : null}
       </SettingsRow>
+      <McpRow />
       <UpdateSection />
       <TagSettings />
     </div>
+  );
+}
+
+/** AI 연결(MCP, DATA-12): 앱 실행 파일을 `--mcp`로 실행하는 명령을 복사한다. 워크스페이스는 앱이 마지막으로 연 곳 */
+function McpRow() {
+  const [path, setPath] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    getStorage()
+      .appExecutablePath()
+      .then((p) => alive && setPath(p))
+      .catch(() => alive && setPath(""));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const ready = Boolean(path);
+  const command = ready ? `claude mcp add cetusnote -- "${path}" --mcp` : "";
+  const desktop = ready
+    ? JSON.stringify({ mcpServers: { cetusnote: { command: path, args: ["--mcp"] } } }, null, 2)
+    : "";
+  const copy = async (text: string, done: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(done);
+    } catch {
+      toast("복사하지 못했어요. 글을 직접 선택해 복사해 주세요.");
+    }
+  };
+  return (
+    <SettingsRow
+      name="AI 연결(MCP)"
+      description="Claude Code나 Claude Desktop에서 이 워크스페이스의 노트를 읽고 쓸 수 있어요."
+      stacked
+    >
+      <div className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!ready}
+            onClick={() => void copy(command, "Claude Code 명령을 복사했어요.")}
+          >
+            Claude Code 명령 복사
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!ready}
+            onClick={() => void copy(desktop, "Claude Desktop 설정을 복사했어요.")}
+          >
+            Claude Desktop 설정 복사
+          </Button>
+        </div>
+        {ready ? (
+          <code className="font-mono text-caption break-all text-secondary">{command}</code>
+        ) : null}
+      </div>
+    </SettingsRow>
   );
 }
 

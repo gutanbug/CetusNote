@@ -1,6 +1,7 @@
 mod app_icon;
 mod app_import;
 mod commands;
+mod mcp;
 #[cfg(target_os = "macos")]
 mod menu;
 mod pdf;
@@ -8,6 +9,11 @@ mod storage;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    // `--mcp`: 창을 띄우지 않고 stdio MCP 서버로 실행한다 (DATA-12). 아래 Tauri 설정은 건드리지 않는다
+    if let Some(code) = mcp::run_from_args(&context.config().identifier) {
+        std::process::exit(code);
+    }
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -69,6 +75,7 @@ pub fn run() {
             commands::pdf_save,
             commands::workspace_scan,
             commands::pages_read,
+            commands::app_executable_path,
         ]);
 
     // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다
@@ -96,6 +103,6 @@ pub fn run() {
     }
 
     builder
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }

@@ -13,6 +13,7 @@ permissions = [
   "allow-workspace-read",
   "allow-workspace-write",
   "allow-pages-load-all",
+  "allow-app-executable-path",
   "allow-pages-load-meta",
   "allow-page-write",
   "allow-page-purge",

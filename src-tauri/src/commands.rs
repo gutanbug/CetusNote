@@ -556,6 +556,14 @@ pub fn history_delete(state: State<AppState>, id: String, ws_token: u64) -> Resu
     with_workspace_token(&state, ws_token, |ws| ws.delete_history(&id))
 }
 
+/// 이 앱 실행 파일 경로. 설정 「AI 연결(MCP)」이 `--mcp` 명령을 보여 줄 때 쓴다 (DATA-12)
+#[tauri::command]
+pub fn app_executable_path() -> Result<String> {
+    std::env::current_exe()
+        .map(|p| p.to_string_lossy().into_owned())
+        .map_err(|e| StorageError::new("io", e.to_string()))
+}
+
 /// 앱 설정(테마, 포인트 색, 사이드바 폭 …). 내용은 프론트엔드가 정한다.
 #[tauri::command]
 pub fn settings_read(app: AppHandle) -> Result<Option<Value>> {
