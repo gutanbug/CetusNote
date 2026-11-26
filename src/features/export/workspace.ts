@@ -1,5 +1,6 @@
-import type { FieldDef, Page } from "@/lib/storage";
+import type { Page } from "@/lib/storage";
 import { capUtf8Bytes } from "@/lib/utf8-cap";
+import { collectionToCsv, fieldText } from "./csv";
 import { pageToMarkdown, type MdNode } from "./markdown";
 
 /**
@@ -232,22 +233,6 @@ function renderDoc(page: Page, from: string, env: Env) {
   });
 }
 
-const localDate = (iso: string) => {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
-
-function fieldCell(def: FieldDef, page: Page): string {
-  if (def.type === "created") return localDate(page.createdAt);
-  if (def.type === "updated") return localDate(page.updatedAt);
-  const v = page.props.values[def.id];
-  if (v === undefined || v === null || v === "") return "";
-  if (typeof v === "boolean") return v ? "예" : "아니오";
-  if (Array.isArray(v)) return v.join(", ");
-  return String(v);
-}
-
 /** 컬렉션 index.md: 컬렉션 본문 + 레코드 표. 레코드 제목은 그 레코드 파일로 간다 */
 function renderCollection(node: Node, env: Env): string {
   const { page } = node;
@@ -265,7 +250,7 @@ function renderCollection(node: Node, env: Env): string {
         r.props.assignee ?? "",
         r.props.due ?? "",
         r.props.tags.join(", "),
-        ...fields.map((f) => fieldCell(f, r)),
+        ...fields.map((f) => fieldText(f, r)),
       ];
     });
   const table = [
@@ -299,6 +284,13 @@ export function buildWorkspaceExport(input: WorkspaceExportInput): WorkspaceExpo
     const p = n.page;
     if (p.kind === "collection") {
       files.push({ path: n.index!, text: renderCollection(n, env) });
+      // 같은 폴더에 컬렉션 CSV를 함께 쓴다 (DATA-13)
+      const records = n.children.filter((c) => c.md).map((c) => c.page);
+      const dir = n.index!.slice(0, n.index!.lastIndexOf("/") + 1);
+      files.push({
+        path: `${dir}${sanitizeFileName(p.title)}.csv`,
+        text: collectionToCsv(p, records),
+      });
       return;
     }
     if (p.kind === "folder") return;

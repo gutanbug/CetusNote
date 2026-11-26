@@ -102,7 +102,11 @@ describe("폴더 모양", () => {
     const coll = pg({ title: "읽을거리", kind: "collection" });
     const rec = pg({ title: "책 A", parentId: coll.id });
     const out = build([coll, rec]);
-    expect(paths(out.manifest.files).sort()).toEqual(["읽을거리/index.md", "읽을거리/책 A.md"]);
+    expect(paths(out.manifest.files).sort()).toEqual([
+      "읽을거리/index.md",
+      "읽을거리/읽을거리.csv",
+      "읽을거리/책 A.md",
+    ]);
     expect(out.documents).toBe(1);
   });
 
@@ -149,6 +153,7 @@ describe("이름 정리와 겹침", () => {
     const coll = pg({ title: "C", kind: "collection" });
     const rec = pg({ title: "index", parentId: coll.id });
     expect(paths(build([coll, rec]).manifest.files).sort()).toEqual([
+      "C/C.csv",
       "C/index (2).md",
       "C/index.md",
     ]);
