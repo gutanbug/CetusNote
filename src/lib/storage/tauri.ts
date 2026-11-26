@@ -17,6 +17,7 @@ import {
   type WorkspaceInfo,
   type WorkspaceStatus,
   type AttachmentInfo,
+  type MarkdownExportResult,
 } from "./types";
 
 /** Rust 커맨드 호출. Rust의 StorageError({ code, message })를 StorageError로 바꾼다. */
@@ -92,7 +93,8 @@ export function createTauriStorage(): Storage {
     writeSettings: (value) => call("settings_write", { value }),
     setAppIcon: (theme) => call("app_icon_set", { theme }),
     appExecutablePath: () => call<string>("app_executable_path"),
-    exportMarkdown: (fileName, text) => call<string | null>("export_markdown", { fileName, text }),
+    exportMarkdown: (fileName, text, assets = []) =>
+      call<MarkdownExportResult | null>("export_markdown", { fileName, text, assets }),
     exportWorkspaceMarkdown: (manifest) =>
       call<WorkspaceExportReport | null>("workspace_export_markdown", { manifest }),
     revealWorkspaceExport: () => call("workspace_export_reveal"),

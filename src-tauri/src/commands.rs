@@ -594,13 +594,17 @@ pub fn app_icon_set(app: AppHandle, theme: String) -> Result<()> {
     crate::app_icon::apply(&app, bytes)
 }
 
-/// Markdown 내보내기(DATA-04): 저장 대화상자 → 원자적 쓰기. 취소하면 None, 저장하면 파일 이름.
+/// Markdown 내보내기(DATA-04): 저장 대화상자 → 이미지 복사(`assets/`) → 원자적 쓰기.
+/// 취소하면 None, 저장하면 파일 이름과 건너뛴 이미지 수.
 #[tauri::command]
 pub async fn export_markdown(
     app: AppHandle,
+    state: State<'_, AppState>,
     file_name: String,
     text: String,
-) -> Result<Option<String>> {
+    assets: Vec<storage::export::SingleAsset>,
+) -> Result<Option<storage::export::SingleExportReport>> {
+    let root = workspace_root(&state)?;
     let mut dialog = app
         .dialog()
         .file()
@@ -616,8 +620,18 @@ pub async fn export_markdown(
     let path = picked
         .into_path()
         .map_err(|e| StorageError::new("io", e.to_string()))?;
+    let dir = path
+        .parent()
+        .ok_or_else(|| StorageError::new("io", "저장 위치를 알 수 없어요"))?
+        .to_path_buf();
+    let skipped = storage::export::write_single_assets(&root, &dir, &assets)?;
     storage::atomic_write(&path, text.as_bytes())?;
-    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()))
+    Ok(path
+        .file_name()
+        .map(|n| storage::export::SingleExportReport {
+            name: n.to_string_lossy().into_owned(),
+            skipped,
+        }))
 }
 
 /// 워크스페이스 전체 Markdown 내보내기(DATA-10): 폴더 고르기 → 새 폴더에 목록대로 쓴다. 취소하면 None.

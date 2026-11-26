@@ -184,6 +184,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 - 파일 이름(`.md` 포함)과 폴더 이름 한 조각은 UTF-8 252바이트 상한이다(`markdownFileName`, `sanitizeFileName`, Rust `sanitize_name`). 한글은 84글자까지.
 - 컬렉션 CSV(`features/export/csv.ts`, DATA-13): 워크스페이스 내보내기에서 `index.md` 옆에 `<컬렉션>.csv`를 쓴다. UTF-8 BOM, CRLF, RFC 4180 인용.
 - front matter 스위치(SET-06, `features/export/prefs.ts`)는 단일 페이지와 워크스페이스 내보내기에 함께 적용된다.
+- 단일 페이지 내보내기(DATA-04): 페이지가 쓰는 이미지·첨부(`assets/<id>/<파일>`)를 `features/export/assets.ts`가 모아 `assets/<이름>`을 정하고, Rust `export_markdown`이 저장 위치 옆 `assets/`에 복사한다(`storage::export::write_single_assets`). 같은 이름에 다른 내용이 있으면 덮어쓰지 않고 건너뛰며, 건너뛴 수는 토스트에 알린다.
 - 테스트는 손으로 만든 JSON(13개) + Debug Playground 문서(모든 블록, 노드 22종·마크 9종)를 실제 에디터 JSON으로 변환해 확인했다.
 
 ### 원칙

@@ -493,8 +493,15 @@ export async function exportMarkdown(id: string) {
   if (!page || page.kind !== "page") return;
   try {
     const path = crumbsOf(page.id).map((c) => c.title);
-    const name = await exportPageMarkdown(page, { titleOf: mentionTitleOf(pages()), path });
-    if (name) toast(`“${name}” 파일로 내보냈어요.`);
+    const result = await exportPageMarkdown(page, { titleOf: mentionTitleOf(pages()), path });
+    if (result) {
+      const { name, skipped } = result;
+      toast(
+        skipped
+          ? `“${name}” 파일로 내보냈어요. 이미지 ${skipped}개는 빼고 내보냈어요.`
+          : `“${name}” 파일로 내보냈어요.`,
+      );
+    }
   } catch {
     toast.error("내보내지 못했어요. 다른 위치를 골라 보세요.");
   }

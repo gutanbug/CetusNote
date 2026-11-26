@@ -5,6 +5,9 @@ import type { AttachmentKind } from "../attachments/limits";
  */
 
 /** Tiptap JSON 문서. 저장 계층은 내용을 해석하지 않는다. */
+/** 단일 페이지 Markdown 내보내기 결과(DATA-04) */
+export type MarkdownExportResult = { name: string; skipped: number };
+
 export type DocJSON = { type: "doc"; content?: unknown[] } & Record<string, unknown>;
 
 /**
@@ -288,8 +291,15 @@ export interface Storage {
   setAppIcon(theme: "light" | "dark"): Promise<void>;
   /** 이 앱 실행 파일 경로. 설정 「AI 연결(MCP)」의 `--mcp` 명령에 쓴다 (DATA-12). 미리보기에서는 예시 경로 */
   appExecutablePath(): Promise<string>;
-  /** 저장 대화상자 → 파일 쓰기. 취소하면 null, 저장하면 파일 이름 */
-  exportMarkdown(fileName: string, text: string): Promise<string | null>;
+  /**
+   * 저장 대화상자 → 파일 쓰기(DATA-04). 이미지는 저장 위치 옆 `assets/`에 복사한다.
+   * 취소하면 null, 저장하면 파일 이름과 복사하지 못해 건너뛴 이미지 수.
+   */
+  exportMarkdown(
+    fileName: string,
+    text: string,
+    assets?: readonly { src: string; name: string }[],
+  ): Promise<MarkdownExportResult | null>;
   /**
    * 워크스페이스 전체 Markdown 내보내기(DATA-10): 폴더 고르기 → 새 폴더에 목록대로 쓴다.
    * 취소하면 null. 쓰지 못한 항목은 failed에 경로로 남는다(나머지는 쓴다).

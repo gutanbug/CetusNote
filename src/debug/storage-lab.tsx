@@ -215,8 +215,10 @@ export function StorageLab() {
                 disabled={isFolder}
                 onClick={() =>
                   void exportPageMarkdown(page).then(
-                    (name) =>
-                      setExported(name ? `“${name}”로 내보냈어요.` : "내보내기를 취소했어요."),
+                    (result) =>
+                      setExported(
+                        result ? `“${result.name}”로 내보냈어요.` : "내보내기를 취소했어요.",
+                      ),
                     () => setExported("내보내지 못했어요."),
                   )
                 }

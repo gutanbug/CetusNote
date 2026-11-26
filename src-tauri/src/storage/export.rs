@@ -160,6 +160,78 @@ pub fn copy_asset(ws_root: &Path, src: &str, dest: &Path) -> Result<()> {
     Ok(())
 }
 
+/// 단일 페이지 내보내기의 이미지 한 장: 워크스페이스 경로(`assets/<id>/<파일>`)와 저장할 이름(`assets/<name>`)
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SingleAsset {
+    pub src: String,
+    /// 프런트엔드가 페이지 안에서 겹치지 않게 정한 파일 이름(조각 하나)
+    pub name: String,
+}
+
+/// 단일 페이지 내보내기 결과: 실제로 쓴 이미지를 건너뛴 수(toast에 알린다)
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SingleExportReport {
+    pub name: String,
+    pub skipped: usize,
+}
+
+/// `dir/assets/`에 이미지를 복사한다(DATA-04). 같은 이름의 파일이 같은 내용이면 그대로 두고,
+/// 내용이 다르면 덮어쓰지 않고 건너뛴다. 읽지 못하거나 이름이 잘못된 이미지도 건너뛴다. 건너뛴 수를 돌려준다.
+pub fn write_single_assets(ws_root: &Path, dir: &Path, assets: &[SingleAsset]) -> Result<usize> {
+    if assets.is_empty() {
+        return Ok(0);
+    }
+    if assets.len() > MAX_FILES {
+        return Err(StorageError::new("too_large", "이미지가 너무 많아요"));
+    }
+    let folder = dir.join("assets");
+    match fs::symlink_metadata(&folder) {
+        Ok(m) if m.is_dir() => {}
+        Ok(_) => {
+            return Err(StorageError::new(
+                "invalid_path",
+                "assets 자리에 파일이 있어요",
+            ));
+        }
+        Err(_) => fs::create_dir(&folder)?,
+    }
+    let mut skipped = 0;
+    for asset in assets {
+        // 이름은 `assets/` 바로 아래의 한 조각이어야 한다
+        if check_rel_path(&asset.name).map(|p| p.len()) != Ok(1) {
+            skipped += 1;
+            continue;
+        }
+        let target = folder.join(&asset.name);
+        if fs::symlink_metadata(&target).is_ok() {
+            if !same_content(ws_root, &asset.src, &target) {
+                skipped += 1;
+            }
+            continue;
+        }
+        if copy_asset(ws_root, &asset.src, &target).is_err() {
+            // 복사가 중간에 실패하면 반쪽짜리 파일을 남기지 않는다
+            let _ = fs::remove_file(&target);
+            skipped += 1;
+        }
+    }
+    Ok(skipped)
+}
+
+/// 워크스페이스 이미지와 대상 파일의 내용이 같은가(읽기 실패는 다른 것으로 본다)
+fn same_content(ws_root: &Path, src: &str, target: &Path) -> bool {
+    let Ok((id, name)) = parse_asset_path(src) else {
+        return false;
+    };
+    let Ok(original) = fs::read(ws_root.join(ASSETS_DIR).join(id).join(name)) else {
+        return false;
+    };
+    fs::symlink_metadata(target).is_ok_and(|m| m.is_file())
+        && fs::read(target).is_ok_and(|b| b == original)
+}
+
 fn write_one(ws_root: &Path, root: &Path, file: &ExportFile) -> Result<()> {
     let parts = check_rel_path(&file.path)?;
     let (name, dirs) = parts
@@ -263,6 +335,49 @@ mod tests {
             text: None,
             asset: Some(src.into()),
         }
+    }
+
+    #[test]
+    fn single_assets_copy_reuse_and_skip() {
+        let (_t, ws, out) = dirs();
+        let dir = out.join("노트");
+        fs::create_dir(&dir).unwrap();
+        let src = format!("assets/{ID}/img-1.png");
+        let assets = vec![
+            SingleAsset {
+                src: src.clone(),
+                name: "img-1.png".into(),
+            },
+            SingleAsset {
+                src: format!("assets/{ID}/missing.png"),
+                name: "missing.png".into(),
+            },
+            SingleAsset {
+                src: src.clone(),
+                name: "../escape.png".into(),
+            },
+        ];
+        // 없는 파일과 잘못된 이름은 건너뛴다
+        assert_eq!(write_single_assets(&ws, &dir, &assets).unwrap(), 2);
+        assert_eq!(fs::read(dir.join("assets/img-1.png")).unwrap(), PNG);
+        assert!(!dir.join("assets/missing.png").exists());
+        assert!(!out.join("escape.png").exists());
+
+        // 같은 이름에 다른 내용이 있으면 덮어쓰지 않고 건너뛴다
+        fs::write(dir.join("assets/img-1.png"), b"other").unwrap();
+        assert_eq!(write_single_assets(&ws, &dir, &assets[..1]).unwrap(), 1);
+        assert_eq!(fs::read(dir.join("assets/img-1.png")).unwrap(), b"other");
+
+        // 같은 내용이면 그대로 두고 건너뛴 수로 세지 않는다
+        fs::write(dir.join("assets/img-1.png"), PNG).unwrap();
+        assert_eq!(write_single_assets(&ws, &dir, &assets[..1]).unwrap(), 0);
+    }
+
+    #[test]
+    fn single_assets_empty_list_writes_nothing() {
+        let (_t, ws, out) = dirs();
+        assert_eq!(write_single_assets(&ws, &out, &[]).unwrap(), 0);
+        assert!(!out.join("assets").exists());
     }
 
     fn manifest(files: Vec<ExportFile>) -> ExportManifest {

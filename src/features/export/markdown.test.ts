@@ -518,3 +518,28 @@ describe("파일 첨부 (EDIT-31~33)", () => {
     expect(md).toContain(`[회의 메모.pdf](${path})`);
   });
 });
+
+describe("단일 페이지 이미지 링크 (DATA-04)", () => {
+  it("assetHref가 주면 이미지·첨부 링크를 바꾸고, 원격 주소는 그대로 둔다", () => {
+    const page = createPage({ title: "사진" });
+    page.content = {
+      type: "doc",
+      content: [
+        { type: "image", attrs: { src: "assets/01JD0000000000000000000000/a b.png", alt: "" } },
+        {
+          type: "attachment",
+          attrs: { path: "assets/01JD0000000000000000000000/c.pdf", name: "c.pdf" },
+        },
+        { type: "image", attrs: { remote: "https://example.com/x.png" } },
+      ],
+    } as never;
+    const md = pageToMarkdown(page, undefined, undefined, {
+      frontMatter: false,
+      assetHref: (src) =>
+        src.endsWith("a b.png") ? "assets/a b.png" : src.replace(/^assets\/[^/]+\//, "assets/"),
+    });
+    expect(md).toContain("![](<assets/a b.png>)");
+    expect(md).toContain("[c.pdf](assets/c.pdf)");
+    expect(md).not.toContain("01JD0000");
+  });
+});

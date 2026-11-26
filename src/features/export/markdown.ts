@@ -99,6 +99,8 @@ type InlineMode = "block" | "cell" | "heading";
 let mentionTitle: ((id: string) => string | undefined) | undefined;
 /** 이 페이지의 경로(맨 위 → 이 페이지 제목). 경로 표시 블록(EDIT-30)이 쓴다 — 블록은 글로 `A › B`가 된다 */
 let pagePath: string[] | undefined;
+/** 이미지·첨부 경로를 내보낼 경로로 바꾼다(DATA-04 단일 페이지). 없으면 워크스페이스 경로 그대로 */
+let assetHref: ((src: string) => string) | undefined;
 
 /**
  * 인라인 내용. 마크를 스택으로 열고 닫아, 이어진 굵게 구간을 하나로 묶는다(`**a**` + `**b**` → `**ab**`).
@@ -266,17 +268,20 @@ function block(node: MdNode): string {
     case "horizontalRule":
       return "---";
     case "image": {
-      // 워크스페이스 기준 경로 그대로 (이미지 파일은 함께 내보내지 않는다)
+      // 워크스페이스 기준 경로 그대로. 단일 페이지 내보내기는 assetHref로 바꾼다 (이미지는 assets/에 복사)
       const alt = (node.content ?? []).map((t) => t.text ?? "").join("");
       // 아직 내려받는 중인 웹 이미지(EDIT-24)는 원래 웹 주소로
       const remote = String(node.attrs?.remote ?? "");
-      const src = node.attrs?.src ?? (/^https?:\/\//i.test(remote) ? remote : "");
-      return `![${escapeText(alt)}](${String(src)})`;
+      const own = node.attrs?.src;
+      const src = own != null ? String(own) : /^https?:\/\//i.test(remote) ? remote : "";
+      const href = own != null && assetHref ? assetHref(src) : src;
+      return `![${escapeText(alt)}](${linkTarget(href)})`;
     }
     case "attachment": {
-      // 파일 첨부는 워크스페이스 기준 경로 링크 (EDIT-31~33, ADR-025). 이미지와 같이 파일은 함께 내보내지 않는다
+      // 파일 첨부는 워크스페이스 기준 경로 링크 (EDIT-31~33, ADR-025). 단일 페이지 내보내기는 assetHref로 바꾼다
       const name = String(node.attrs?.name ?? "") || "첨부";
-      return `[${escapeText(name)}](${String(node.attrs?.path ?? "")})`;
+      const path = String(node.attrs?.path ?? "");
+      return `[${escapeText(name)}](${linkTarget(assetHref ? assetHref(path) : path)})`;
     }
     case "blockMath":
       return `$$\n${String(node.attrs?.latex ?? "")}\n$$`;
@@ -383,9 +388,11 @@ export function pageToMarkdown(
 ): string {
   mentionTitle = titleOf;
   pagePath = path;
+  assetHref = options.assetHref;
   try {
     return pageMarkdown(page, options);
   } finally {
+    assetHref = undefined;
     mentionTitle = undefined;
     pagePath = undefined;
     tocRoot = undefined;
@@ -398,6 +405,8 @@ function plainText(node: MdNode): string {
 }
 
 export type PageMarkdownOptions = {
+  /** 이미지·첨부의 워크스페이스 경로를 내보낼 상대 경로로 바꾼다 (DATA-04, 단일 페이지 내보내기) */
+  assetHref?: (src: string) => string;
   /** 맨 위에 front matter(id·태그·만든·고친 날짜·아이콘)를 쓴다. 기본 켬 (DATA-04, 사용자 결정) */
   frontMatter?: boolean;
 };

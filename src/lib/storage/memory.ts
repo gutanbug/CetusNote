@@ -384,7 +384,7 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     },
     async exportMarkdown(fileName, text) {
       exports.push({ fileName, text });
-      return fileName;
+      return { name: fileName, skipped: 0 };
     },
     async exportWorkspaceMarkdown(manifest) {
       // 브라우저 미리보기: 대화상자 대신 목록을 JSON 파일로 내려받는다(글·이미지 경로 확인용)
