@@ -56,6 +56,24 @@ export function createSaveQueue({
     }
   };
 
+  /** 저장 실패 뒤 자동 재시도 간격(2초, 5초, 15초). 그 뒤에는 창 포커스나 「다시 시도」를 기다린다 */
+  const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
+  let retryAttempt = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleRetry = () => {
+    if (retryTimer !== undefined || retryAttempt >= RETRY_DELAYS_MS.length) return;
+    const delay = RETRY_DELAYS_MS[retryAttempt++]!;
+    retryTimer = setTimeout(() => {
+      retryTimer = undefined;
+      void flush();
+    }, delay);
+  };
+  const cancelRetry = () => {
+    if (retryTimer !== undefined) clearTimeout(retryTimer);
+    retryTimer = undefined;
+    retryAttempt = 0;
+  };
+
   /** id의 대기 내용을 쓴다. 이미 쓰는 중이면 그 뒤에 이어서 쓴다. 성공하면 true */
   const run = (id: string): Promise<void> => {
     const prev = running.get(id);
@@ -89,6 +107,7 @@ export function createSaveQueue({
         }
         failed.add(id);
         lastError = e;
+        scheduleRetry();
       }
     })();
     running.set(id, task);
@@ -109,7 +128,9 @@ export function createSaveQueue({
   const flush = async (): Promise<boolean> => {
     for (const id of timers.keys()) clearTimer(id);
     await Promise.all([...new Set([...pending.keys(), ...running.keys()])].map(run));
-    return failed.size === 0 && pending.size === 0;
+    const ok = failed.size === 0 && pending.size === 0;
+    if (ok) cancelRetry();
+    return ok;
   };
 
   return {
@@ -150,6 +171,7 @@ export function createSaveQueue({
       pending.clear();
       gens.clear();
       failed.clear();
+      cancelRetry();
       update();
     },
     get state() {
@@ -160,7 +182,7 @@ export function createSaveQueue({
       return pending.has(id) || running.has(id) || failed.has(id);
     },
     get hasUnsaved() {
-      return pending.size > 0 || running.size > 0;
+      return pending.size > 0 || running.size > 0 || failed.size > 0;
     },
   };
 }

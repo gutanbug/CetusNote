@@ -7,6 +7,9 @@ mod menu;
 mod pdf;
 mod storage;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{Emitter, Manager};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let context = tauri::generate_context!();
@@ -22,6 +25,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
+            confirm_quit,
             commands::workspace_current,
             commands::workspace_pick,
             commands::workspace_use_default,
@@ -102,7 +106,28 @@ pub fn run() {
         );
     }
 
-    builder
-        .run(context)
-        .expect("error while running tauri application");
+    let app = builder
+        .build(context)
+        .expect("error while building tauri application");
+    app.run(|app_handle, event| {
+        // Cmd+Q(메뉴 종료)·app.exit는 창 닫기 요청을 거치지 않는다. 저장을 먼저 끝내도록 프론트엔드에 묻고 기다린다.
+        if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+            if QUIT_CONFIRMED.load(Ordering::SeqCst) || app_handle.webview_windows().is_empty() {
+                return;
+            }
+            api.prevent_exit();
+            let _ = app_handle.emit(QUIT_REQUESTED_EVENT, ());
+        }
+    });
+}
+
+/// 프론트엔드가 저장을 끝내고 `confirm_quit`을 불렀는지 (그 뒤의 종료 요청은 막지 않는다)
+static QUIT_CONFIRMED: AtomicBool = AtomicBool::new(false);
+const QUIT_REQUESTED_EVENT: &str = "app://quit-requested";
+
+/// 저장을 마친 뒤 종료한다 (프론트엔드 → Rust)
+#[tauri::command]
+fn confirm_quit(app: tauri::AppHandle) {
+    QUIT_CONFIRMED.store(true, Ordering::SeqCst);
+    app.exit(0);
 }

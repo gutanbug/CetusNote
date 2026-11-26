@@ -393,8 +393,11 @@ export function createPagesStore(
         const busy = (id: string) =>
           queue.isUnsaved(id) || pendingMeta.has(id) || (!!base && base[id] !== pages[id]);
         for (const page of incoming) {
-          if (busy(page.id)) conflicts.push(page.id);
-          else {
+          if (busy(page.id)) {
+            // 덮지 않은 바깥 내용도 버전 기록에 남긴다 (DATA-07·DATA-09): 나중에 버전 기록에서 되돌릴 수 있다
+            void history.snapshot(page);
+            conflicts.push(page.id);
+          } else {
             const local = pages[page.id];
             // 덮이기 전의 이 앱 내용을 남긴다 (DATA-09). 내용이 같으면 남기지 않는다.
             // 본문을 연 적 없는 페이지는 덮이기 전 내용이 메모리에 없어 남기지 못한다
@@ -426,7 +429,10 @@ export function createPagesStore(
       flushAll: async () => {
         // 구조만 고친 페이지의 본문이 아직 오는 중이면 기다린 뒤 저장한다
         await ensureBodies([...pendingMeta]);
-        return queue.flush();
+        // 본문을 못 읽은 페이지(pendingMeta)는 저장하지 못한 것이다 — 성공으로 보고하지 않는다
+        const stuck = pendingMeta.size > 0;
+        const ok = await queue.flush();
+        return ok && !stuck;
       },
       retry: () => queue.retry(),
     };

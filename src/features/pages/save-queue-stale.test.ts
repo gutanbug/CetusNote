@@ -11,7 +11,8 @@ describe("워크스페이스가 바뀐 뒤 도착한 쓰기 (DATA-03)", () => {
     const q = createSaveQueue({ write, delay: 0 });
     q.schedule(page("p1"));
     await vi.waitFor(() => expect(q.state).toBe("error"));
-    expect(q.hasUnsaved).toBe(false);
+    // 버려진 내용도 오류 상태로 남으므로 아직 저장되지 않은 것으로 본다 (DATA-02)
+    expect(q.hasUnsaved).toBe(true);
     expect(await q.flush()).toBe(false);
     expect(write).toHaveBeenCalledTimes(1);
   });

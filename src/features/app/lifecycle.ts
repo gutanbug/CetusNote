@@ -5,7 +5,12 @@ import { sessionStore } from "@/features/session";
 import { workspaceStore } from "@/features/workspace";
 import { runAutoBackup } from "@/features/backup";
 import { getStorage, isTauri } from "@/lib/storage/default";
-import { onWindowCloseRequested } from "@/lib/storage/window";
+import {
+  confirmQuit,
+  destroyCurrentWindow,
+  onQuitRequested,
+  onWindowCloseRequested,
+} from "@/lib/storage/window";
 import { useEffect } from "react";
 import { createLaunchGate, openWorkspaceForLaunch } from "./open-order";
 import { AUTO_BACKUP_DELAY_MS, scheduleAutoBackup } from "./auto-backup";
@@ -128,7 +133,9 @@ export async function checkExternalChanges(storage = getStorage()) {
   });
   if (changes.meta) await metaStore.getState().reloadExternal();
   if (result.conflicts.length)
-    toast.error("다른 곳에서 바뀐 페이지가 있지만, 여기서 고친 내용을 지키려고 반영하지 않았어요.");
+    toast.error(
+      "다른 곳에서 바뀐 페이지가 있어요. 여기서 고친 내용을 지켰고, 바뀐 내용은 버전 기록에서 볼 수 있어요.",
+    );
   if (read.errors.length)
     toast.error(`바깥에서 바뀐 파일 ${read.errors.length}개를 읽지 못했어요.`);
   return { ...result, meta: changes.meta, errors: read.errors };
@@ -136,35 +143,69 @@ export async function checkExternalChanges(storage = getStorage()) {
 
 /**
  * 창을 닫기 전에 남은 저장을 끝낸다 (DATA-01).
- * 저장에 실패하면 한 번은 닫지 않고 알린다. 한 번 더 닫으면 그대로 닫힌다(디스크가 계속 실패해도 갇히지 않게).
+ * 저장에 실패하면 닫지 않고 알리며, 「그래도 닫기」로 닫을 수 있다.
  */
 export function useSaveOnClose() {
   useEffect(() => {
+    // 저장이 실패했으면 창에 다시 들어올 때 한 번 더 쓴다 (DATA-02)
+    const onFocus = () => {
+      if (pagesStore.getState().saveState === "error") void pagesStore.getState().retry();
+    };
+    window.addEventListener("focus", onFocus);
     // 브라우저 미리보기: 새로 고침·탭 닫기 전에 남은 저장이 있으면 묻는다
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (pagesStore.getState().saveState !== "saved") e.preventDefault();
     };
     if (!isTauri()) {
       window.addEventListener("beforeunload", onBeforeUnload);
-      return () => window.removeEventListener("beforeunload", onBeforeUnload);
+      return () => {
+        window.removeEventListener("beforeunload", onBeforeUnload);
+        window.removeEventListener("focus", onFocus);
+      };
     }
-    let warned = false;
-    let unlisten: (() => void) | undefined;
-    let disposed = false;
-    void onWindowCloseRequested(async (preventClose) => {
+    /** 남은 저장을 모두 쓴다. 하나라도 실패하면 false */
+    const saveAll = async (): Promise<boolean> => {
       const [ok] = await Promise.all([
         pagesStore.getState().flushAll(),
         sessionStore.getState().flush(),
         metaStore.getState().flush(),
       ]);
-      if (ok || warned) return;
-      warned = true;
-      preventClose();
-      toast.error("저장하지 못한 변경이 있어요. 한 번 더 닫으면 저장하지 않고 닫혀요.");
-    }).then((fn) => (disposed ? fn() : (unlisten = fn)));
+      return ok;
+    };
+    let disposed = false;
+    const unlistens: Array<() => void> = [];
+    const keep = (p: Promise<() => void>) =>
+      void p.then((fn) => (disposed ? fn() : unlistens.push(fn)));
+    keep(
+      onWindowCloseRequested(async (preventClose) => {
+        // 닫기 이벤트 안에서 먼저 막아야 한다. 저장을 기다린 뒤에 막으면 이미 닫히는 중이다 (DATA-02)
+        preventClose();
+        if (await saveAll()) {
+          await destroyCurrentWindow();
+          return;
+        }
+        // 저장하지 못했으면 창을 열어 두고, 사용자가 고를 수 있게 한다
+        toast.error("저장하지 못한 변경이 있어요. 창을 닫지 않았어요.", {
+          action: { label: "그래도 닫기", onClick: () => void destroyCurrentWindow() },
+        });
+      }),
+    );
+    // Cmd+Q 등 종료 요청: Rust가 종료를 막고 알려 준다. 저장이 끝나면 종료를 확인하고, 실패하면 남긴다
+    keep(
+      onQuitRequested(async () => {
+        if (await saveAll()) {
+          await confirmQuit();
+          return;
+        }
+        toast.error("저장하지 못한 변경이 있어요. 앱을 종료하지 않았어요.", {
+          action: { label: "그래도 종료", onClick: () => void confirmQuit() },
+        });
+      }),
+    );
     return () => {
       disposed = true;
-      unlisten?.();
+      window.removeEventListener("focus", onFocus);
+      unlistens.forEach((fn) => fn());
     };
   }, []);
 }

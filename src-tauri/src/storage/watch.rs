@@ -26,8 +26,16 @@ fn stamp_of(path: &Path) -> Option<Stamp> {
     Some((t, m.len()))
 }
 
+#[derive(Debug, Default)]
+struct Maps {
+    /// 이 앱이 마지막으로 읽거나 쓴 상태 — 쓰기 전 비교 기준(compare-and-swap)
+    known: HashMap<String, Stamp>,
+    /// 마지막 변경 검사(scan)가 보고한 상태
+    reported: HashMap<String, Stamp>,
+}
+
 #[derive(Debug, Clone, Default)]
-pub struct Stamps(Arc<Mutex<HashMap<String, Stamp>>>);
+pub struct Stamps(Arc<Mutex<Maps>>);
 
 #[derive(Debug, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -43,26 +51,41 @@ pub struct Changes {
 impl Stamps {
     /// 이 파일의 지금 상태를 기억한다(없으면 잊는다)
     pub fn remember(&self, key: &str, path: &Path) {
-        if let Ok(mut map) = self.0.lock() {
+        if let Ok(mut m) = self.0.lock() {
             match stamp_of(path) {
-                Some(s) => map.insert(key.to_owned(), s),
-                None => map.remove(key),
-            };
+                Some(s) => {
+                    m.known.insert(key.to_owned(), s);
+                    m.reported.insert(key.to_owned(), s);
+                }
+                None => {
+                    m.known.remove(key);
+                    m.reported.remove(key);
+                }
+            }
         }
     }
 
+    /// 디스크 파일이 이 앱이 마지막으로 본 상태 그대로인가. 잠금 실패도 "아니다"로 본다
+    pub fn is_known(&self, key: &str, path: &Path) -> bool {
+        self.0
+            .lock()
+            .is_ok_and(|m| m.known.get(key).copied() == stamp_of(path))
+    }
+
     pub fn forget(&self, key: &str) {
-        if let Ok(mut map) = self.0.lock() {
-            map.remove(key);
+        if let Ok(mut m) = self.0.lock() {
+            m.known.remove(key);
+            m.reported.remove(key);
         }
     }
 
     /// 디스크와 비교해 바뀐 것을 돌려주고, 기억을 디스크에 맞춘다
     pub fn scan(&self, root: &Path) -> Result<Changes> {
-        let mut map = self
+        let mut guard = self
             .0
             .lock()
             .map_err(|_| super::StorageError::new("io", "상태 잠금 실패"))?;
+        let map = &mut guard.reported;
         let mut out = Changes::default();
         let mut seen = std::collections::HashSet::new();
         for e in fs::read_dir(root.join(PAGES_DIR))?.filter_map(|e| e.ok()) {
@@ -168,5 +191,29 @@ mod tests {
         assert_eq!(c.removed, vec![A.to_owned()]);
         assert_eq!(ws.scan_changes().unwrap(), Default::default());
         assert!(ws.read_page(A).unwrap().is_none());
+    }
+
+    #[test]
+    fn external_change_is_kept_in_history_before_app_overwrites() {
+        let d = tempfile::tempdir().unwrap();
+        let ws = Workspace::open(d.path().to_path_buf()).unwrap();
+        ws.write_page(&page(A, "가")).unwrap();
+        ws.write_meta(&json!({ "schemaVersion": 1 })).unwrap();
+        ws.scan_changes().unwrap();
+        fs::write(
+            d.path().join("pages").join(format!("{A}.json")),
+            page(A, "바깥 내용").to_string(),
+        )
+        .unwrap();
+        assert_eq!(ws.scan_changes().unwrap().changed, vec![A.to_owned()]);
+        // 앱이 덮기 전에 바깥 내용이 버전 기록에 남는다 (scan이 기준을 옮겼어도)
+        ws.write_page(&page(A, "앱 내용")).unwrap();
+        let kept = ws
+            .list_versions(A)
+            .unwrap()
+            .iter()
+            .any(|v| ws.read_version(A, &v.id).unwrap()["title"] == "바깥 내용");
+        assert!(kept, "바깥 내용이 버전 기록에 없어요");
+        assert_eq!(ws.read_page(A).unwrap().unwrap()["title"], "앱 내용");
     }
 }

@@ -305,9 +305,34 @@ impl Workspace {
     pub fn write_page(&self, page: &Value) -> Result<()> {
         let id = validate_page(page)?;
         let path = self.page_path(&id);
+        let key = format!("{PAGES_DIR}/{id}.json");
+        // 이 앱이 본 뒤에 바깥에서 바뀌었으면 덮기 전에 바깥 내용을 버전 기록에 남긴다 (DATA-07)
+        if !self.stamps.is_known(&key, &path) {
+            self.keep_external_copy(&id, &path)?;
+        }
         write_json(&path, page)?;
-        self.stamps
-            .remember(&format!("{PAGES_DIR}/{id}.json"), &path);
+        self.stamps.remember(&key, &path);
+        Ok(())
+    }
+
+    /// 덮이기 전 디스크의 바깥 내용을 기록에 남긴다. 읽을 수 없으면 덮지 않는다(두 쪽 다 지키려고)
+    fn keep_external_copy(&self, id: &str, path: &Path) -> Result<()> {
+        let Some(disk) = read_json_opt(path).ok().flatten() else {
+            if path.exists() {
+                return Err(StorageError::new(
+                    "conflict",
+                    "바깥에서 바뀐 파일을 읽지 못해 덮지 않았어요",
+                ));
+            }
+            return Ok(());
+        };
+        if validate_page(&disk).ok().as_deref() != Some(id) {
+            return Err(StorageError::new(
+                "conflict",
+                "바깥에서 바뀐 파일을 읽지 못해 덮지 않았어요",
+            ));
+        }
+        self.save_version(&disk)?;
         Ok(())
     }
 
