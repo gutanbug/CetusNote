@@ -345,6 +345,27 @@ mod tests {
     }
 
     #[test]
+    fn backup_leaves_out_the_app_lock_file() {
+        let (d, ws) = sample();
+        crate::storage::acquire_app_lock(&ws.root, std::process::id(), |_| false).unwrap();
+        let zip = d.path().join("lock.zip");
+        create_backup(&ws.root, &zip, "2026-11-19T00:00:00Z").unwrap();
+        let mut archive = ZipArchive::new(std::fs::File::open(&zip).unwrap()).unwrap();
+        let names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_owned())
+            .collect();
+        assert!(
+            !names
+                .iter()
+                .any(|n| n.contains(crate::storage::APP_LOCK_FILE))
+        );
+        // 잠금 파일이 있어도 복원 폴더는 빈 것으로 보고 풀린다
+        let out = d.path().join("restored-lock");
+        assert_eq!(restore_backup(&zip, &out).unwrap(), 1);
+        assert!(!out.join(crate::storage::APP_LOCK_FILE).exists());
+    }
+
+    #[test]
     fn backup_then_restore_roundtrip() {
         let (d, ws) = sample();
         let zip = d.path().join("b.zip");
