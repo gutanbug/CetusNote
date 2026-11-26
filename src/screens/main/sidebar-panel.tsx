@@ -262,6 +262,13 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
           하위 페이지 추가
         </DropdownMenuItem>
         <DropdownMenuItem
+          icon={<FolderPlus {...ic} />}
+          disabled={node.kind === "collection"}
+          onSelect={() => newFolder(node.id)}
+        >
+          하위 폴더 추가
+        </DropdownMenuItem>
+        <DropdownMenuItem
           icon={<Copy {...ic} />}
           shortcut={<Kbd keys={["⌘", "D"]} />}
           onSelect={() => duplicatePage(node.id)}

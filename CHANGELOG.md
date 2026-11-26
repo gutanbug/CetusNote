@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Open the release notes on GitHub from the update row in Settings and the What's new dialog.
 
+### Changed
+
+- Folders can now be placed inside pages.
+
 ## [0.1.6] - 2026-11-26
 
 ### Added

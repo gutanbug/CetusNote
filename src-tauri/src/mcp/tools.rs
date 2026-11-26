@@ -1484,6 +1484,53 @@ mod tests {
     }
 
     #[test]
+    fn folder_may_sit_under_a_document_but_not_a_collection() {
+        let (_d, ws) = fixture();
+        let doc = make(&ws, "문서", None, "");
+        let folder = make(&ws, "폴더", None, "");
+        let mut raw = ws.read_page(&folder).unwrap().unwrap();
+        raw["kind"] = json!("folder");
+        ws.write_page(&raw).unwrap();
+        let moved = move_page(
+            &ws,
+            MoveArgs {
+                page_id: folder.clone(),
+                parent_id: Some(doc.clone()),
+            },
+        )
+        .unwrap();
+        assert_eq!(moved.parent_id.as_deref(), Some(doc.as_str()));
+        let inner = make(&ws, "안", Some(&folder), "");
+        assert!(ws.read_page(&inner).unwrap().is_some());
+        assert!(
+            move_page(
+                &ws,
+                MoveArgs {
+                    page_id: doc.clone(),
+                    parent_id: Some(inner)
+                }
+            )
+            .is_err(),
+            "폴더 안으로 옮기면 고리"
+        );
+        let coll = make(&ws, "컬렉션", None, "");
+        let mut raw = ws.read_page(&coll).unwrap().unwrap();
+        raw["kind"] = json!("collection");
+        ws.write_page(&raw).unwrap();
+        assert!(
+            move_page(
+                &ws,
+                MoveArgs {
+                    page_id: folder.clone(),
+                    parent_id: Some(coll)
+                }
+            )
+            .is_err(),
+            "컬렉션 아래에는 폴더를 둘 수 없다"
+        );
+    }
+
+    #[test]
     fn trash_only_marks_and_never_deletes() {
         let (_d, ws) = fixture();
         let id = make(&ws, "지울 것", None, "본문");

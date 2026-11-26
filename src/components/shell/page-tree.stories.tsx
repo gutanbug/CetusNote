@@ -143,14 +143,14 @@ export const Folders: Story = {
   },
 };
 
-/** 행의 ＋ 메뉴 — 섹션 ＋와 같다. 문서 아래에는 폴더를 둘 수 없어 새 폴더가 꺼진다 */
+/** 행의 ＋ 메뉴 — 섹션 ＋와 같다. 폴더·문서 아래에 새 폴더를 만들 수 있다 */
 export const AddMenu: Story = {
   args: {
     initialExpanded: ["work"],
     addMenu: (node) => (
       <>
         <DropdownMenuItem>새 페이지</DropdownMenuItem>
-        <DropdownMenuItem disabled={node.kind !== "folder"}>새 폴더</DropdownMenuItem>
+        <DropdownMenuItem disabled={node.kind === "collection"}>새 폴더</DropdownMenuItem>
       </>
     ),
   },
@@ -164,10 +164,7 @@ export const AddMenu: Story = {
     await userEvent.keyboard("{Escape}");
     await userEvent.click(c.getByRole("button", { name: "회의록에 추가" }));
     await waitFor(() =>
-      expect(body.getByRole("menuitem", { name: "새 폴더" })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      ),
+      expect(body.getByRole("menuitem", { name: "새 폴더" })).not.toHaveAttribute("aria-disabled"),
     );
     await userEvent.keyboard("{Escape}");
   },

@@ -50,3 +50,12 @@ describe("buildPageTree (SHELL-05, SHELL-14)", () => {
     expect(titles).toContain("고리2");
   });
 });
+
+describe("문서 아래 폴더 (SHELL-14)", () => {
+  it("문서 안에 폴더가 들어가고, 폴더 안에 문서가 든다", () => {
+    const doc = make({ title: "로드맵" });
+    const folder = make({ kind: "folder", title: "자료", parentId: doc.id });
+    const pic = make({ title: "그림", parentId: folder.id });
+    expect(shape(buildPageTree([doc, folder, pic]))).toEqual([["로드맵", [["자료", ["그림"]]]]]);
+  });
+});

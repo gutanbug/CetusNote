@@ -72,3 +72,10 @@ describe("레이아웃 값 쓰기", () => {
     expect(layoutWithWidth({ width: "wide", font: "serif" }, undefined)).toEqual({ font: "serif" });
   });
 });
+
+describe("문서 아래 폴더의 본문 폭 (SHELL-14)", () => {
+  it("문서 → 폴더 → 페이지: 폴더의 폭을 아래 페이지가 따르고, 문서를 건너뛰지 않는다", () => {
+    const all = { d: node(null), f: node("d", "wide", "folder"), p: node("f") };
+    expect(resolveBodyWidth("p", all, false)).toEqual({ width: "wide", from: "folder" });
+  });
+});

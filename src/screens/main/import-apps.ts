@@ -90,13 +90,13 @@ export async function writeImport(
   const ids = new Map<string, string>();
   const shells: { node: ImportNode; page: Page }[] = [];
 
-  // 묶음(컨테이너): 목적지가 폴더·맨 위면 폴더, 문서 아래면 문서로 만든다(문서 아래에는 문서만)
+  // 묶음(컨테이너): 컬렉션 아래가 아니면 폴더(폴더는 문서 아래에도 둔다, SHELL-14). 컬렉션 아래면 문서
   const parent = parentId ? pagesStore.getState().pages[parentId] : undefined;
   const containerTitle = `${appLabel(app)}에서 가져옴`;
   const container =
-    !parent || parent.kind === "folder"
-      ? pagesStore.getState().create({ kind: "folder", title: containerTitle, parentId })
-      : createDocument(parentId);
+    parent?.kind === "collection"
+      ? createDocument(parentId)
+      : pagesStore.getState().create({ kind: "folder", title: containerTitle, parentId });
   if (container.kind !== "folder")
     pagesStore.getState().update(container.id, { title: containerTitle });
   const containerId = container.id;
@@ -110,11 +110,11 @@ export async function writeImport(
     if (done) return done;
     const parentPage = node.parentKey ? byKey.get(node.parentKey) : undefined;
     const parentPageId = parentPage ? ensure(parentPage) : containerId;
-    const parentIsFolder =
-      parentPageId === containerId ? container.kind === "folder" : isFolderPage(parentPageId);
-    const asFolder = node.kind === "folder" && parentIsFolder;
-    // 컬렉션은 폴더 아래에만 둔다. 문서 아래라면 같은 이름의 문서로 만든다(레코드 값은 버린다)
-    const asCollection = node.kind === "collection" && parentIsFolder;
+    // 폴더·컬렉션은 컬렉션 아래가 아니면 둔다(맨 위·폴더·문서 아래). 컬렉션 아래는 문서(레코드)만
+    const parentAccepts =
+      parentPageId === containerId ? container.kind === "folder" : !isCollectionPage(parentPageId);
+    const asFolder = node.kind === "folder" && parentAccepts;
+    const asCollection = node.kind === "collection" && parentAccepts;
     const page = asFolder
       ? pagesStore.getState().create({ kind: "folder", title: node.title, parentId: parentPageId })
       : asCollection
@@ -210,8 +210,8 @@ async function writeBlobAttachments(
 }
 
 /** 가져온 묶음에서 이 페이지가 폴더인지 */
-function isFolderPage(id: string): boolean {
-  return pagesStore.getState().pages[id]?.kind === "folder";
+function isCollectionPage(id: string): boolean {
+  return pagesStore.getState().pages[id]?.kind === "collection";
 }
 
 /**

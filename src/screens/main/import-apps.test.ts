@@ -52,6 +52,24 @@ describe("다른 앱 가져오기 — 페이지 만들기 (DATA-11)", () => {
     h.store = createPagesStore(storage, { delay: 10_000 });
   });
 
+  it("문서 아래 가져오기: 묶음 폴더는 그 문서 아래 폴더가 된다 (SHELL-14)", async () => {
+    const { writeImport } = await import("./import-apps");
+    const doc = h.store.getState().create({ title: "목적지" });
+    const source = pick([["할 일.md", "# 할 일\n내용"]], []);
+    const outcome = parseAppExport("obsidian", source);
+    const storage = createMemoryStorage({
+      info,
+      pages: [],
+      pickAppSource: () => source,
+      appImportBytes: {},
+    });
+    await writeImport("obsidian", outcome, source, doc.id, storage);
+    const pages = Object.values(h.store.getState().pages) as Page[];
+    const container = pages.find((p) => p.title === "Obsidian에서 가져옴")!;
+    expect(container.kind).toBe("folder");
+    expect(container.parentId).toBe(doc.id);
+  });
+
   it("Obsidian: 묶음 폴더 아래에 문서를 만들고, 링크·그림·콜아웃을 살린다", async () => {
     const { writeImport } = await import("./import-apps");
     const source = pick(

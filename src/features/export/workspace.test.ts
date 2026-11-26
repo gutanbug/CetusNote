@@ -373,3 +373,13 @@ describe("가져오기와 왕복", () => {
     expect(back.body).toContain("본문 줄");
   });
 });
+
+describe("문서 아래 폴더 내보내기 (SHELL-14, DATA-10)", () => {
+  it("문서 > 폴더 > 문서는 <문서>.md와 <문서>/<폴더>/ 모양으로 쓴다", () => {
+    const doc = pg({ title: "프로젝트" });
+    const folder = pg({ title: "자료", kind: "folder", parentId: doc.id });
+    const note = pg({ title: "할 일", parentId: folder.id });
+    const out = build([doc, folder, note]);
+    expect(paths(out.manifest.files).sort()).toEqual(["프로젝트.md", "프로젝트/자료/할 일.md"]);
+  });
+});
