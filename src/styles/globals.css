@@ -87,6 +87,17 @@
   --color-pink-fg: var(--c-pink-fg);
   --color-red-bg: var(--c-red-bg);
   --color-red-fg: var(--c-red-fg);
+  /* 보드 칸 바탕 (CL-BoardView) */
+  --color-board-tint-gray: var(--board-tint-gray);
+  --color-board-tint-brown: var(--board-tint-brown);
+  --color-board-tint-orange: var(--board-tint-orange);
+  --color-board-tint-yellow: var(--board-tint-yellow);
+  --color-board-tint-green: var(--board-tint-green);
+  --color-board-tint-blue: var(--board-tint-blue);
+  --color-board-tint-purple: var(--board-tint-purple);
+  --color-board-tint-pink: var(--board-tint-pink);
+  --color-board-tint-red: var(--board-tint-red);
+  --color-board-card: var(--board-card);
 
   /* shadcn 생성물이 쓰는 이름 → 토큰 */
   --color-background: var(--bg-app);

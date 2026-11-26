@@ -51,18 +51,22 @@ const MOVES = [
   { key: "ArrowDown", glyph: "↓", label: "아래로", Icon: ArrowDown },
 ] as const;
 
-/** 칸 바탕 — 칸 색을 옅게 깐다(AppFlowy 보드처럼). 카드는 그 위에 bg-elevated로 뜬다 */
+/** 칸 바탕 — 칸 색을 옅게 깐다(AppFlowy 보드처럼). 카드는 그 위에 bg-elevated로 뜬다.
+ * 값은 토큰 --board-tint-*(tokens.css): 라이트는 기존 bg/60과 같고, 다크는 글자색 18%로 색상이 보이게 한다 */
 const COLUMN_TINT: Record<SoftColor, string> = {
-  gray: "bg-gray-bg/60",
-  brown: "bg-brown-bg/60",
-  orange: "bg-orange-bg/60",
-  yellow: "bg-yellow-bg/60",
-  green: "bg-green-bg/60",
-  blue: "bg-blue-bg/60",
-  purple: "bg-purple-bg/60",
-  pink: "bg-pink-bg/60",
-  red: "bg-red-bg/60",
+  gray: "bg-board-tint-gray",
+  brown: "bg-board-tint-brown",
+  orange: "bg-board-tint-orange",
+  yellow: "bg-board-tint-yellow",
+  green: "bg-board-tint-green",
+  blue: "bg-board-tint-blue",
+  purple: "bg-board-tint-purple",
+  pink: "bg-board-tint-pink",
+  red: "bg-board-tint-red",
 };
+
+/** 다크에서 칩 바탕이 카드·칸과 거의 같아 가장자리가 죽는다. 글자색 테두리를 얇게 둘러 칩 윤곽을 살린다 (라이트 무변화) */
+const BOARD_CHIP = "dark:ring-1 dark:ring-inset dark:ring-current/35";
 
 /** 칸 머리 계산 */
 export type BoardCalcKind = "count" | "due" | "late" | "none";
@@ -108,7 +112,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
       data-dragging={dragging || undefined}
       className={cn(
         // 라이트는 프로토타입(bg-app)과 같은 흰색. 다크는 칸보다 밝은 면이라 카드가 떠 보인다
-        "grid w-full cursor-grab gap-2 rounded-lg border border-line bg-elevated p-3 text-left",
+        "grid w-full cursor-grab gap-2 rounded-lg border border-line bg-board-card p-3 text-left",
         "transition-[background-color,opacity] duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
         "data-dragging:opacity-45",
         focusRing,
@@ -136,7 +140,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
       {meta ? (
         <span className="flex flex-wrap items-center gap-1">
           {item.tags.map((t) => (
-            <TagChip key={t.name} color={t.color}>
+            <TagChip key={t.name} color={t.color} className={BOARD_CHIP}>
               {t.name}
             </TagChip>
           ))}
@@ -145,7 +149,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
           {extra.map((x) =>
             x.chips?.length ? (
               x.chips.map((c) => (
-                <TagChip key={`${x.key}:${c.name}`} color={c.color}>
+                <TagChip key={`${x.key}:${c.name}`} color={c.color} className={BOARD_CHIP}>
                   <span className="sr-only">{x.name}: </span>
                   {c.name}
                 </TagChip>
@@ -403,7 +407,7 @@ function BoardView({
                         {col.label}
                       </span>
                     ) : (
-                      <StatusChip status={col.label} color={col.color} />
+                      <StatusChip status={col.label} color={col.color} className={BOARD_CHIP} />
                     )}
                     {col.calc ? (
                       <span className="shrink-0 text-label font-normal text-tertiary">
@@ -706,7 +710,7 @@ function BoardView({
                         {h.none ? (
                           <span className="truncate text-caption text-secondary">{h.label}</span>
                         ) : (
-                          <StatusChip status={h.label} color={h.color} />
+                          <StatusChip status={h.label} color={h.color} className={BOARD_CHIP} />
                         )}
                         <span className="flex-1 text-label text-tertiary">{h.count}개</span>
                         <Eye
