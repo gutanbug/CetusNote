@@ -146,6 +146,19 @@ type Options = {
   generation?: () => number;
 };
 
+/**
+ * 기준 시점 이후 이 앱이 페이지를 고쳤는가. 본문을 백그라운드에서 새로 읽어 붙인 것(객체만 바뀜)은 고친 것이 아니다.
+ * 기준이 되는 본문이 아직 없던 페이지는 내용 비교를 하지 않는다 (DATA-07·DATA-09: 열기만 하면 버전 기록을 만들지 않는다)
+ */
+const editedSince = (was: Page | undefined, now: Page | undefined): boolean => {
+  if (was === now) return false;
+  if (!was || !now) return true;
+  const { content: wc, ...wm } = was;
+  const { content: nc, ...nm } = now;
+  if (!sameValue(wm, nm)) return true;
+  return isBodyLoaded(was) && isBodyLoaded(now) && !sameValue(wc, nc);
+};
+
 export function createPagesStore(
   storage: Storage,
   {
@@ -396,7 +409,9 @@ export function createPagesStore(
         const pages = { ...before };
         const rev = { ...get().externalRev };
         const busy = (id: string) =>
-          queue.isUnsaved(id) || pendingMeta.has(id) || (!!base && base[id] !== pages[id]);
+          queue.isUnsaved(id) ||
+          pendingMeta.has(id) ||
+          (!!base && editedSince(base[id], pages[id]));
         for (const page of incoming) {
           if (busy(page.id)) {
             // 덮지 않은 바깥 내용도 버전 기록에 남긴다 (DATA-07·DATA-09): 나중에 버전 기록에서 되돌릴 수 있다
