@@ -48,17 +48,21 @@ export function buildPageTree(
     const parent = resolve(page);
     if (parent === undefined) continue;
     const key = parent ?? "root";
-    groups.set(key, [...(groups.get(key) ?? []), page]);
+    const list = groups.get(key);
+    if (list) list.push(page);
+    else groups.set(key, [page]);
   }
 
+  // Intl.Collator는 localeCompare와 같은 정렬이면서 정렬 중 매번 로케일을 찾지 않는다 (SYS-10)
+  const collate = new Intl.Collator().compare;
   const sortGroup = (key: string, list: PageMeta[]) => {
     const rank = new Map((order[key] ?? []).map((id, i) => [id, i]));
-    return [...list].sort((a, b) => {
+    return list.slice().sort((a, b) => {
       const ra = rank.get(a.id) ?? Infinity;
       const rb = rank.get(b.id) ?? Infinity;
       if (ra !== rb) return ra - rb;
       if ((a.kind === "folder") !== (b.kind === "folder")) return a.kind === "folder" ? -1 : 1;
-      return a.createdAt.localeCompare(b.createdAt);
+      return collate(a.createdAt, b.createdAt);
     });
   };
   const build = (key: string): PageNode[] =>
