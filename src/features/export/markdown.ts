@@ -3,6 +3,7 @@ import type { Page } from "@/lib/storage";
 import { detectLanguage } from "@/lib/code-language";
 import { calloutTypeOf } from "@/lib/callout-type";
 import { collectHeadings } from "@/lib/toc";
+import { capUtf8Bytes } from "@/lib/utf8-cap";
 import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
 
 /**
@@ -435,15 +436,19 @@ function pageMarkdown(page: Page, options: PageMarkdownOptions = {}): string {
   return options.frontMatter === false ? text : frontMatterOf(page) + text;
 }
 
-/** 저장 대화상자의 기본 파일 이름. 파일 이름에 못 쓰는 글자를 뺀다 */
+/** `.md`(3바이트)를 뺀 파일 이름 바이트 상한. 파일 시스템 한도는 255바이트 */
+const MD_NAME_MAX_BYTES = 252;
+
+/** 저장 대화상자의 기본 파일 이름. 파일 이름에 못 쓰는 글자를 빼고, `.md`를 포함해 255바이트(UTF-8)를 넘기지 않는다 */
 export function markdownFileName(page: Pick<Page, "title">): string {
-  const base = page.title
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^\.+/, "")
-    .slice(0, 80)
-    .trim();
+  const base = capUtf8Bytes(
+    page.title
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^\.+/, ""),
+    MD_NAME_MAX_BYTES,
+  ).trim();
   return `${base || "제목 없음"}.md`;
 }

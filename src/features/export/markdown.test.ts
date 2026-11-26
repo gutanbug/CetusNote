@@ -405,6 +405,13 @@ describe("페이지", () => {
     expect(markdownFileName({ title: "  " })).toBe("제목 없음.md");
     expect(markdownFileName({ title: "..숨김" })).toBe("숨김.md");
   });
+
+  it("파일 이름(.md 포함) 255바이트 이하: 한글은 3바이트씩 센다", () => {
+    const name = markdownFileName({ title: "가".repeat(120) });
+    expect(name.endsWith(".md")).toBe(true);
+    expect(new TextEncoder().encode(name).length).toBeLessThanOrEqual(255);
+    expect(name).toBe(`${"가".repeat(84)}.md`);
+  });
 });
 
 describe("복사용 글자 (EDIT-26)", () => {

@@ -54,9 +54,13 @@ describe("sanitizeFileName", () => {
     expect(sanitizeFileName("...")).toBe("제목 없음");
     expect(sanitizeFileName("   ")).toBe("제목 없음");
   });
-  it("100자(글자 단위)로 자른다", () => {
-    expect([...sanitizeFileName("가".repeat(150))]).toHaveLength(100);
-    expect([...sanitizeFileName("😀".repeat(150))]).toHaveLength(100);
+  it("252바이트(UTF-8)로 자른다: 한글 84글자, 이모지 63글자", () => {
+    const hangul = sanitizeFileName("가".repeat(150));
+    expect([...hangul]).toHaveLength(84);
+    expect(new TextEncoder().encode(hangul).length).toBeLessThanOrEqual(252);
+    const emoji = sanitizeFileName("😀".repeat(150));
+    expect([...emoji]).toHaveLength(63);
+    expect(new TextEncoder().encode(emoji).length).toBeLessThanOrEqual(252);
   });
 });
 

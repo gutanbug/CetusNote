@@ -1,4 +1,5 @@
 import type { FieldDef, Page } from "@/lib/storage";
+import { capUtf8Bytes } from "@/lib/utf8-cap";
 import { pageToMarkdown, type MdNode } from "./markdown";
 
 /**
@@ -44,9 +45,10 @@ export type WorkspaceExportInput = {
 const UNTITLED = "제목 없음";
 const ROOT_KEY = "root";
 const INDEX = "index";
-const NAME_MAX = 100;
+/** 이름 한 조각의 UTF-8 바이트 상한. 파일 시스템 255바이트에서 `.md`(3바이트)를 뺀 값이라 폴더·`.md` 파일 모두 들어간다 */
+export const NAME_MAX_BYTES = 252;
 
-/** 파일·폴더 이름 한 조각: 금지 글자·제어 문자를 빼고, 공백을 줄이고, 앞의 점을 떼고, 100자로 자른다 */
+/** 파일·폴더 이름 한 조각: 금지 글자·제어 문자를 빼고, 공백을 줄이고, 앞의 점을 떼고, 252바이트(UTF-8)로 자른다 */
 export function sanitizeFileName(raw: string): string {
   const cleaned = raw
     // 제어 문자를 빼는 것이 목적이라 이 정규식은 허용한다
@@ -56,7 +58,7 @@ export function sanitizeFileName(raw: string): string {
     .replace(/\s+/g, " ")
     .replace(/^\.+/, "")
     .trim();
-  const cut = [...cleaned].slice(0, NAME_MAX).join("").trim();
+  const cut = capUtf8Bytes(cleaned, NAME_MAX_BYTES).trim();
   return cut || UNTITLED;
 }
 

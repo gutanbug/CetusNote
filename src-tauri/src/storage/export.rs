@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 
 /// 한 번에 쓸 수 있는 파일 수(글 + 이미지 + 색인)
 pub const MAX_FILES: usize = 50_000;
-/// 폴더·파일 이름 한 조각의 최대 글자 수
-const MAX_NAME_CHARS: usize = 100;
+/// 폴더·파일 이름 한 조각의 최대 UTF-8 바이트 수. 255에서 `.md`(3바이트)를 뺀 값
+const MAX_NAME_BYTES: usize = 252;
 /// 같은 이름이 있을 때 붙이는 ` (2)`… 의 상한
 const MAX_SUFFIX: usize = 999;
 
@@ -68,7 +68,7 @@ pub fn check_rel_path(path: &str) -> Result<Vec<&str>> {
     Ok(parts)
 }
 
-/// 폴더·파일 이름 한 조각을 정리한다: 금지 글자·제어 문자 제거, 공백 정리, 앞의 점 제거, 최대 100자.
+/// 폴더·파일 이름 한 조각을 정리한다: 금지 글자·제어 문자 제거, 공백 정리, 앞의 점 제거, 최대 252바이트(UTF-8).
 pub fn sanitize_name(raw: &str) -> String {
     let cleaned: String = raw
         .chars()
@@ -82,8 +82,7 @@ pub fn sanitize_name(raw: &str) -> String {
         .collect();
     let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
     let trimmed = collapsed.trim_start_matches('.').trim();
-    let cut: String = trimmed.chars().take(MAX_NAME_CHARS).collect();
-    let cut = cut.trim().to_string();
+    let cut = take_bytes(trimmed, MAX_NAME_BYTES).trim().to_string();
     if cut.is_empty() {
         "제목 없음".to_string()
     } else if is_windows_reserved(&cut) {
@@ -92,6 +91,18 @@ pub fn sanitize_name(raw: &str) -> String {
     } else {
         cut
     }
+}
+
+/// 글자 경계를 지키며 UTF-8 `max` 바이트를 넘지 않게 자른다
+fn take_bytes(s: &str, max: usize) -> &str {
+    let mut end = 0;
+    for (i, c) in s.char_indices() {
+        if i + c.len_utf8() > max {
+            break;
+        }
+        end = i + c.len_utf8();
+    }
+    &s[..end]
 }
 
 /// Windows 예약 장치 이름인가(확장자를 떼고, 대소문자 무시). CON, PRN, AUX, NUL, COM1–9, LPT1–9
@@ -303,10 +314,14 @@ mod tests {
         assert_eq!(sanitize_name("COM0"), "COM0");
         assert_eq!(sanitize_name("console"), "console");
         assert_eq!(sanitize_name("x\u{7}y"), "x y");
-        assert_eq!(
-            sanitize_name(&"가".repeat(300)).chars().count(),
-            MAX_NAME_CHARS
-        );
+        // 한글 한 글자는 3바이트 → 252바이트 = 84글자
+        let long = sanitize_name(&"가".repeat(300));
+        assert_eq!(long.chars().count(), 84);
+        assert!(long.len() <= MAX_NAME_BYTES);
+        // 4바이트 이모지도 글자 경계에서 잘린다
+        let emoji = sanitize_name(&"😀".repeat(100));
+        assert_eq!(emoji.chars().count(), 63);
+        assert!(emoji.len() <= MAX_NAME_BYTES);
     }
 
     #[test]
