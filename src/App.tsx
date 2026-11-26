@@ -18,6 +18,8 @@ import { MainScreen } from "@/screens/main/main-screen";
 import { useMainUi } from "@/screens/main/ui-store";
 import { useReminderAlerts } from "@/screens/main/reminder-alerts";
 import { ReminderAlertsDialog } from "@/screens/main/reminder-dialog";
+import { WhatsNewDialog } from "@/screens/main/whats-new-dialog";
+import { useWhatsNewOnStart } from "@/features/release-notes";
 import { UnsavedSwitchDialog } from "@/screens/main/unsaved-switch-dialog";
 import { SetupScreen } from "@/screens/setup/setup-screen";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -89,6 +91,8 @@ export default function App() {
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));
   const phase = useWorkspace((s) => s.phase);
   const reduced = useReducedMotion();
+  // 업데이트 직후·새 버전이면 「업데이트 내용」을 한 번 띄운다. 워크스페이스가 준비된 뒤에만 (SYS-12)
+  useWhatsNewOnStart(phase === "ready");
 
   if (DebugScreen && hash.startsWith("#/debug")) {
     return (
@@ -107,6 +111,7 @@ export default function App() {
       <Toaster />
       <UnsavedSwitchDialog />
       <ReminderAlertsDialog />
+      <WhatsNewDialog />
       <AnimatePresence mode="wait" initial={false}>
         {phase === "setup" ? (
           <motion.div

@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { sessionStore, useSession } from "@/features/session";
 import { updaterStore, useUpdater } from "@/features/updater";
 import { updateView } from "@/features/updater/view";
+import { openWhatsNewForCurrent } from "@/features/release-notes";
 
 /** 설정 › 일반 › 업데이트 (SYS-07) — 현재 버전, 확인·설치 버튼, 자동 확인 스위치 */
 export function UpdateSection() {
@@ -51,6 +52,11 @@ export function UpdateSection() {
             {view.actionLabel}
           </Button>
         )}
+      </SettingsRow>
+      <SettingsRow name="릴리스 노트" description="이번 버전에서 바뀐 내용을 다시 볼 수 있어요">
+        <Button variant="secondary" size="sm" onClick={() => void openWhatsNewForCurrent()}>
+          릴리스 노트 보기
+        </Button>
       </SettingsRow>
       {view.progress !== null || state.status === "downloading" ? (
         <div className="pb-3">

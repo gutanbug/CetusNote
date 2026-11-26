@@ -40,8 +40,10 @@ import {
   type LucideIcon,
   X,
   RefreshCw,
+  ScrollText,
 } from "lucide-react";
 import { checkForUpdates } from "@/features/updater";
+import { openWhatsNewForCurrent } from "@/features/release-notes";
 import * as React from "react";
 import {
   openDailyNote,
@@ -251,6 +253,22 @@ function useCommands(): Command[] {
         keywords: ["update", "upgrade", "version", "업데이트", "버전", "새 버전", "최신"],
         icon: RefreshCw,
         run: () => void checkForUpdates(),
+      },
+      {
+        id: "release-notes",
+        title: "릴리스 노트 보기",
+        keywords: [
+          "release notes",
+          "changelog",
+          "what's new",
+          "update",
+          "릴리스",
+          "업데이트 내용",
+          "변경",
+          "새 기능",
+        ],
+        icon: ScrollText,
+        run: () => void openWhatsNewForCurrent(),
       },
       ...THEMES.filter((t) => t.value !== theme).map((t) => ({
         id: `theme-${t.value}`,
