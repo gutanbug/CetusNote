@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Faster page tree, search, and collection views on large workspaces.
+- Faster page tree updates and MCP search on large workspaces.
 - Pages no longer get re-saved when you only open them.
 
 ### Fixed
