@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { extractSection, promoteUnreleased, today } from "./changelog.mjs";
-import { versionFromTag } from "./release-notes.mjs";
+import { RELEASE_FOOTER, releaseNotesWithFooter, versionFromTag } from "./release-notes.mjs";
+import { writeFileSync, mkdtempSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const DOC = `# Changelog
 
@@ -93,5 +96,28 @@ describe("helpers", () => {
     expect(versionFromTag("v0.1.6")).toBe("0.1.6");
     expect(versionFromTag("0.1.6")).toBe("0.1.6");
     expect(() => versionFromTag("latest")).toThrow(/버전 형식/);
+  });
+});
+
+describe("release footer (SYS-12)", () => {
+  it("꼬리말은 구분선과 설치 안내 두 줄을 가진다", () => {
+    expect(RELEASE_FOOTER.startsWith("\n---\n\n")).toBe(true);
+    expect(RELEASE_FOOTER).toContain("설정 › 일반 › 업데이트");
+    expect(RELEASE_FOOTER).toContain("SmartScreen");
+    expect(RELEASE_FOOTER.endsWith("\n")).toBe(true);
+  });
+
+  it("버전 섹션 뒤에 꼬리말을 붙인다", () => {
+    const dir = mkdtempSync(join(tmpdir(), "notes-"));
+    const path = join(dir, "CHANGELOG.md");
+    writeFileSync(
+      path,
+      "# Changelog\n\n## [0.2.0] - 2026-11-01\n\n### Added\n- 새 기능\n\n## [0.1.9] - 2026-10-01\n\n- 이전\n",
+    );
+    const out = releaseNotesWithFooter("v0.2.0", path);
+    expect(out).toContain("새 기능");
+    expect(out).not.toContain("이전");
+    expect(out.endsWith(RELEASE_FOOTER)).toBe(true);
+    expect(out).toContain("새 기능\n\n---\n\n");
   });
 });

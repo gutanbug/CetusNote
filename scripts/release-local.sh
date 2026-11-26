@@ -6,6 +6,12 @@
 #       make-latest-json.mjs로 latest.json → Release를 draft로 만들고 목록 확인 → --publish면 공개.
 # 서명 키(~/.tauri/cetusnote.key)는 환경 변수나 읽기 전용 마운트로만 넘기고 출력하지 않는다.
 # 세 플랫폼 중 하나라도 실패하면 Release를 만들지 않는다(불완전한 latest.json이 올라가지 않게).
+#
+# ⚠ .github/workflows/release.yml과 짝이다. 한쪽을 고치면 다른 쪽도 고친다. 맞춰야 하는 것:
+#   - 산출물 이름·종류(.dmg · .app.tar.gz · -setup.exe · .AppImage · .deb · .sig)와 latest.json 만드는 방법(make-latest-json.mjs)
+#   - 빌드 인자: macOS `--target universal-apple-darwin --config src-tauri/tauri.release.conf.json`, Windows·Linux `--config src-tauri/tauri.release.conf.json`
+#   - 릴리스 본문: `scripts/release-notes.mjs <tag> --with-footer` (설치 안내 꼬리말은 release-notes.mjs에만 있다)
+#   - 차이로 남는 것: 이 스크립트는 draft 후 --publish로 공개, 워크플로는 바로 공개
 set -euo pipefail
 
 REPO="${REPO:-gutanbug/CetusNote}"
@@ -179,14 +185,7 @@ log "latest.json 만들기"
 node scripts/make-latest-json.mjs --tag "$TAG" --dir "$OUT/assets" --repo "$REPO" --out "$OUT/assets/latest.json"
 
 # --- Release (draft → 확인 → 공개) ------------------------------------------
-node scripts/release-notes.mjs "$TAG" > "$OUT/release-notes.md"
-{
-  echo ""
-  echo "---"
-  echo ""
-  echo "이미 설치한 앱은 설정 › 일반 › 업데이트에서 바로 업데이트할 수 있어요."
-  echo "처음 설치하는 경우 서명이 없어서 macOS는 우클릭 › 열기, Windows는 SmartScreen의 「추가 정보 › 실행」으로 열어 주세요."
-} >> "$OUT/release-notes.md"
+node scripts/release-notes.mjs "$TAG" --with-footer > "$OUT/release-notes.md"
 
 log "Release draft 만들기: $TAG"
 gh release create "$TAG" --repo "$REPO" --draft --title "Cetus Note $TAG" \
