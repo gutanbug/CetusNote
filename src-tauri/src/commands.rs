@@ -292,12 +292,17 @@ fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Res
     ws.token = state.issue_token();
     let out = info(&ws);
     let new_root = ws.root.clone();
-    let old_root = state
-        .workspace
-        .lock()
-        .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?
-        .as_ref()
-        .map(|w| w.root.clone());
+    // 같은 폴더를 다시 열어도 바깥 변경 기준을 잃지 않게 이전 인스턴스의 상태를 이어받는다 (DATA-07)
+    let old_root = {
+        let guard = state
+            .workspace
+            .lock()
+            .map_err(|_| StorageError::new("io", "상태 잠금 실패"))?;
+        guard.as_ref().map(|w| {
+            ws.inherit_stamps(w);
+            w.root.clone()
+        })
+    };
     state.store(ws)?;
     sync_asset_scope(app, old_root.as_deref(), &new_root);
     Ok(out)

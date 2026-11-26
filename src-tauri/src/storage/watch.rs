@@ -216,4 +216,29 @@ mod tests {
         assert!(kept, "바깥 내용이 버전 기록에 없어요");
         assert_eq!(ws.read_page(A).unwrap().unwrap()["title"], "앱 내용");
     }
+
+    #[test]
+    fn reopening_the_same_folder_keeps_the_baseline() {
+        let d = tempfile::tempdir().unwrap();
+        let ws = Workspace::open(d.path().to_path_buf()).unwrap();
+        ws.write_meta(&json!({ "schemaVersion": 1 })).unwrap();
+        ws.write_page(&page(A, "가")).unwrap();
+        ws.write_page(&page(B, "나")).unwrap();
+        ws.load_all().unwrap();
+        // 새 인스턴스는 기준이 비어 있어 읽힌 페이지 전부를 바뀐 것으로 보고한다 (재현)
+        let bare = Workspace::open(d.path().to_path_buf()).unwrap();
+        assert_eq!(bare.scan_changes().unwrap().changed.len(), 2);
+        // 같은 폴더를 다시 열 때 기준을 이어받으면 바뀐 것이 없다
+        let mut again = Workspace::open(d.path().to_path_buf()).unwrap();
+        again.inherit_stamps(&ws);
+        assert_eq!(again.scan_changes().unwrap(), Default::default());
+        // 이어받은 뒤의 진짜 바깥 변경은 여전히 잡힌다
+        std::fs::write(
+            d.path().join("pages").join(format!("{A}.json")),
+            page(A, "바깥").to_string(),
+        )
+        .unwrap();
+        let c = again.scan_changes().unwrap();
+        assert_eq!(c.changed, vec![A.to_string()]);
+    }
 }

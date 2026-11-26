@@ -369,6 +369,14 @@ impl Workspace {
         Ok(Some(page))
     }
 
+    /// 같은 폴더를 다시 열 때 이전 인스턴스의 기준 상태(알고 있는 파일 상태)를 이어받는다.
+    /// 새 인스턴스의 기준이 비어 있으면 화면에 이미 읽힌 모든 페이지가 바뀐 것으로 잡힌다 (DATA-07)
+    pub fn inherit_stamps(&mut self, prev: &Workspace) {
+        if prev.root == self.root {
+            self.stamps = prev.stamps.clone();
+        }
+    }
+
     /// 지난번 이후 바깥에서 바뀐 것 (DATA-07)
     pub fn scan_changes(&self) -> Result<watch::Changes> {
         self.stamps.scan(&self.root)
