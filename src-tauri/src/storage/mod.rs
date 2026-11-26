@@ -188,6 +188,17 @@ pub fn acquire_app_lock(root: &Path, pid: u32, is_alive: impl Fn(u32) -> bool) -
     Ok(())
 }
 
+/// 이 프로세스가 잡은 잠금을 푼다. 다른 프로세스의 잠금은 건드리지 않는다.
+pub fn release_app_lock(root: &Path, pid: u32) {
+    let path = root.join(APP_LOCK_FILE);
+    let owner = fs::read_to_string(&path)
+        .ok()
+        .and_then(|t| t.trim().parse::<u32>().ok());
+    if owner == Some(pid) {
+        let _ = fs::remove_file(&path);
+    }
+}
+
 /// 고른 폴더로 워크스페이스 위치를 정한다.
 /// - 이미 워크스페이스(`workspace.json` 또는 `pages/`가 있음)거나 빈 폴더면 그대로 쓴다.
 /// - 다른 파일이 있는 폴더면 그 안의 `CetusNote` 폴더를 쓴다(문서 폴더를 어지럽히지 않게).
@@ -565,6 +576,20 @@ mod tests {
         acquire_app_lock(root, 200, |_| false).unwrap();
         assert_eq!(fs::read_to_string(root.join(APP_LOCK_FILE)).unwrap(), "200");
         // 자기 잠금은 다시 잡아도 된다
+        acquire_app_lock(root, 200, |_| true).unwrap();
+    }
+
+    #[test]
+    fn release_drops_only_our_own_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        acquire_app_lock(root, 100, |_| false).unwrap();
+        // 다른 프로세스의 잠금은 건드리지 않는다
+        release_app_lock(root, 200);
+        assert!(root.join(APP_LOCK_FILE).exists());
+        // 자기 잠금은 풀고, 풀린 뒤에는 다른 창이 연다
+        release_app_lock(root, 100);
+        assert!(!root.join(APP_LOCK_FILE).exists());
         acquire_app_lock(root, 200, |_| true).unwrap();
     }
 

@@ -83,6 +83,8 @@ export function workspaceErrorMessage(e: unknown): string {
       return "폴더를 찾을 수 없어요. 다른 폴더를 골라 주세요.";
     case "already_exists":
       return "그 위치에 같은 이름의 폴더가 이미 있어요. 다른 이름이나 위치를 골라 주세요.";
+    case "locked":
+      return "다른 Cetus Note 창이 이 폴더를 쓰고 있어요. 그 창을 닫은 뒤 다시 열어 주세요.";
     case "invalid_path":
       return "폴더 이름으로 쓸 수 없는 이름이에요. / \\ : 와 맨 앞 점(.)은 빼 주세요.";
     default:

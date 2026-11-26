@@ -215,6 +215,7 @@ export type StorageErrorCode =
   | "invalid_archive"
   | "not_empty"
   | "invalid_path"
+  | "locked"
   | "invalid_date"
   | "invalid_version"
   | "already_exists"

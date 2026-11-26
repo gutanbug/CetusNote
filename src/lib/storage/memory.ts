@@ -31,6 +31,8 @@ type MemoryOptions = {
   pickResult?: Omit<WorkspaceInfo, "token"> | null;
   /** 저장 실패 흉내 — 이 함수가 오류를 돌려주면 writePage가 실패한다 */
   failWrite?: (page: Page) => StorageError | undefined;
+  /** 폴더 전환 실패 흉내 — 이 함수가 오류를 돌려주면 switchWorkspace가 실패한다 (예: `locked`) */
+  failSwitch?: (path: string) => StorageError | undefined;
   /** 바깥 변경 흉내 — true를 돌려주면 writePage가 「바깥 내용을 버전 기록에 남겼다」고 알린다 (DATA-07) */
   keepsExternal?: (page: Page) => boolean;
   /** 이미지 선택 대화상자 결과 흉내 — 바이트를 주면 그 이미지를 넣은 것으로 */
@@ -174,6 +176,8 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async switchWorkspace(path) {
       const w = recent.find((x) => x.path === path);
       if (!w) throw new StorageError("invalid_path", "최근 목록에 없는 폴더예요");
+      const failure = options.failSwitch?.(path);
+      if (failure) throw failure;
       return open({ name: w.name, path: w.path });
     },
     async forgetWorkspace(path) {

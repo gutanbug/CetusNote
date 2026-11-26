@@ -308,6 +308,10 @@ fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Res
     };
     state.store(ws)?;
     sync_asset_scope(app, old_root.as_deref(), &new_root);
+    // 다른 폴더로 옮겼으면 이전 폴더의 잠금을 푼다. 안 풀면 다른 창이 그 폴더를 열지 못한다 (DATA-03)
+    if let Some(old) = old_root.as_deref().filter(|o| *o != new_root.as_path()) {
+        storage::release_app_lock(old, std::process::id());
+    }
     Ok(out)
 }
 
