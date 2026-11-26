@@ -519,7 +519,8 @@ pub fn pages_load_meta(state: State<AppState>) -> Result<LoadedPages> {
 }
 
 #[tauri::command]
-pub fn page_write(state: State<AppState>, page: Value, ws_token: u64) -> Result<()> {
+/// 페이지를 쓴다. 바깥 변경을 버전 기록에 남겼으면 `true` (DATA-07 알림용)
+pub fn page_write(state: State<AppState>, page: Value, ws_token: u64) -> Result<bool> {
     with_workspace_token(&state, ws_token, |ws| ws.write_page(&page))
 }
 

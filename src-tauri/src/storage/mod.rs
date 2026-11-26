@@ -302,21 +302,25 @@ impl Workspace {
         Ok(LoadedPages { pages, errors })
     }
 
-    pub fn write_page(&self, page: &Value) -> Result<()> {
+    /// 페이지를 쓴다. 바깥에서 바뀐 디스크 내용을 버전 기록에 남겼으면 `true` (앱 쪽 내용이 이긴다, DATA-07)
+    pub fn write_page(&self, page: &Value) -> Result<bool> {
         let id = validate_page(page)?;
         let path = self.page_path(&id);
         let key = format!("{PAGES_DIR}/{id}.json");
         // 이 앱이 본 뒤에 바깥에서 바뀌었으면 덮기 전에 바깥 내용을 버전 기록에 남긴다 (DATA-07)
-        if !self.stamps.is_known(&key, &path) {
-            self.keep_external_copy(&id, &path)?;
-        }
+        let kept_external = if self.stamps.is_known(&key, &path) {
+            false
+        } else {
+            self.keep_external_copy(&id, &path)?
+        };
         write_json(&path, page)?;
         self.stamps.remember(&key, &path);
-        Ok(())
+        Ok(kept_external)
     }
 
-    /// 덮이기 전 디스크의 바깥 내용을 기록에 남긴다. 읽을 수 없으면 덮지 않는다(두 쪽 다 지키려고)
-    fn keep_external_copy(&self, id: &str, path: &Path) -> Result<()> {
+    /// 덮이기 전 디스크의 바깥 내용을 기록에 남긴다. 남겼으면 `true`.
+    /// 읽을 수 없으면 덮지 않는다(두 쪽 다 지키려고)
+    fn keep_external_copy(&self, id: &str, path: &Path) -> Result<bool> {
         let Some(disk) = read_json_opt(path).ok().flatten() else {
             if path.exists() {
                 return Err(StorageError::new(
@@ -324,7 +328,7 @@ impl Workspace {
                     "바깥에서 바뀐 파일을 읽지 못해 덮지 않았어요",
                 ));
             }
-            return Ok(());
+            return Ok(false);
         };
         if validate_page(&disk).ok().as_deref() != Some(id) {
             return Err(StorageError::new(
@@ -333,7 +337,7 @@ impl Workspace {
             ));
         }
         self.save_version(&disk)?;
-        Ok(())
+        Ok(true)
     }
 
     /// 페이지 하나 다시 읽기(외부 변경, DATA-07). 파일이 없으면 None
@@ -670,6 +674,34 @@ mod tests {
         perm.set_readonly(false);
         fs::set_permissions(&path, perm).unwrap();
         ws.write_page(&page).unwrap();
+    }
+
+    #[test]
+    fn write_page_reports_no_kept_copy_when_nothing_changed_outside() {
+        let (_d, ws) = ws();
+        assert!(!ws.write_page(&page(ID)).unwrap());
+        assert!(!ws.write_page(&page(ID)).unwrap());
+        assert!(ws.list_versions(ID).unwrap().is_empty());
+    }
+
+    #[test]
+    fn write_page_keeps_external_copy_once_and_reports_it() {
+        let (_d, ws) = ws();
+        ws.write_page(&page(ID)).unwrap();
+        // 바깥(다른 앱·동기화)이 파일을 바꿨다
+        let mut external = page(ID);
+        external
+            .as_object_mut()
+            .unwrap()
+            .insert("title".into(), json!("바깥에서 고친 제목"));
+        fs::write(ws.page_path(ID), serde_json::to_vec(&external).unwrap()).unwrap();
+
+        // 앱 쪽 내용이 이기고, 바깥 내용은 버전 기록에 남는다
+        assert!(ws.write_page(&page(ID)).unwrap());
+        assert_eq!(ws.list_versions(ID).unwrap().len(), 1);
+        // 같은 충돌에 대해서는 한 번만 알린다
+        assert!(!ws.write_page(&page(ID)).unwrap());
+        assert_eq!(ws.list_versions(ID).unwrap().len(), 1);
     }
 
     #[test]

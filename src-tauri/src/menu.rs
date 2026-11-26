@@ -19,6 +19,7 @@ pub const IMPORT_DOCUMENT: &str = "import-document";
 pub const IMPORT_APP: &str = "import-app";
 pub const EXPORT_WORKSPACE_MARKDOWN: &str = "export-workspace-markdown";
 const CLOSE_WINDOW: &str = "close-window";
+const QUIT: &str = "quit-app";
 
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let name = app.package_info().name.clone();
@@ -41,7 +42,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             &PredefinedMenuItem::hide(app, Some(&format!("{name} 가리기")))?,
             &PredefinedMenuItem::hide_others(app, Some("기타 가리기"))?,
             &sep()?,
-            &PredefinedMenuItem::quit(app, Some(&format!("{name} 종료")))?,
+            // 종료는 직접 처리한다 (DATA-07): 저장을 끝낸 뒤 종료하려고 기본 quit 항목 대신 쓴다
+            &MenuItem::with_id(app, QUIT, format!("{name} 종료"), true, Some("CmdOrCtrl+Q"))?,
         ],
     )?;
     let file = Submenu::with_items(
@@ -128,6 +130,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 
 pub fn handle<R: Runtime>(app: &AppHandle<R>, id: &str) {
     match id {
+        // 저장을 마친 뒤 종료한다 (DATA-07, quit.rs)
+        QUIT => crate::request_quit(app),
         // 닫기 요청을 거친다 — 프런트엔드가 저장을 마친 뒤 닫는다 (lifecycle.ts)
         CLOSE_WINDOW => {
             if let Some(w) = app.get_webview_window("main") {

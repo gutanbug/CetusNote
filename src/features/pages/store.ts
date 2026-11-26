@@ -18,6 +18,7 @@ import { createSaveQueue, type SaveState } from "./save-queue";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import { createHistoryRecorder, fingerprint, type HistoryRecorder } from "../history/recorder";
 import { isBodyLoaded, UNLOADED_BODY } from "./body";
+import { notifyKeptExternal } from "./kept-external";
 
 /** 본문을 한 번에 읽는 페이지 수 (IPC 한 번의 크기와 화면 갱신 간격) */
 const BODY_BATCH = 200;
@@ -158,7 +159,9 @@ export function createPagesStore(
     const history = injected ?? createHistoryRecorder({ storage, latest: (id) => get().pages[id] });
     const queue = createSaveQueue({
       write: async (page) => {
-        await storage.writePage(page);
+        const keptExternal = await storage.writePage(page);
+        // 바깥 내용을 버전 기록에 남겼으면 알린다 (DATA-07). 같은 충돌은 한 번만 남으므로 한 번만 알린다
+        if (keptExternal) notifyKeptExternal(page.id);
         // 쓰기가 끝난 내용만 버전 후보로 본다 (DATA-09)
         history.observe(page);
       },

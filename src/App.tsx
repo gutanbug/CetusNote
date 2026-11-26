@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toast";
 import {
   useAutoBackupOnOpen,
   useExternalChanges,
+  useKeptExternalNotice,
   useLoadWorkspaceOnOpen,
   useSaveOnClose,
 } from "@/features/app/lifecycle";
@@ -14,6 +15,7 @@ import { sessionStore } from "@/features/session";
 import { useAutoUpdateChecks } from "@/features/updater";
 import { useWorkspace, workspaceStore } from "@/features/workspace";
 import { MainScreen } from "@/screens/main/main-screen";
+import { useMainUi } from "@/screens/main/ui-store";
 import { useReminderAlerts } from "@/screens/main/reminder-alerts";
 import { ReminderAlertsDialog } from "@/screens/main/reminder-dialog";
 import { UnsavedSwitchDialog } from "@/screens/main/unsaved-switch-dialog";
@@ -69,6 +71,9 @@ function useWorkspaceInit() {
   }, []);
 }
 
+/** 「버전 기록 보기」: 그 페이지의 버전 기록 대화상자를 연다 (DATA-07, DATA-09) */
+const openVersionHistory = (pageId: string) => useMainUi.getState().setHistoryPageId(pageId);
+
 export default function App() {
   const hash = useHash();
   useDebugShortcut();
@@ -79,6 +84,7 @@ export default function App() {
   useAutoBackupOnOpen();
   useAutoUpdateChecks();
   useExternalChanges();
+  useKeptExternalNotice(openVersionHistory);
   useReminderAlerts();
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));
   const phase = useWorkspace((s) => s.phase);

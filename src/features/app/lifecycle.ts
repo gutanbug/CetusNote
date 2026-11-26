@@ -1,6 +1,6 @@
 import { toast } from "@/components/ui/toast";
 import { metaStore } from "@/features/meta";
-import { pagesStore } from "@/features/pages";
+import { onKeptExternal, pagesStore } from "@/features/pages";
 import { sessionStore } from "@/features/session";
 import { workspaceStore } from "@/features/workspace";
 import { runAutoBackup } from "@/features/backup";
@@ -84,6 +84,22 @@ export function useAutoBackupOnOpen() {
   }, []);
 }
 
+/**
+ * 바깥 변경을 버전 기록에 남기고 앱 쪽 내용을 지켰을 때 알린다 (DATA-07).
+ * 「버전 기록 보기」는 호출한 쪽이 넘긴 함수로 그 페이지의 기록을 연다.
+ */
+export function useKeptExternalNotice(openHistory: (pageId: string) => void) {
+  useEffect(
+    () =>
+      onKeptExternal((pageId) => {
+        toast("다른 곳에서 바뀐 내용을 버전 기록에 남겨 두었어요.", {
+          action: { label: "버전 기록 보기", onClick: () => openHistory(pageId) },
+        });
+      }),
+    [openHistory],
+  );
+}
+
 /** 바깥 변경을 확인하는 간격 (DATA-07) */
 const SCAN_MS = 30_000;
 
@@ -141,6 +157,38 @@ export async function checkExternalChanges(storage = getStorage()) {
   return { ...result, meta: changes.meta, errors: read.errors };
 }
 
+export type QuitFlowDeps = {
+  /** 남은 저장을 모두 쓴다. 하나라도 실패하면 false */
+  saveAll: () => Promise<boolean>;
+  /** Rust에 종료를 확인한다 (confirm_quit) */
+  confirmQuit: () => Promise<void>;
+  notify: (message: string, action?: { label: string; onClick: () => void }) => void;
+};
+
+/**
+ * 종료 요청 한 번의 흐름 (DATA-07). 저장이 끝나면 종료를 확인하고, 실패하면 종료하지 않고 「그래도 종료」를 준다.
+ * 저장 함수가 예외를 던져도 저장 실패로 본다. 확인 호출이 실패하면 알린다(권한 누락 시 조용히 남던 문제).
+ * 돌려주는 값은 종료를 확인했는지 여부
+ */
+export async function runQuitFlow({
+  saveAll,
+  confirmQuit,
+  notify,
+}: QuitFlowDeps): Promise<boolean> {
+  const quit = () =>
+    confirmQuit().catch(() => notify("앱을 종료하지 못했어요. 다시 시도해 주세요."));
+  const saved = await saveAll().catch(() => false);
+  if (saved) {
+    await quit();
+    return true;
+  }
+  notify("저장하지 못한 변경이 있어요. 앱을 종료하지 않았어요.", {
+    label: "그래도 종료",
+    onClick: () => void quit(),
+  });
+  return false;
+}
+
 /**
  * 창을 닫기 전에 남은 저장을 끝낸다 (DATA-01).
  * 저장에 실패하면 닫지 않고 알리며, 「그래도 닫기」로 닫을 수 있다.
@@ -192,18 +240,13 @@ export function useSaveOnClose() {
     );
     // Cmd+Q 등 종료 요청: Rust가 종료를 막고 알려 준다. 저장이 끝나면 종료를 확인하고, 실패하면 남긴다
     keep(
-      onQuitRequested(async () => {
-        // 종료 확인이 거부되거나 실패하면 조용히 남지 않도록 알린다 (권한 누락 시 Cmd+Q가 아무 반응 없이 끝나던 문제)
-        const quit = () =>
-          confirmQuit().catch(() => toast.error("앱을 종료하지 못했어요. 다시 시도해 주세요."));
-        if (await saveAll()) {
-          await quit();
-          return;
-        }
-        toast.error("저장하지 못한 변경이 있어요. 앱을 종료하지 않았어요.", {
-          action: { label: "그래도 종료", onClick: () => void quit() },
-        });
-      }),
+      onQuitRequested(() =>
+        runQuitFlow({
+          saveAll,
+          confirmQuit,
+          notify: (message, action) => toast.error(message, action ? { action } : undefined),
+        }),
+      ),
     );
     return () => {
       disposed = true;

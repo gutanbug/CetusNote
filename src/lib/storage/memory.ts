@@ -30,6 +30,8 @@ type MemoryOptions = {
   pickResult?: Omit<WorkspaceInfo, "token"> | null;
   /** 저장 실패 흉내 — 이 함수가 오류를 돌려주면 writePage가 실패한다 */
   failWrite?: (page: Page) => StorageError | undefined;
+  /** 바깥 변경 흉내 — true를 돌려주면 writePage가 「바깥 내용을 버전 기록에 남겼다」고 알린다 (DATA-07) */
+  keepsExternal?: (page: Page) => boolean;
   /** 이미지 선택 대화상자 결과 흉내 — 바이트를 주면 그 이미지를 넣은 것으로 */
   pickAsset?: () => Uint8Array | null;
   /** 문서 고르기 대화상자 결과 흉내 (없으면 브라우저 파일 선택) */
@@ -222,7 +224,9 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       if (!isValidId(page.id)) throw new StorageError("invalid_id", `잘못된 페이지 id: ${page.id}`);
       const failure = options.failWrite?.(page);
       if (failure) throw failure;
+      const kept = options.keepsExternal?.(page) ?? false;
       pages.set(page.id, clone(page));
+      return kept;
     },
     async purgePage(id) {
       need();

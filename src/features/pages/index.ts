@@ -14,6 +14,7 @@ export { findBacklinks, type Backlink, type BacklinkSnippet } from "./backlinks"
 export { planDrop, type DropPlan } from "./drop";
 export { createSaveQueue, type SaveQueue, type SaveState } from "./save-queue";
 export { createPagesStore, type PageMeta, type PagesState, type PagesStore } from "./store";
+export { onKeptExternal } from "./kept-external";
 
 /** 앱 전체의 페이지 상태 */
 export const pagesStore = createPagesStore(getStorage());

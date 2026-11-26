@@ -268,8 +268,10 @@ export interface Storage {
    * 본문이 필요하면 readPages로 연다
    */
   loadPageMeta(): Promise<LoadResult>;
-  /** 원자적 쓰기 */
-  writePage(page: Page): Promise<void>;
+  /**
+   * 원자적 쓰기. 바깥에서 바뀐 디스크 내용을 버전 기록에 남겼으면 true (앱 쪽 내용이 이긴다, DATA-07)
+   */
+  writePage(page: Page): Promise<boolean>;
   /** 휴지통에 있는 페이지만 영구 삭제(파일 + assets/<id> + 버전 기록) */
   purgePage(id: string): Promise<void>;
   /** 버전 기록(DATA-09): 페이지 전체를 새 버전으로 남긴다. 페이지마다 최근 50개까지 */

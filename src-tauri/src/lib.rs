@@ -5,9 +5,10 @@ mod mcp;
 #[cfg(target_os = "macos")]
 mod menu;
 mod pdf;
+mod quit;
 mod storage;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -110,24 +111,41 @@ pub fn run() {
         .build(context)
         .expect("error while building tauri application");
     app.run(|app_handle, event| {
-        // Cmd+Q(메뉴 종료)·app.exit는 창 닫기 요청을 거치지 않는다. 저장을 먼저 끝내도록 프론트엔드에 묻고 기다린다.
+        // Dock 종료·로그아웃 등 ExitRequested는 저장을 먼저 끝내도록 프론트엔드에 묻고 기다린다.
+        // ⌘Q(메뉴)는 request_quit으로 이미 같은 흐름을 탄다.
         if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-            if QUIT_CONFIRMED.load(Ordering::SeqCst) || app_handle.webview_windows().is_empty() {
-                return;
+            let has_windows = !app_handle.webview_windows().is_empty();
+            let decision =
+                quit::with_gate(|gate| gate.on_exit_requested(has_windows, Instant::now()));
+            if decision == quit::ExitDecision::Prevent {
+                api.prevent_exit();
+                let _ = app_handle.emit(QUIT_REQUESTED_EVENT, ());
             }
-            api.prevent_exit();
-            let _ = app_handle.emit(QUIT_REQUESTED_EVENT, ());
         }
     });
 }
 
-/// 프론트엔드가 저장을 끝내고 `confirm_quit`을 불렀는지 (그 뒤의 종료 요청은 막지 않는다)
-static QUIT_CONFIRMED: AtomicBool = AtomicBool::new(false);
 const QUIT_REQUESTED_EVENT: &str = "app://quit-requested";
 
-/// 저장을 마친 뒤 종료한다 (프론트엔드 → Rust)
+/// ⌘Q(메뉴)의 종료 요청. 창이 없으면 바로 끝내고, 있으면 저장을 기다린다.
+/// 저장 대기 중 두 번째 요청은 강제 종료한다 (quit.rs)
+#[cfg(target_os = "macos")]
+pub(crate) fn request_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if app.webview_windows().is_empty() {
+        app.exit(0);
+        return;
+    }
+    match quit::with_gate(|gate| gate.on_quit_request(Instant::now())) {
+        quit::QuitRequest::Force => app.exit(0),
+        quit::QuitRequest::Ask => {
+            let _ = app.emit(QUIT_REQUESTED_EVENT, ());
+        }
+    }
+}
+
+/// 저장을 마친 뒤 종료한다 (프론트엔드 → Rust). 이 뒤의 ExitRequested는 막지 않는다
 #[tauri::command]
 fn confirm_quit(app: tauri::AppHandle) {
-    QUIT_CONFIRMED.store(true, Ordering::SeqCst);
+    quit::with_gate(|gate| gate.confirm());
     app.exit(0);
 }
