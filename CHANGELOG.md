@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Open the release notes on GitHub from the update row in Settings and the What's new dialog.
+- Open the release notes on GitHub from the update notice, the update row in Settings, and the What's new dialog.
 
 ### Changed
 

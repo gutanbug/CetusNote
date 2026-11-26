@@ -9,11 +9,15 @@ const toastMock = vi.hoisted(() => {
   return Object.assign(fn, { error: vi.fn(), dismiss: vi.fn() });
 });
 
+const openLinkMock = vi.hoisted(() => vi.fn(async () => {}));
+
 vi.mock("@/components/ui/toast", () => ({
   toast: toastMock,
   // 테스트에서는 요소의 props(onClick)만 읽으면 되므로 함수 자체를 돌려준다
   ToastCancelButton: (props: unknown) => props,
 }));
+
+vi.mock("@/lib/storage/open-link", () => ({ openLink: openLinkMock }));
 
 const NEW = { version: "0.2.0", notes: null, date: null };
 
@@ -60,7 +64,7 @@ describe("새 버전 토스트 (SYS-07)", () => {
     });
   });
 
-  it("닫기 버튼은 이 토스트를 지운다", () => {
+  it("릴리스 보기는 새 버전의 GitHub 릴리스를 열고 토스트를 지운다 (SYS-12)", () => {
     const store = createUpdaterStore({
       updater: createFakeUpdater({ latest: NEW }),
       flush: async () => true,
@@ -68,7 +72,11 @@ describe("새 버전 토스트 (SYS-07)", () => {
     announceUpdateToast(store, "0.2.0");
     const opts = lastOpts(toastMock);
     expect(isValidElement(opts.cancel)).toBe(true);
+    expect((opts.cancel as ReactElement<{ children: string }>).props.children).toBe("릴리스 보기");
     clickCancel(opts);
+    expect(openLinkMock).toHaveBeenCalledWith(
+      "https://github.com/gutanbug/CetusNote/releases/tag/v0.2.0",
+    );
     expect(toastMock.dismiss).toHaveBeenCalledWith(UPDATE_TOAST_ID);
   });
 

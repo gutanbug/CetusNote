@@ -1,6 +1,8 @@
 import { createElement } from "react";
 import { Progress } from "@/components/ui/progress";
 import { toast, ToastCancelButton } from "@/components/ui/toast";
+import { releaseUrl } from "@/features/release-notes/release-url";
+import { openLink } from "@/lib/storage/open-link";
 import type { UpdaterStoreApi } from "./store";
 import { downloadMessage } from "./view";
 
@@ -45,7 +47,21 @@ function installAction(label: string, run: () => void) {
 }
 
 /**
- * 새 버전 토스트 (SYS-07). 자동으로 사라지지 않고, 「닫기」나 「업데이트」로만 넘어간다.
+ * 「릴리스 보기」 — 새 버전의 GitHub 릴리스 페이지를 브라우저로 열고 토스트를 치운다 (SYS-12).
+ * 업데이트는 설정 › 일반 › 업데이트에 그대로 남는다.
+ */
+function releaseButton(version: string) {
+  return createElement(ToastCancelButton, {
+    onClick: () => {
+      void openLink(releaseUrl(version));
+      toast.dismiss(UPDATE_TOAST_ID);
+    },
+    children: "릴리스 보기",
+  });
+}
+
+/**
+ * 새 버전 토스트 (SYS-07). 자동으로 사라지지 않고, 「릴리스 보기」나 「업데이트」로만 넘어간다.
  * 같은 버전 알림 중복은 호출하는 쪽이 markNotified로 막는다.
  */
 export function announceUpdateToast(store: UpdaterStoreApi, version: string) {
@@ -54,7 +70,7 @@ export function announceUpdateToast(store: UpdaterStoreApi, version: string) {
     duration: Infinity,
     dismissible: false,
     action: installAction("업데이트", () => runInstallWithToast(store)),
-    cancel: closeButton(),
+    cancel: releaseButton(version),
   });
 }
 
