@@ -2,7 +2,7 @@ import type { ImageSource } from "@/components/editor/image";
 import { NoteEditor } from "@/components/editor/note-editor";
 import type { MentionSource } from "@/components/editor/page-mention";
 import { assetUrl, useAssetUrl } from "@/features/assets";
-import { usePages } from "@/features/pages";
+import { usePages, usePagesWhile } from "@/features/pages";
 import { useSession } from "@/features/session";
 import { cn } from "@/lib/utils";
 import type { JSONContent } from "@tiptap/core";
@@ -22,7 +22,7 @@ import { PageIcon } from "@/components/ui/page-icon";
 export function PrintView() {
   const id = useMainUi((s) => s.printId);
   const page = usePages((s) => (id ? s.pages[id] : undefined));
-  const all = usePages((s) => s.pages);
+  const all = usePagesWhile(id !== null);
   const cover = useAssetUrl(page?.cover);
   const dim = useSession((s) => s.editor.dimChecked);
   const images = React.useMemo<ImageSource>(

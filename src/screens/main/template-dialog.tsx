@@ -1,6 +1,6 @@
 import type { PreviewNode } from "@/components/page/doc-preview";
 import { TemplateGallery } from "@/components/page/template-gallery";
-import { pagesStore, usePages } from "@/features/pages";
+import { pagesStore, usePagesWhile } from "@/features/pages";
 import {
   fillDateDoc,
   fillDateText,
@@ -30,7 +30,7 @@ import { useMainUi } from "./ui-store";
 export function TemplateDialog() {
   const open = useMainUi((s) => s.templatesOpen);
   const setOpen = useMainUi((s) => s.setTemplatesOpen);
-  const pages = usePages((s) => s.pages);
+  const pages = usePagesWhile(open);
   const [category, setCategory] = React.useState<TemplateCategoryId>("work");
   useRestoreFocus(open);
   React.useEffect(() => {

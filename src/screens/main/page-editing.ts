@@ -92,12 +92,14 @@ export function usePageAttachments(pageId: string): AttachmentSource {
 
 /** 페이지 멘션 (EDIT-13) — 에디터는 이 함수들로 찾고 제목을 읽고 연다 */
 export function usePageMentions(pageId: string): MentionSource {
-  const all = usePages((s) => s.pages);
+  // 제목·아이콘·휴지통이 바뀔 때만 새 값을 만든다. 본문 입력(updatedAt만 바뀜)에는 그대로라
+  // 멘션 칩을 다시 그리지 않는다 (SYS-11). 찾기·순서(최근 고친 순)는 부를 때의 최신 페이지로 한다
+  const structure = usePages((s) => s.structure);
   const recent = useSession((s) => s.recent);
   return React.useMemo<MentionSource>(
     () => ({
       search: (q) =>
-        searchMentions(all, q, {
+        searchMentions(pagesStore.getState().pages, q, {
           exceptId: pageId,
           recent,
           rankTitles: (query) =>
@@ -106,11 +108,11 @@ export function usePageMentions(pageId: string): MentionSource {
               .filter((r) => r.matchIn === "title")
               .map((r) => r.id),
         }),
-      resolve: (id) => resolveMention(all, id),
+      resolve: (id) => resolveMention(structure, id),
       onOpen: (id, o) =>
-        o?.newTab && resolveMention(all, id) ? openInNewTab(id) : openPageLink(id),
+        o?.newTab && resolveMention(structure, id) ? openInNewTab(id) : openPageLink(id),
     }),
-    [all, pageId, recent],
+    [structure, pageId, recent],
   );
 }
 

@@ -1,4 +1,4 @@
-import { usePages } from "@/features/pages";
+import { usePagesWhile } from "@/features/pages";
 import * as React from "react";
 import { ParentPicker } from "./parent-picker";
 import { movePage, moveTargets } from "./actions";
@@ -11,7 +11,7 @@ export function MoveDialog({
   pageId: string | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const pages = usePages((s) => s.pages);
+  const pages = usePagesWhile(pageId !== null);
   const targets = React.useMemo(
     () => (pageId ? moveTargets(pageId) : []),
     // pages가 바뀌면 다시 계산

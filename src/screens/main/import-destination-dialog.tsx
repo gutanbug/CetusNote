@@ -1,6 +1,6 @@
 import { importDestinations } from "@/features/import/destination";
 import { useMeta } from "@/features/meta";
-import { usePages } from "@/features/pages";
+import { usePagesWhile } from "@/features/pages";
 import * as React from "react";
 import {
   answerImportDestination,
@@ -12,7 +12,7 @@ import { ParentPicker } from "./parent-picker";
 /** 문서 가져오기 목적지 고르기 (DATA-08) — 메인 화면에 하나만 둔다 */
 export function ImportDestinationDialog() {
   const pending = useImportDestination((s) => s.pending);
-  const pages = usePages((s) => s.pages);
+  const pages = usePagesWhile(pending !== null);
   const order = useMeta((s) => s.meta?.order);
   const targets = React.useMemo(
     () =>

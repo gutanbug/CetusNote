@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Faster MCP search on large workspaces.
+- Typing is faster, especially in long pages: the editor no longer re-renders the sidebar, dialogs and the whole document on every keystroke.
 - Folders can now be placed inside pages.
 - Evernote import uses less memory on large notebooks, because each file is read and converted before the next one.
 

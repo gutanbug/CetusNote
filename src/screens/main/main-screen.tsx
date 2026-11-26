@@ -6,7 +6,6 @@ import { sessionStore, useSession } from "@/features/session";
 import { hasOverlayTitleBar } from "@/lib/platform";
 import { SkyMark } from "@/screens/main/sky-mark";
 import { FilePlus } from "lucide-react";
-import { isTemplate } from "@/features/templates";
 import * as React from "react";
 import { openDailyNote, createIn, createNearActive, duplicatePage, openQuickNote } from "./actions";
 import { CommandPalette } from "./command-palette";
@@ -81,10 +80,14 @@ export function MainScreen() {
   // 구조만 보고 트리·표시 여부를 정한다. 본문 입력은 이 참조를 바꾸지 않는다 (SYS-10)
   const structure = usePages((s) => s.structure);
   const visible = React.useMemo(() => visibleIds(structure), [structure]);
-  // 열린 페이지 객체는 id로 따로 구독한다 — 다른 페이지 변경에는 이 화면을 다시 그리지 않는다
-  const active = usePages((s) => (activeId ? s.pages[activeId] : undefined));
+  // 열린 페이지는 구조(본문·편집 시각 제외)로만 고른다 — 본문을 칠 때 이 화면(사이드바·탭·대화상자)을
+  // 다시 그리지 않는다 (SYS-11). 페이지 객체는 아래 ActivePage가 따로 구독한다
+  const active = activeId ? structure[activeId] : undefined;
   // 템플릿(PAGE-14)은 트리에 없지만 편집할 때는 연다
-  const page = active && (visible.has(active.id) || isTemplate(active)) ? active : undefined;
+  const page =
+    active && (visible.has(active.id) || (active.template !== null && !active.trashedAt))
+      ? active
+      : undefined;
   // 본문은 여는 때 읽는다 (SYS-10). 읽는 동안은 에디터를 그리지 않는다
   const bodyReady = useBodyLoaded(page?.id);
   const focusMode = useMainUi((s) => s.focusMode);
@@ -220,9 +223,9 @@ export function MainScreen() {
             ) : view.kind === "tag" ? (
               <TagView tag={view.tag} />
             ) : page && !bodyReady ? null : page && page.kind === "page" ? (
-              <PageView key={`${page.id}:${contentEpoch}:${externalRev}`} page={page} />
+              <ActivePage key={`${page.id}:${contentEpoch}:${externalRev}`} id={page.id} />
             ) : page && page.kind === "collection" ? (
-              <CollectionView key={page.id} page={page} />
+              <ActiveCollection key={page.id} id={page.id} />
             ) : loaded ? (
               <NoPage />
             ) : null}
@@ -241,6 +244,18 @@ export function MainScreen() {
       <TagDialogs />
     </div>
   );
+}
+
+/** 열린 문서 — 페이지 객체를 여기서만 구독한다. 본문 입력은 이 아래만 다시 그린다 (SYS-11) */
+function ActivePage({ id }: { id: string }) {
+  const page = usePages((s) => s.pages[id]);
+  return page ? <PageView page={page} /> : null;
+}
+
+/** 열린 컬렉션 — ActivePage와 같은 이유로 따로 구독한다 */
+function ActiveCollection({ id }: { id: string }) {
+  const page = usePages((s) => s.pages[id]);
+  return page ? <CollectionView page={page} /> : null;
 }
 
 /** 열린 페이지가 없을 때 */

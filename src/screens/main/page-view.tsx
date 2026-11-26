@@ -131,6 +131,15 @@ export function PageView({ page }: { page: Page }) {
   const [scrolled, setScrolled] = React.useState(false);
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const { update } = pagesStore.getState();
+  // 본문 에디터 (SYS-11): 에디터는 처음 받은 본문으로 만들어지고 그 뒤로는 스스로 문서를 갖는다.
+  // 그래서 처음 본문과 고정된 콜백만 넘겨, 글자를 칠 때(페이지 객체가 바뀔 때) 에디터 쪽은 다시 그리지 않는다.
+  // 바깥 변경·기록 복원은 부르는 쪽이 key로 이 화면을 새로 만든다
+  const [initialContent] = React.useState(() => page.content as JSONContent);
+  const onBodyChange = React.useCallback(
+    (content: JSONContent) => update(pageId, { content: content as Page["content"] }),
+    [update, pageId],
+  );
+  const createSubpage = React.useCallback(() => createSubpageOf(pageId).id, [pageId]);
 
   const crumbs = [...ancestors(page.id, all).reverse(), page].map((p) => ({
     id: p.id,
@@ -319,16 +328,16 @@ export function PageView({ page }: { page: Page }) {
                 page.layout.font === "mono" && "[--font-body:var(--font-mono)]",
               )}
             >
-              <NoteEditor
-                content={page.content as JSONContent}
+              <BodyEditor
+                content={initialContent}
                 label={`${page.title || "제목 없음"} 본문`}
-                onChange={(content) => update(page.id, { content: content as Page["content"] })}
+                onChange={onBodyChange}
                 onOpenLink={openEditorLink}
                 mentions={mentions}
                 images={images}
                 attachments={attachments}
                 subpages={subpages}
-                createSubpage={() => createSubpageOf(page.id).id}
+                createSubpage={createSubpage}
                 breadcrumb={breadcrumb}
                 spellCheck={editorPrefs.spellcheck}
                 dimChecked={editorPrefs.dimChecked}
@@ -359,6 +368,9 @@ export function PageView({ page }: { page: Page }) {
     </div>
   );
 }
+
+/** 본문 에디터 — props가 그대로면 다시 그리지 않는다 (SYS-11) */
+const BodyEditor = React.memo(NoteEditor);
 
 /** 여러 블록을 복사하면 다른 앱용 글자는 마크다운(이스케이프 없이, 멘션은 지금 제목) — EDIT-26 */
 function copyAsMarkdown(doc: JSONContent): string {

@@ -5,7 +5,7 @@ import { VersionHistory, type VersionListStatus } from "@/components/page/versio
 import { toast } from "@/components/ui/toast";
 import { assetUrl } from "@/features/assets";
 import { groupVersions, restoreVersion } from "@/features/history";
-import { pagesStore, usePages } from "@/features/pages";
+import { pagesStore, usePagesWhile } from "@/features/pages";
 import { getStorage } from "@/lib/storage/default";
 import type { Page, PageVersion } from "@/lib/storage";
 import type { JSONContent } from "@tiptap/core";
@@ -34,7 +34,7 @@ export function VersionHistoryDialog() {
 function VersionHistoryPanel({ pageId }: { pageId: string | null }) {
   const setPageId = useMainUi((s) => s.setHistoryPageId);
   const open = pageId !== null;
-  const all = usePages((s) => s.pages);
+  const all = usePagesWhile(open);
   const page = pageId ? all[pageId] : undefined;
   useRestoreFocus(open);
 

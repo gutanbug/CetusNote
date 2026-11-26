@@ -22,3 +22,13 @@ export const pagesStore = createPagesStore(getStorage());
 export function usePages<T>(select: (s: PagesState) => T): T {
   return useStore(pagesStore, select);
 }
+
+const NO_PAGES: PagesState["pages"] = Object.freeze({});
+
+/**
+ * 열려 있는 동안만 전체 페이지 맵을 구독한다 (SYS-11). 닫혀 있으면 늘 같은 빈 맵을 돌려줘
+ * 본문을 칠 때마다 늘 그려 둔 대화상자·보기가 다시 그려지지 않는다.
+ */
+export function usePagesWhile(active: boolean): PagesState["pages"] {
+  return useStore(pagesStore, (s) => (active ? s.pages : NO_PAGES));
+}

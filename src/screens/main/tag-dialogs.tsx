@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { TagChip } from "@/components/ui/tag-chip";
 import { useMeta } from "@/features/meta";
-import { usePages } from "@/features/pages";
+import { usePagesWhile } from "@/features/pages";
 import { cleanTagName, tagExists, tagUsage } from "@/features/tags/manage";
 import { isChoseong, toChoseong } from "@/lib/hangul";
 import * as React from "react";
@@ -67,7 +67,7 @@ function RenameTagDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [name, setName] = React.useState(tag);
-  const pages = usePages((s) => s.pages);
+  const pages = usePagesWhile(open);
   const clean = cleanTagName(name);
   // 새 이름이 이미 있는 태그면 합치기로 처리한다 — 확인 문구에 그렇게 적는다
   const clash = !!clean && clean !== tag && tagExists(pages, clean);
@@ -128,7 +128,7 @@ function MergeTagDialog({
   tag: string;
   onOpenChange: (open: boolean) => void;
 }) {
-  const pages = usePages((s) => s.pages);
+  const pages = usePagesWhile(open);
   const colors = useMeta((s) => s.meta?.tags);
   const targets = React.useMemo(
     () =>
@@ -246,7 +246,7 @@ function DeleteTagDialog({
   tag: string;
   onOpenChange: (open: boolean) => void;
 }) {
-  const pages = usePages((s) => s.pages);
+  const pages = usePagesWhile(open);
   const n = tagUsage(pages, tag);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
