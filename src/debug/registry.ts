@@ -33,7 +33,7 @@ export const registry = {
   "UI-Switch": {
     layer: "L1",
     name: "토글 스위치",
-    status: "audited",
+    status: "ready",
     sheet: "§3",
     priority: "P0",
   },
