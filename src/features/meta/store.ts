@@ -54,6 +54,11 @@ export function createMetaStore(
   let timer: ReturnType<typeof setTimeout> | undefined;
   /** 지금 들고 있는 meta가 읽힌 워크스페이스 세대. 다른 세대면 다른 폴더의 내용이므로 쓰지 않는다 */
   let loadedGen: number | null = null;
+  /**
+   * 사용자가 바꾼 내용이 아직 파일에 가지 않았는가. 열 때 채우는 값(templatesSeeded)은 여기에 넣지 않는다 —
+   * 그 쓰기가 실패해도 워크스페이스 전환을 막지 않는다(DATA-03). 전환할 때는 이 값이 true일 때만 쓴다.
+   */
+  let dirty = false;
   return createStore<MetaState>()((set, get) => {
     const write = async () => {
       clearTimeout(timer);
@@ -61,16 +66,20 @@ export function createMetaStore(
       const { meta } = get();
       if (!meta) return false;
       if (loadedGen !== generation()) return false;
+      const wasDirty = dirty;
+      dirty = false;
       try {
         await storage.writeWorkspace(meta);
         return true;
       } catch {
         // 태그 색·순서는 다음 변경 때 다시 쓴다. 노트 내용은 페이지 파일에 따로 있다
+        dirty = dirty || wasDirty;
         return false;
       }
     };
-    const change = (meta: WorkspaceMeta) => {
+    const change = (meta: WorkspaceMeta, userChange = true) => {
       set({ meta });
+      if (userChange) dirty = true;
       clearTimeout(timer);
       timer = setTimeout(() => void write(), delay);
     };
@@ -91,6 +100,7 @@ export function createMetaStore(
       },
       async load() {
         clearTimeout(timer);
+        dirty = false;
         const gen = generation();
         let next: WorkspaceMeta | null;
         try {
@@ -137,7 +147,7 @@ export function createMetaStore(
       },
       markTemplatesSeeded() {
         const { meta } = get();
-        if (meta && !meta.templatesSeeded) change({ ...meta, templatesSeeded: true });
+        if (meta && !meta.templatesSeeded) change({ ...meta, templatesSeeded: true }, false);
       },
       setOrder(parentId, ids) {
         const { meta } = get();
@@ -170,7 +180,8 @@ export function createMetaStore(
         quickNotes.splice(Math.min(at, quickNotes.length), 0, note);
         change({ ...meta, quickNotes });
       },
-      flush: write,
+      /** 전환 전 저장 (DATA-03). 사용자가 바꾼 내용이 없으면 쓰지 않고 통과한다 */
+      flush: async () => (dirty ? write() : true),
     };
   });
 }
