@@ -74,7 +74,10 @@ describe("문서 가져오기 — 머리 읽기 (DATA-08)", () => {
   });
 
   it("`- 항목` 블록 목록을 읽는다", () => {
-    const r = parseMarkdownFile("x", '---\ntags:\n  - 업무\n  - "회의, 주간"\nstatus: 진행\n---\n글');
+    const r = parseMarkdownFile(
+      "x",
+      '---\ntags:\n  - 업무\n  - "회의, 주간"\nstatus: 진행\n---\n글',
+    );
     expect(r.tags).toEqual(["업무", "회의, 주간"]);
     expect(r.body).toBe("글");
   });
