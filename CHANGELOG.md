@@ -10,10 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Open the release notes on GitHub from the update notice, the update row in Settings, and the What's new dialog.
+- Export a collection to CSV exactly as the current view shows it, or with all records.
+- A folder can't be opened by two Cetus Note windows at once, to protect against conflicting saves.
 
 ### Changed
 
 - Folders can now be placed inside pages.
+
+### Fixed
+
+- The update notice can now be closed without opening the release page.
+- Reopening the same folder no longer marks every page as changed.
 
 ## [0.1.6] - 2026-11-26
 
