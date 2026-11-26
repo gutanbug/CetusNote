@@ -55,6 +55,7 @@ const COMMANDS: &[&str] = &[
     "document_image",
     "app_import_pick",
     "app_import_bytes",
+    "confirm_quit",
 ];
 
 fn main() {

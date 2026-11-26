@@ -193,12 +193,15 @@ export function useSaveOnClose() {
     // Cmd+Q 등 종료 요청: Rust가 종료를 막고 알려 준다. 저장이 끝나면 종료를 확인하고, 실패하면 남긴다
     keep(
       onQuitRequested(async () => {
+        // 종료 확인이 거부되거나 실패하면 조용히 남지 않도록 알린다 (권한 누락 시 Cmd+Q가 아무 반응 없이 끝나던 문제)
+        const quit = () =>
+          confirmQuit().catch(() => toast.error("앱을 종료하지 못했어요. 다시 시도해 주세요."));
         if (await saveAll()) {
-          await confirmQuit();
+          await quit();
           return;
         }
         toast.error("저장하지 못한 변경이 있어요. 앱을 종료하지 않았어요.", {
-          action: { label: "그래도 종료", onClick: () => void confirmQuit() },
+          action: { label: "그래도 종료", onClick: () => void quit() },
         });
       }),
     );
