@@ -196,6 +196,22 @@ impl Workspace {
         Ok(ws)
     }
 
+    /// 이미 있는 워크스페이스를 붙는다 (MCP 서버, DATA-12). `open`과 달리 폴더를 만들지 않고
+    /// 임시 파일도 지우지 않는다. 실행 중인 앱이 쓰는 중인 임시 파일을 건드리지 않으려고.
+    pub fn attach(root: PathBuf) -> Result<Self> {
+        if !(root.join(WORKSPACE_FILE).is_file() || root.join(PAGES_DIR).is_dir()) {
+            return Err(StorageError::new(
+                "not_workspace",
+                "CetusNote 워크스페이스 폴더가 아니에요 (pages/ 또는 workspace.json이 없어요)",
+            ));
+        }
+        Ok(Self {
+            root,
+            stamps: watch::Stamps::default(),
+            token: 0,
+        })
+    }
+
     fn pages_dir(&self) -> PathBuf {
         self.root.join(PAGES_DIR)
     }

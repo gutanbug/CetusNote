@@ -38,6 +38,13 @@ tauri-plugin-notification = "=2.7.0"
 # 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
 tauri-plugin-mcp-bridge = "0.13"
 
+# MCP 서버(`--mcp`, DATA-12). 공식 Rust SDK. 2주 넘게 지난 3.9.0을 고정(3.11.0은 2026-11-17 공개). stdio 전송만 쓴다
+rmcp = { version = "=3.9.0", default-features = false, features = ["server", "transport-io"] }
+# MCP 페이지 id(ULID) 난수. 이미 Cargo.lock에 있는 0.3.4를 그대로 쓴다
+getrandom = "=0.3.4"
+# MCP 모드에서 앱 설정 폴더(app-state.json)를 찾는다. tauri가 이미 쓰는 7.0.0과 같다
+dirs = "=7.0.0"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"
 objc2-foundation = "=0.3.2"

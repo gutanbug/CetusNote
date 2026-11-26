@@ -374,6 +374,10 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     async setAppIcon() {
       // 브라우저 미리보기에는 Dock·창 아이콘이 없다
     },
+    async appExecutablePath() {
+      // 브라우저 미리보기에는 실행 파일이 없다. 명령을 보여 주기만 하도록 예시 경로를 준다
+      return "/Applications/CetusNote.app/Contents/MacOS/cetusnote";
+    },
     async exportMarkdown(fileName, text) {
       exports.push({ fileName, text });
       return fileName;
