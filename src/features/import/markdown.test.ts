@@ -62,10 +62,26 @@ describe("문서 가져오기 — 머리 읽기 (DATA-08)", () => {
   });
 
   it("BOM · CRLF · 따옴표 없는 태그 목록", () => {
-    const r = parseMarkdownFile("x", "\uFEFF---\r\ntags: a, b, a\r\n---\r\n# 제목\r\n글");
+    const r = parseMarkdownFile("x", "\uFEFF---\r\ntags: [a, b, a]\r\n---\r\n# 제목\r\n글");
     expect(r.tags).toEqual(["a", "b"]);
     expect(r.title).toBe("제목");
     expect(r.body).toBe("글");
+  });
+
+  it("흐름 목록의 따옴표 안 쉼표는 나누지 않는다", () => {
+    const r = parseMarkdownFile("x", '---\ntags: [a, "b, c", \'d\', ""]\n---\n글');
+    expect(r.tags).toEqual(["a", "b, c", "d"]);
+  });
+
+  it("`- 항목` 블록 목록을 읽는다", () => {
+    const r = parseMarkdownFile("x", '---\ntags:\n  - 업무\n  - "회의, 주간"\nstatus: 진행\n---\n글');
+    expect(r.tags).toEqual(["업무", "회의, 주간"]);
+    expect(r.body).toBe("글");
+  });
+
+  it("대괄호 없는 한 값은 태그 하나 (쉼표로 나누지 않는다)", () => {
+    const r = parseMarkdownFile("x", "---\ntags: a, b\n---\n글");
+    expect(r.tags).toEqual(["a, b"]);
   });
 
   it("닫히지 않은 front matter는 본문으로", () => {

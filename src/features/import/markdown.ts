@@ -36,26 +36,71 @@ function scalar(raw: string): string {
   return v;
 }
 
-/** `[a, "b"]` 또는 `a, b` */
-function list(raw: string): string[] {
-  const v = raw.trim().replace(/^\[|\]$/g, "");
-  return v
-    .split(",")
-    .map(scalar)
-    .map((s) => s.trim())
-    .filter(Boolean);
+/**
+ * YAML 흐름 목록 `[a, "b, c"]`의 안쪽을 나눈다. 따옴표 안의 쉼표는 나누지 않는다.
+ */
+function flowItems(inner: string): string[] {
+  const parts: string[] = [];
+  let cur = "";
+  let quote: string | null = null;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]!;
+    if (quote) {
+      cur += c;
+      if (quote === '"' && c === "\\" && i + 1 < inner.length) {
+        cur += inner[++i]!;
+      } else if (c === quote) {
+        quote = null;
+      }
+    } else if (c === '"' || c === "'") {
+      quote = c;
+      cur += c;
+    } else if (c === ",") {
+      parts.push(cur);
+      cur = "";
+    } else {
+      cur += c;
+    }
+  }
+  parts.push(cur);
+  return parts.map((p) => scalar(p).trim()).filter(Boolean);
 }
 
-/** 맨 앞 `---` … `---` 블록. 없으면 null */
-function frontMatter(text: string): { fields: Map<string, string>; rest: string } | null {
+/** `tags: [a, "b, c"]` 같은 한 줄 값. 대괄호가 없으면 YAML 한 값(태그 하나)으로 읽는다 */
+function list(raw: string): string[] {
+  const v = raw.trim();
+  if (v.startsWith("[") && v.endsWith("]")) return flowItems(v.slice(1, -1));
+  const one = scalar(v).trim();
+  return one ? [one] : [];
+}
+
+/** 맨 앞 `---` … `---` 블록. 없으면 null. `key:` 뒤의 `- 항목` 줄은 `blocks`에 모은다 */
+function frontMatter(
+  text: string,
+): { fields: Map<string, string>; blocks: Map<string, string[]>; rest: string } | null {
   const m = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*(?:\n|$)/.exec(text);
   if (!m) return null;
   const fields = new Map<string, string>();
+  const blocks = new Map<string, string[]>();
+  let open: string | null = null;
   for (const line of m[1]!.split("\n")) {
+    const item = /^\s*-\s+(.*)$/.exec(line);
+    if (item && open !== null) {
+      blocks.get(open)!.push(item[1]!);
+      continue;
+    }
     const kv = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line);
-    if (kv) fields.set(kv[1]!.toLowerCase(), kv[2]!);
+    open = null;
+    if (kv) {
+      const key = kv[1]!.toLowerCase();
+      fields.set(key, kv[2]!);
+      if (kv[2]!.trim() === "") {
+        open = key;
+        blocks.set(key, []);
+      }
+    }
   }
-  return { fields, rest: text.slice(m[0].length) };
+  return { fields, blocks, rest: text.slice(m[0].length) };
 }
 
 export function parseMarkdownFile(name: string, raw: string): ParsedMarkdown {
@@ -68,8 +113,14 @@ export function parseMarkdownFile(name: string, raw: string): ParsedMarkdown {
     text = front.rest;
     const t = front.fields.get("title");
     if (t !== undefined) title = scalar(t).trim() || null;
+    const tagBlock = front.blocks.get("tags");
     const tg = front.fields.get("tags");
-    if (tg !== undefined) tags = [...new Set(list(tg))];
+    if (tagBlock !== undefined) {
+      // `tags:` 아래 `- 항목` 줄들
+      tags = [...new Set(tagBlock.map((s) => scalar(s).trim()).filter(Boolean))];
+    } else if (tg !== undefined) {
+      tags = [...new Set(list(tg))];
+    }
     const i = front.fields.get("id");
     if (i !== undefined) id = scalar(i).trim() || null;
   }
