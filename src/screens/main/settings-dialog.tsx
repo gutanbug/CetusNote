@@ -332,7 +332,7 @@ function Data({ onRestored }: { onRestored: () => void }) {
         </SettingsRow>
         <SettingsRow
           name="다른 앱에서 가져오기"
-          description="Notion, Obsidian, AppFlowy, AFFiNE에서 내보낸 zip 파일이나 폴더를 가져와요. 문서 구조와 링크를 살려요."
+          description="Notion, Obsidian, AppFlowy, AFFiNE에서 내보낸 zip 파일이나 폴더, Evernote의 ENEX 파일을 가져와요. 문서 구조와 링크를 살려요."
         >
           <Button variant="secondary" size="sm" onClick={() => openImportAppPicker()}>
             가져오기…
@@ -535,6 +535,7 @@ function McpRow() {
             variant="secondary"
             size="sm"
             disabled={!ready}
+            aria-describedby={ready ? undefined : "mcp-hint"}
             onClick={() => void copy(command, "Claude Code 명령을 복사했어요.")}
           >
             Claude Code 명령 복사
@@ -543,11 +544,17 @@ function McpRow() {
             variant="secondary"
             size="sm"
             disabled={!ready}
+            aria-describedby={ready ? undefined : "mcp-hint"}
             onClick={() => void copy(desktop, "Claude Desktop 설정을 복사했어요.")}
           >
             Claude Desktop 설정 복사
           </Button>
         </div>
+        {ready ? null : (
+          <p id="mcp-hint" className="text-caption text-secondary">
+            앱 실행 파일 경로를 찾지 못해 명령을 만들 수 없어요.
+          </p>
+        )}
         {ready ? (
           <code className="font-mono text-caption break-all text-secondary">{command}</code>
         ) : null}
