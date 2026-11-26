@@ -178,6 +178,97 @@ function calloutsFromQuotes(root: HTMLElement): void {
   }
 }
 
+/** 열 표지 주석 (내보내기 형식 · DATA-04): `<!-- cetusnote:column width=2 -->` … `<!-- /cetusnote:column -->` */
+const COLUMN_MARK = /^\s*(\/)?cetusnote:(columns?)(?:\s+width=([\d.]+))?\s*$/;
+
+function columnMark(node: ChildNode): { close: boolean; kind: string; width: number } | null {
+  if (node.nodeType !== Node.COMMENT_NODE) return null;
+  const m = COLUMN_MARK.exec(node.textContent ?? "");
+  return m ? { close: Boolean(m[1]), kind: m[2]!, width: Number(m[3]) || 1 } : null;
+}
+
+function newColumn(doc: Document, width: number): HTMLElement {
+  const col = doc.createElement("div");
+  col.setAttribute("data-type", "column");
+  col.setAttribute("data-width", String(width));
+  return col;
+}
+
+/**
+ * 열 표지 주석 사이의 블록을 열 블록(div[data-type=columns] > div[data-type=column])으로 묶는다 (DATA-04).
+ * 열 안의 중첩 열은 재귀로 묶는다. 짝이 없는 표지는 주석 그대로 둔다.
+ */
+function columnsFromComments(parent: Element): void {
+  const doc = parent.ownerDocument;
+  const nodes = [...parent.childNodes];
+  const out: ChildNode[] = [];
+  const boxes: Element[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const mark = columnMark(nodes[i]!);
+    if (mark?.kind !== "columns" || mark.close) {
+      out.push(nodes[i]!);
+      i++;
+      continue;
+    }
+    // 짝이 되는 /columns 찾기 (중첩 깊이)
+    let depth = 0;
+    let end = -1;
+    for (let j = i; j < nodes.length && end < 0; j++) {
+      const m = columnMark(nodes[j]!);
+      if (m?.kind !== "columns") continue;
+      depth += m.close ? -1 : 1;
+      if (depth === 0) end = j;
+    }
+    if (end < 0) {
+      out.push(nodes[i]!);
+      i++;
+      continue;
+    }
+    const box = doc.createElement("div");
+    box.setAttribute("data-type", "columns");
+    let column: HTMLElement | null = null;
+    let inner = 0;
+    for (const node of nodes.slice(i + 1, end)) {
+      const m = columnMark(node);
+      if (m?.kind === "columns") inner += m.close ? -1 : 1;
+      if (inner === 0 && m?.kind === "column") {
+        if (m.close) {
+          column = null;
+        } else {
+          column = newColumn(doc, m.width);
+          box.append(column);
+        }
+        continue;
+      }
+      // 열 표지 밖의 글(손으로 고친 파일)은 너비 1짜리 열로 감싼다. 블록 사이 빈 줄은 버린다
+      if (!column) {
+        if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) continue;
+        column = newColumn(doc, 1);
+        box.append(column);
+      }
+      column.append(node);
+    }
+    for (const col of box.children) {
+      const filled = [...col.childNodes].some(
+        (n) => n.nodeType === Node.ELEMENT_NODE || !!n.textContent?.trim(),
+      );
+      // 빈 열도 에디터 스키마(block+)에 맞게 빈 문단을 하나 둔다
+      if (!filled) col.append(doc.createElement("p"));
+      columnsFromComments(col);
+    }
+    boxes.push(box);
+    out.push(box);
+    i = end + 1;
+  }
+  // 열 밖의 요소(인용·목록 안 등)에 있는 표지도 같은 방식으로 묶는다
+  for (const node of out) {
+    if (node.nodeType === Node.ELEMENT_NODE && !boxes.includes(node as Element))
+      columnsFromComments(node as Element);
+  }
+  if (boxes.length) parent.replaceChildren(...out);
+}
+
 // gfm: 표 · 할 일 · 취소선 · 주소 자동 링크. breaks: 한 줄 바꿈도 살린다(붙여 넣은 글이 이어 붙지 않게)
 const marked = new Marked({ gfm: true, breaks: true, async: false });
 
@@ -195,6 +286,8 @@ export function markdownToDom(
   const doc = new window.DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
   // 토글 제목 (<details><summary><h2>…) 과 수식·날짜 칩 (DATA-04 왕복)
   toggleHeadingsFromDetails(doc.body);
+  // 열 표지 주석 → 열 블록 (DATA-04 왕복). 콜아웃보다 먼저 묶어야 인용 안의 열도 이어진다
+  columnsFromComments(doc.body);
   restoreMath(doc.body, protectedMath.slots);
   restoreDateChips(doc.body);
   // GFM 할 일(<li><input type=checkbox> …)을 TaskList/TaskItem 모양으로

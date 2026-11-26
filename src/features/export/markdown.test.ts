@@ -234,13 +234,30 @@ describe("편집 블록 phase 2 (EDIT-28·29·34·36)", () => {
     ).toBe("<details open>\n<summary><h1>빈</h1></summary>\n</details>");
   });
 
-  it("단 나누기 → 열 순서대로 이어 쓴다 (가로 배치는 손실)", () => {
-    const col = (...content: MdNode[]) => ({ type: "column", attrs: { width: 1 }, content });
+  it("열 묶음 → 열 표지 주석으로 감싸고 열 너비를 남긴다 (DATA-04)", () => {
+    const col = (width: number, ...content: MdNode[]) => ({
+      type: "column",
+      attrs: { width },
+      content,
+    });
     const md = doc({
       type: "columns",
-      content: [col(p(t("왼쪽"))), col(p(t("가운데"))), col(p(t("오른쪽")))],
+      content: [col(2, p(t("왼쪽"))), col(1, p(t("오른쪽"))), col(1)],
     });
-    expect(md).toBe("왼쪽\n\n가운데\n\n오른쪽");
+    expect(md).toBe(
+      [
+        "<!-- cetusnote:columns -->",
+        "<!-- cetusnote:column width=2 -->",
+        "왼쪽",
+        "<!-- /cetusnote:column -->",
+        "<!-- cetusnote:column width=1 -->",
+        "오른쪽",
+        "<!-- /cetusnote:column -->",
+        "<!-- cetusnote:column width=1 -->",
+        "<!-- /cetusnote:column -->",
+        "<!-- /cetusnote:columns -->",
+      ].join("\n\n"),
+    );
   });
 
   it("하위 페이지 → 페이지 링크 (지금 제목, 없으면 '하위 페이지')", () => {
@@ -541,6 +558,65 @@ describe("단일 페이지 이미지 링크 (DATA-04)", () => {
     expect(md).toContain("![](<assets/a b.png>)");
     expect(md).toContain("[c.pdf](assets/c.pdf)");
     expect(md).not.toContain("01JD0000");
+  });
+});
+
+describe("왕복: 열 묶음 (DATA-04)", () => {
+  const col = (width: number, ...content: MdNode[]) => ({
+    type: "column",
+    attrs: { width },
+    content,
+  });
+  const cols = (...columns: MdNode[]) => ({ type: "columns", content: columns });
+  const shape = (node: Json) => nodesOf(node, "column").map((c) => [c.attrs?.width, textOf(c)]);
+
+  it.each([2, 3, 4])("%d단: 열 수와 너비, 글 순서가 그대로 돌아온다", async (count) => {
+    const columns = Array.from({ length: count }, (_, i) => col(i + 1, p(t(`열${i + 1}`))));
+    const md = doc(cols(...columns));
+    const back = (await markdownToDoc(md)) as Json;
+    expect(nodesOf(back, "columns")).toHaveLength(1);
+    expect(shape(back)).toEqual(Array.from({ length: count }, (_, i) => [i + 1, `열${i + 1}`]));
+  });
+
+  it("열 안의 제목·목록·중첩 열이 그대로 돌아온다", async () => {
+    const md = doc(
+      cols(
+        col(
+          1,
+          { type: "heading", attrs: { level: 2 }, content: [t("안건")] },
+          {
+            type: "bulletList",
+            content: [li(p(t("하나"))), li(p(t("둘")))],
+          },
+        ),
+        col(1, p(t("오른쪽")), cols(col(1, p(t("안쪽 왼"))), col(1, p(t("안쪽 오른"))))),
+      ),
+    );
+    const back = (await markdownToDoc(md)) as Json;
+    const [outer] = nodesOf(back, "columns");
+    const [left, right] = outer!.content ?? [];
+    expect(left?.content?.map((n) => n.type)).toEqual(["heading", "bulletList"]);
+    expect(textOf(left!.content![0]!)).toBe("안건");
+    expect(nodesOf(left!, "listItem").map(textOf)).toEqual(["하나", "둘"]);
+    expect(nodesOf(right!, "columns")).toHaveLength(1);
+    expect(shape(back)).toEqual([
+      [1, "안건하나둘"],
+      [1, "오른쪽안쪽 왼안쪽 오른"],
+      [1, "안쪽 왼"],
+      [1, "안쪽 오른"],
+    ]);
+  });
+
+  it("빈 열은 빈 문단 하나를 가진 열로 돌아온다", async () => {
+    const md = doc(cols(col(1, p(t("가"))), col(1)));
+    const back = (await markdownToDoc(md)) as Json;
+    const [, empty] = nodesOf(back, "column");
+    expect(empty?.content?.map((n) => n.type)).toEqual(["paragraph"]);
+    expect(textOf(empty!)).toBe("");
+    expect(shape(back)).toEqual([
+      [1, "가"],
+      [1, ""],
+    ]);
   });
 });
 

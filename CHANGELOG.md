@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The update notice can now be closed without opening the release page.
 - Reopening the same folder no longer marks every page as changed.
 - Toggle headings, math and dates keep their form when exporting to Markdown and importing back.
+- Column layouts keep their columns and widths when exporting to Markdown and importing back.
 - Switching folders no longer asks to save unsaved changes when you haven't made any: the workspace settings file is only written after a real change.
 
 ## [0.1.6] - 2026-11-26

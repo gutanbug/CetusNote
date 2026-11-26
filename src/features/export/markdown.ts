@@ -312,9 +312,20 @@ function block(node: MdNode): string {
         "</details>",
       ].join("\n");
     }
-    case "columns":
-      // 열을 왼쪽에서 오른쪽, 위에서 아래 순서로 이어 쓴다 (EDIT-34). 가로 배치·열 폭은 글로 남지 않는다 (손실)
-      return blocks((node.content ?? []).flatMap((col) => col.content ?? []));
+    case "columns": {
+      // 열 묶음은 HTML 주석 표지로 감싼다 (EDIT-34, DATA-04). 주석은 GitHub·Obsidian에서 보이지 않아
+      // 다른 앱에서는 열 블록이 위에서 아래로 이어 쓴 글로 읽히고, 가져오기가 열 블록으로 되돌린다
+      const cols = (node.content ?? []).map((col) => {
+        const width = Number(col.attrs?.width) > 0 ? Number(col.attrs?.width) : 1;
+        const body = blocks(col.content);
+        return [
+          `<!-- cetusnote:column width=${width} -->`,
+          ...(body ? [body] : []),
+          "<!-- /cetusnote:column -->",
+        ].join("\n\n");
+      });
+      return ["<!-- cetusnote:columns -->", ...cols, "<!-- /cetusnote:columns -->"].join("\n\n");
+    }
     case "subpage": {
       // 하위 페이지 카드 → 페이지 링크 (EDIT-29)
       const id = String(node.attrs?.pageId ?? "");

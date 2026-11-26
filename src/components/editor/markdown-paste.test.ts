@@ -37,6 +37,29 @@ describe("looksLikeMarkdown", () => {
   });
 });
 
+describe("가져오기: 열 표지 주석 (DATA-04)", () => {
+  it("표지 사이의 블록을 열 블록으로 묶고 너비를 옮긴다", () => {
+    const body = markdownToDom(
+      "<!-- cetusnote:columns -->\n\n<!-- cetusnote:column width=2 -->\n\n왼쪽\n\n<!-- /cetusnote:column -->\n\n<!-- cetusnote:column width=1 -->\n\n오른쪽\n\n<!-- /cetusnote:column -->\n\n<!-- /cetusnote:columns -->",
+    );
+    const columns = [
+      ...body.querySelectorAll('div[data-type="columns"] > div[data-type="column"]'),
+    ];
+    expect(columns.map((c) => [c.getAttribute("data-width"), c.textContent?.trim()])).toEqual([
+      ["2", "왼쪽"],
+      ["1", "오른쪽"],
+    ]);
+  });
+
+  it("짝이 없는 표지와 표지 없는 글은 열이 되지 않는다 (다른 앱의 주석은 그대로)", () => {
+    const body = markdownToDom("<!-- cetusnote:column width=1 -->\n\n글\n\n<!-- 그냥 주석 -->");
+    expect(body.querySelector('div[data-type="columns"]')).toBeNull();
+    expect(body.textContent).toContain("글");
+    const plain = markdownToDom("왼쪽\n\n오른쪽");
+    expect(plain.querySelector('div[data-type="columns"]')).toBeNull();
+  });
+});
+
 describe("왕복: 콜아웃 인용과 페이지 링크 (DATA-08 · DATA-10)", () => {
   it("> [!종류] 이모지 인용은 콜아웃 블록이 되고 색·이모지를 옮긴다", () => {
     const body = markdownToDom("> [!CAUTION] ⚠️ 조심\n> 둘째 줄\n\n> [!CETUS-brown] 🌿 갈색");
