@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { sessionStore, useSession } from "@/features/session";
 import { updaterStore, useUpdater } from "@/features/updater";
 import { updateView } from "@/features/updater/view";
-import { openWhatsNewForCurrent } from "@/features/release-notes";
+import { openWhatsNewForCurrent, releaseUrl } from "@/features/release-notes";
+import { openLink } from "@/lib/storage/open-link";
 
 /** 설정 › 일반 › 업데이트 (SYS-07) — 현재 버전, 확인·설치 버튼, 자동 확인 스위치 */
 export function UpdateSection() {
@@ -22,6 +23,8 @@ export function UpdateSection() {
       .catch(() => undefined);
   }, []);
   // 오류가 설치 단계에서 났으면 다시 시도는 설치, 확인 단계면 확인이다
+  // 새 버전이 나왔을 때만 그 버전의 GitHub 릴리스 페이지 링크를 보인다
+  const releaseVersion = view.action === "install" ? state.update?.version : undefined;
   const installNext =
     view.action === "install" || (view.action === "retry" && state.errorStep === "install");
 
@@ -42,15 +45,26 @@ export function UpdateSection() {
         }
       >
         {view.action === "none" ? null : (
-          <Button
-            variant={view.action === "install" ? "primary" : "secondary"}
-            size="sm"
-            loading={view.busy}
-            disabled={view.actionDisabled}
-            onClick={onAction}
-          >
-            {view.actionLabel}
-          </Button>
+          <div className="flex items-center gap-2">
+            {releaseVersion ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void openLink(releaseUrl(releaseVersion))}
+              >
+                릴리스 보기
+              </Button>
+            ) : null}
+            <Button
+              variant={view.action === "install" ? "primary" : "secondary"}
+              size="sm"
+              loading={view.busy}
+              disabled={view.actionDisabled}
+              onClick={onAction}
+            >
+              {view.actionLabel}
+            </Button>
+          </div>
         )}
       </SettingsRow>
       <SettingsRow name="릴리스 노트" description="이번 버전에서 바뀐 내용을 다시 볼 수 있어요">

@@ -13,6 +13,7 @@ import {
   extractSection,
   parseBlocks,
   parseInline,
+  releaseUrl,
   useWhatsNew,
   whatsNewStore,
   type Block,
@@ -104,6 +105,15 @@ export function WhatsNewDialog() {
           ))}
         </div>
         <DialogFooter>
+          {version ? (
+            <Button
+              variant="ghost"
+              className="mr-auto"
+              onClick={() => void openLink(releaseUrl(version))}
+            >
+              GitHub에서 보기
+            </Button>
+          ) : null}
           <Button variant="primary" onClick={close}>
             닫기
           </Button>

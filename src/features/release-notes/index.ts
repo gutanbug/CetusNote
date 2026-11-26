@@ -15,6 +15,7 @@ import {
 
 export { CHANGELOG_TEXT, extractSection, parseBlocks, parseInline } from "./changelog";
 export type { Block, Inline } from "./changelog";
+export { releaseUrl, RELEASE_REPO } from "./release-url";
 
 /** 「업데이트 내용」 대화상자 상태. version이 null이면 닫혀 있다 (SYS-12) */
 export const whatsNewStore = createStore<{
