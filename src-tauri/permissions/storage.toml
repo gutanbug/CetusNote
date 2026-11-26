@@ -59,5 +59,6 @@ permissions = [
   "allow-app-import-pick",
   "allow-app-import-bytes",
   "allow-app-import-enex-pick",
+  "allow-app-import-enex-read",
   "allow-confirm-quit",
 ]

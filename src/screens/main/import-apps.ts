@@ -9,7 +9,7 @@ import {
 } from "@/features/import/apps/pipeline";
 import { remapMentions } from "@/features/import/apps/mentions";
 import { decodeSafe, type ImportNode } from "@/features/import/apps/tree";
-import { convertEnex } from "@/features/import/apps/enex";
+import { ENEX_READ_ERROR, convertEnexFile } from "@/features/import/apps/enex";
 import { importSummary, type ImportFailure } from "@/features/import/summary";
 import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
@@ -47,8 +47,30 @@ export async function importFromApp(
       // Evernote: 노트북 파일(.enex)을 여러 개 고른다. 원본 목록 대신 파일 글을 그대로 변환한다
       const enex = await storage.pickEnexFiles();
       if (!enex) return [];
-      const converted = convertEnex(enex.files.map((f) => ({ name: f.path, text: f.text })));
-      outcome = { ...converted, skipped: [...converted.skipped, ...enex.skipped] };
+      // 파일을 한 개씩 읽고 바로 변환한다. 다른 파일의 글은 들고 있지 않는다 (DATA-15)
+      const blobs = new Map<string, Uint8Array>();
+      const nodes: Array<ReturnType<typeof convertEnexFile>["nodes"][number]> = [];
+      const skipped = [...enex.skipped];
+      let read = 0;
+      for (const file of enex.files) {
+        let text: string;
+        try {
+          text = await storage.readEnexFile(file.id);
+        } catch {
+          skipped.push(`${file.name} (읽지 못했어요)`);
+          continue;
+        }
+        const part = convertEnexFile({ name: file.name, text }, file.id, blobs);
+        nodes.push(...part.nodes);
+        skipped.push(...part.skipped);
+        if (part.read) read++;
+      }
+      outcome = {
+        nodes,
+        skipped,
+        blobs,
+        error: read || !enex.files.length ? null : ENEX_READ_ERROR,
+      };
       pick = { texts: [], paths: [], skipped: [] };
     } else {
       pick = await storage.pickAppSource(kind);

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ENEX_CRYPT_TEXT, convertEnex, parseEnexDate } from "./enex";
+import { ENEX_CRYPT_TEXT, convertEnex, convertEnexFile, parseEnexDate } from "./enex";
 import { md5Hex } from "./md5";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -81,5 +81,69 @@ describe("convertEnex", () => {
     const bad = convertEnex([{ name: "깨짐.enex", text: "<en-export><note>" }]);
     expect(bad.nodes).toEqual([]);
     expect(bad.error).toMatch(/ENEX 형식으로 내보낸 파일인지 확인해 주세요$/);
+  });
+});
+
+describe("convertEnex: 가장자리 노트 (표·중첩 목록·링크·할 일·리소스)", () => {
+  const edge = readFileSync(join(here, "fixtures/evernote-edge.enex"), "utf-8");
+  const result = convertEnex([{ name: "edge.enex", text: edge }]);
+  const pages = result.nodes.filter((n) => n.kind === "page");
+  const html = (title: string) => pages.find((p) => p.title === title)?.markdown ?? "";
+
+  it("표·중첩 목록·링크를 깨뜨리지 않고 글을 살린다", () => {
+    const body = html("표와 목록");
+    for (const text of [
+      "셀 하나",
+      "셀 둘",
+      "셋",
+      "넷",
+      "상위 항목",
+      "하위 항목",
+      "더 아래",
+      "예제 링크",
+    ])
+      expect(body).toContain(text);
+    expect(body).toContain('href="https://example.com/docs"');
+    expect(body).toContain("<table");
+    expect(body).toMatch(/<ul>[\s\S]*<ul>[\s\S]*<ul>/);
+  });
+
+  it("목록 안의 체크·미체크 할 일은 글로 남는다(체크 상태는 목록 항목에 잡히는 경우만)", () => {
+    const body = html("표와 목록");
+    expect(body).toContain("완료한 일");
+    expect(body).toContain("남은 일");
+  });
+
+  it("같은 md5 리소스는 한 번만 담기고, 파일 이름이 없으면 「첨부 파일」이다", () => {
+    const body = html("그림과 첨부");
+    const figures = body.match(/data-local="enex\/[0-9a-f]+"/g) ?? [];
+    expect(figures).toHaveLength(2);
+    expect(new Set(figures).size).toBe(1);
+    expect(body).toContain('data-name="첨부 파일"');
+    expect(result.blobs.size).toBe(2);
+    expect(pages.find((p) => p.title === "그림과 첨부")?.assetPaths).toHaveLength(2);
+  });
+
+  it("원본이 없는 그림은 건너뛰고 요약에 남긴다", () => {
+    expect(result.skipped.some((s) => s.includes("그림과 첨부") && s.includes("그림 1개"))).toBe(
+      true,
+    );
+  });
+
+  it("제목만 있는 노트도 빈 페이지로 가져온다", () => {
+    const page = pages.find((p) => p.title === "제목만 있는 노트");
+    expect(page).toBeDefined();
+    expect(page?.markdown).toBe("");
+    expect(page?.assetPaths).toEqual([]);
+  });
+
+  it("파일 하나씩 변환해도(convertEnexFile) 폴더 키가 겹치지 않는다", () => {
+    const blobs = new Map<string, Uint8Array>();
+    const a = convertEnexFile({ name: "a.enex", text: sample }, 0, blobs);
+    const b = convertEnexFile({ name: "b.enex", text: edge }, 1, blobs);
+    expect(a.read && b.read).toBe(true);
+    const keys = [...a.nodes, ...b.nodes].map((n) => n.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(convertEnexFile({ name: "x.enex", text: "<broken" }, 2, blobs).read).toBe(false);
   });
 });

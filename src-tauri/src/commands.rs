@@ -104,9 +104,20 @@ pub struct AppImportPick {
 /// Evernote ENEX 파일 목록(DATA-15). files의 path는 파일 이름, text는 XML 글
 #[derive(Serialize)]
 pub struct EnexPick {
-    files: Vec<AppImportText>,
+    files: Vec<EnexFile>,
     skipped: Vec<String>,
 }
+
+/// 고른 ENEX 파일 하나. 내용은 `app_import_enex_read`로 한 파일씩 가져온다(DATA-15)
+#[derive(Serialize)]
+pub struct EnexFile {
+    id: usize,
+    name: String,
+    size: u64,
+}
+
+/// 마지막으로 고른 ENEX 파일 경로. 웹뷰는 번호(id)만 주고받으므로 임의 경로를 읽을 수 없다
+static ENEX_PICKS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
 
 #[derive(Serialize)]
 pub struct WorkspaceInfo {
@@ -975,7 +986,8 @@ pub async fn app_import_pick(
     }))
 }
 
-/// Evernote(ENEX) 파일을 여러 개 고르고 읽는다(DATA-15). 취소하면 None.
+/// Evernote(ENEX) 파일을 고른다(DATA-15). 내용은 읽지 않고 이름·크기와 번호만 돌려준다.
+/// 취소하면 None. 파일 합계 2GB를 넘으면 거절한다.
 #[tauri::command]
 pub async fn app_import_enex_pick(app: AppHandle) -> Result<Option<EnexPick>> {
     let Some(picked) = app
@@ -997,16 +1009,50 @@ pub async fn app_import_enex_pick(app: AppHandle) -> Result<Option<EnexPick>> {
             "고른 위치를 읽지 못했어요",
         ));
     }
-    let (texts, skipped) =
-        match tauri::async_runtime::spawn_blocking(move || app_import::read_enex(&paths)).await {
-            Ok(result) => result?,
-            Err(e) => return Err(StorageError::new("io", e.to_string())),
-        };
-    let files = texts
-        .into_iter()
-        .map(|(path, text)| AppImportText { path, text })
+    let (kept, skipped) = match tauri::async_runtime::spawn_blocking(move || {
+        app_import::plan_enex_paths(
+            &paths,
+            app_import::MAX_ZIP_BYTES,
+            app_import::MAX_TOTAL_BYTES,
+        )
+    })
+    .await
+    {
+        Ok(result) => result?,
+        Err(e) => return Err(StorageError::new("io", e.to_string())),
+    };
+    let files = kept
+        .iter()
+        .enumerate()
+        .map(|(id, (_, name, size))| EnexFile {
+            id,
+            name: name.clone(),
+            size: *size,
+        })
         .collect();
+    *ENEX_PICKS.lock().unwrap_or_else(|e| e.into_inner()) =
+        kept.into_iter().map(|(path, _, _)| path).collect();
     Ok(Some(EnexPick { files, skipped }))
+}
+
+/// 고른 ENEX 파일 하나의 글을 읽는다(DATA-15). 파일 한 개의 상한은 MAX_ZIP_BYTES.
+/// 웹뷰는 한 파일을 읽고 변환한 뒤 다음 파일을 부른다 (동시에 여러 파일의 글을 들고 있지 않는다).
+#[tauri::command]
+pub async fn app_import_enex_read(id: usize) -> Result<String> {
+    let path = ENEX_PICKS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(id)
+        .cloned()
+        .ok_or_else(|| StorageError::new("not_found", "고른 파일을 찾지 못했어요"))?;
+    match tauri::async_runtime::spawn_blocking(move || {
+        app_import::read_enex_file(&path, app_import::MAX_ZIP_BYTES)
+    })
+    .await
+    {
+        Ok(result) => result,
+        Err(e) => Err(StorageError::new("io", e.to_string())),
+    }
 }
 
 /// 가져오기 목록에 있는 항목 하나의 바이트(그림 등). path는 목록의 상대 경로

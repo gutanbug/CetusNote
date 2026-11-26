@@ -106,6 +106,7 @@ export function createTauriStorage(): Storage {
     readPdfText: (id) => call<PdfText>("document_pdf_text", { id }),
     pickAppSource: (kind) => call<AppImportPick | null>("app_import_pick", { kind }),
     pickEnexFiles: () => call<EnexPick | null>("app_import_enex_pick"),
+    readEnexFile: (id) => call<string>("app_import_enex_read", { id }),
     readAppImportBytes: async (path) =>
       new Uint8Array(await call<ArrayBuffer>("app_import_bytes", { path })),
     importDocumentImage: (pageId, dir, src) => call<string>("document_image", { pageId, dir, src }),

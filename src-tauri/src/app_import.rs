@@ -144,33 +144,79 @@ fn zip_err(e: zip::result::ZipError) -> StorageError {
 }
 
 /** 최대 `cap` 바이트까지 읽는다. 넘으면 too_large */
-/// Evernote ENEX 파일 여러 개를 읽는다(DATA-15). 파일 한 개는 MAX_ZIP_BYTES, 합계는 MAX_TOTAL_BYTES까지.
-/// 파일 한 개가 상한을 넘거나 읽지 못하면 건너뛴 이름으로 돌려주고, 합계를 넘으면 전부 거절한다.
-pub fn read_enex(paths: &[PathBuf]) -> Result<(Vec<(String, String)>, Vec<String>)> {
-    let mut texts = Vec::new();
+/// ENEX 파일인지 (확장자 .enex, 대소문자 무관). 다른 확장자는 가져오지 않는다
+pub fn is_enex(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.to_string_lossy().eq_ignore_ascii_case("enex"))
+}
+
+/// 고른 ENEX 파일의 (이름, 크기)를 보고 가져올 파일의 번호(고른 순서)와 건너뛴 이름을 정한다 (DATA-15).
+/// 파일 한 개가 `per_file`을 넘으면 건너뛴다. 건너뛰지 않은 파일의 합이 `total`을 넘으면 전부 거절한다.
+pub fn plan_enex(
+    sizes: &[(String, u64)],
+    per_file: u64,
+    total: u64,
+) -> Result<(Vec<usize>, Vec<String>)> {
+    let mut accepted = Vec::new();
     let mut skipped = Vec::new();
-    let mut total: u64 = 0;
-    for path in paths {
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        total += fs::metadata(path)?.len();
-        if total > MAX_TOTAL_BYTES {
+    let mut sum: u64 = 0;
+    for (i, (name, size)) in sizes.iter().enumerate() {
+        if *size > per_file {
+            skipped.push(name.clone());
+            continue;
+        }
+        sum = sum.saturating_add(*size);
+        if sum > total {
             return Err(StorageError::new(
                 "too_large",
                 "고른 파일이 합쳐서 2GB를 넘어요. 나눠서 골라 주세요",
             ));
         }
-        match File::open(path)
-            .map_err(StorageError::from)
-            .and_then(|f| read_capped(f, MAX_ZIP_BYTES))
-        {
-            Ok(bytes) => texts.push((name, String::from_utf8_lossy(&bytes).into_owned())),
-            Err(_) => skipped.push(name),
+        accepted.push(i);
+    }
+    Ok((accepted, skipped))
+}
+
+/// 고른 경로를 확인한다: .enex가 아니거나 열 수 없는 파일은 건너뛴 이름으로, 나머지는 (경로, 이름, 크기)로 돌려준다.
+pub fn plan_enex_paths(
+    paths: &[PathBuf],
+    per_file: u64,
+    total: u64,
+) -> Result<(Vec<(PathBuf, String, u64)>, Vec<String>)> {
+    let name_of = |p: &PathBuf| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+    let mut skipped = Vec::new();
+    let mut found = Vec::new();
+    for path in paths {
+        let name = name_of(path);
+        match fs::metadata(path) {
+            Ok(m) if is_enex(path) && m.is_file() => found.push((path.clone(), name, m.len())),
+            _ => skipped.push(name),
         }
     }
-    Ok((texts, skipped))
+    let sizes: Vec<(String, u64)> = found.iter().map(|(_, n, s)| (n.clone(), *s)).collect();
+    let (accepted, over) = plan_enex(&sizes, per_file, total)?;
+    skipped.extend(over.into_iter());
+    let kept = accepted.into_iter().map(|i| found[i].clone()).collect();
+    Ok((kept, skipped))
+}
+
+/// ENEX 파일 한 개를 글로 읽는다. 확장자가 .enex가 아니거나 `cap`을 넘으면 오류.
+/// 글자는 UTF-8로 읽고 깨진 바이트는 대체 글자로 바꾼다.
+pub fn read_enex_file(path: &Path, cap: u64) -> Result<String> {
+    if !is_enex(path) {
+        return Err(StorageError::new(
+            "invalid_path",
+            "ENEX 파일만 가져올 수 있어요",
+        ));
+    }
+    let bytes = File::open(path)
+        .map_err(StorageError::from)
+        .and_then(|f| read_capped(f, cap))?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn read_capped<R: Read>(r: R, cap: u64) -> Result<Vec<u8>> {
@@ -474,5 +520,104 @@ mod tests {
         assert!(listing.entries.is_empty());
         assert_eq!(listing.skipped, vec!["big.md".to_owned()]);
         let _ = fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod enex_tests {
+    use super::*;
+
+    fn temp_file(name: &str, bytes: &[u8]) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("enex-test-{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(name);
+        fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    #[test]
+    fn plan_skips_a_file_over_the_per_file_cap_by_name() {
+        let sizes = vec![
+            ("a.enex".to_string(), 10),
+            ("big.enex".to_string(), 11),
+            ("c.enex".to_string(), 5),
+        ];
+        let (accepted, skipped) = plan_enex(&sizes, 10, 100).unwrap();
+        assert_eq!(accepted, vec![0, 2]);
+        assert_eq!(skipped, vec!["big.enex".to_string()]);
+    }
+
+    #[test]
+    fn plan_rejects_the_whole_pick_over_the_total_cap() {
+        let sizes = vec![("a.enex".to_string(), 60), ("b.enex".to_string(), 50)];
+        let err = plan_enex(&sizes, 100, 100).unwrap_err();
+        assert_eq!(err.code, "too_large");
+        // 합계가 정확히 상한이면 허용한다
+        let (accepted, _) =
+            plan_enex(&[("a".to_string(), 50), ("b".to_string(), 50)], 100, 100).unwrap();
+        assert_eq!(accepted.len(), 2);
+    }
+
+    #[test]
+    fn skipped_files_do_not_count_toward_the_total() {
+        let sizes = vec![("huge.enex".to_string(), 500), ("a.enex".to_string(), 40)];
+        let (accepted, skipped) = plan_enex(&sizes, 100, 60).unwrap();
+        assert_eq!(accepted, vec![1]);
+        assert_eq!(skipped, vec!["huge.enex".to_string()]);
+    }
+
+    #[test]
+    fn enex_extension_is_checked_case_insensitively() {
+        assert!(is_enex(Path::new("/x/notes.ENEX")));
+        assert!(is_enex(Path::new("/x/notes.enex")));
+        assert!(!is_enex(Path::new("/x/notes.zip")));
+        assert!(!is_enex(Path::new("/x/enex")));
+    }
+
+    #[test]
+    fn read_rejects_a_non_enex_file() {
+        let path = temp_file("notes.txt", b"<en-export/>");
+        let err = read_enex_file(&path, 1024).unwrap_err();
+        assert_eq!(err.code, "invalid_path");
+    }
+
+    #[test]
+    fn read_refuses_a_file_over_the_cap() {
+        let path = temp_file("big.enex", &[b'x'; 64]);
+        assert_eq!(read_enex_file(&path, 64).unwrap().len(), 64);
+        let err = read_enex_file(&path, 63).unwrap_err();
+        assert_eq!(err.code, "too_large");
+    }
+
+    #[test]
+    fn read_keeps_text_and_replaces_broken_utf8() {
+        let path = temp_file("ok.enex", "가나\u{FFFD}".as_bytes());
+        assert_eq!(read_enex_file(&path, 1024).unwrap(), "가나\u{FFFD}");
+        let bad = temp_file("bad.enex", &[0x61, 0xFF, 0x62]);
+        assert_eq!(read_enex_file(&bad, 1024).unwrap(), "a\u{FFFD}b");
+    }
+
+    #[test]
+    fn unreadable_path_is_skipped_by_name_in_the_plan() {
+        let good = temp_file("good.enex", b"<en-export/>");
+        let missing = good.with_file_name("missing.enex");
+        let (kept, skipped) = plan_enex_paths(&[good.clone(), missing], 1024, 1 << 20).unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].1, "good.enex");
+        assert_eq!(skipped, vec!["missing.enex".to_string()]);
+        // 읽기 자체도 오류로 돌려준다 (호출하는 쪽이 그 파일만 건너뛴다)
+        assert!(read_enex_file(&good.with_file_name("missing.enex"), 1024).is_err());
+    }
+
+    #[test]
+    fn plan_paths_skips_non_enex_files() {
+        let zip = temp_file("notes.zip", b"PK");
+        let (kept, skipped) = plan_enex_paths(&[zip], 1024, 1024).unwrap();
+        assert!(kept.is_empty());
+        assert_eq!(skipped, vec!["notes.zip".to_string()]);
     }
 }

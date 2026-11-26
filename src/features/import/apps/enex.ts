@@ -22,6 +22,9 @@ export type EnexResult = {
 };
 
 export const ENEX_BLOB_PREFIX = "enex/";
+/** 파일을 한 개도 읽지 못했을 때의 안내 */
+export const ENEX_READ_ERROR =
+  "Evernote 파일을 읽지 못했어요. Evernote에서 ENEX 형식으로 내보낸 파일인지 확인해 주세요";
 export const ENEX_CRYPT_TEXT = "암호화된 내용은 가져오지 않았어요.";
 
 type Resource = { bytes: Uint8Array; mime: string; name: string };
@@ -256,58 +259,72 @@ function noteToHtml(
   return { html, keys: [...ctx.keys] };
 }
 
-/** 고른 .enex 파일들을 가져올 항목 목록으로 바꾼다 */
+/**
+ * .enex 파일 한 개를 가져올 항목 목록으로 바꾼다 (DATA-15). fileIndex는 폴더 키를 나누는 번호,
+ * blobs는 여러 파일이 함께 쓰는 리소스 바이트 모음(같은 md5는 한 번만 담긴다).
+ * 글을 한 파일씩 넘기면 파일 하나가 끝날 때마다 그 파일의 ENML 문자열을 버릴 수 있다.
+ */
+export function convertEnexFile(
+  file: EnexInput,
+  fileIndex: number,
+  blobs: Map<string, Uint8Array>,
+): { nodes: ImportNode[]; skipped: string[]; read: boolean } {
+  const nodes: ImportNode[] = [];
+  const skipped: string[] = [];
+  const doc = parseXml(file.text);
+  if (!doc) {
+    skipped.push(`${file.name} (ENEX 형식을 읽지 못했어요)`);
+    return { nodes, skipped, read: false };
+  }
+  const notes = Array.from(doc.getElementsByTagName("note"));
+  const folderTitle = file.name.replace(/\.enex$/i, "").trim() || "Evernote 노트북";
+  const folderKey = `e:${fileIndex}`;
+  const folder: ImportNode = {
+    key: folderKey,
+    parentKey: null,
+    kind: "folder",
+    title: folderTitle,
+    tags: [],
+    markdown: "",
+    assetPaths: [],
+  };
+  const pages: ImportNode[] = [];
+  notes.forEach((note, noteIndex) => {
+    const title = childText(note, "title").slice(0, 200) || "제목 없음";
+    const { html, keys } = noteToHtml(note, title, blobs, skipped);
+    const tags = [
+      ...new Set(childrenNamed(note, "tag").map((t) => t.textContent?.trim() ?? "")),
+    ].filter(Boolean);
+    pages.push({
+      key: `e:${fileIndex}/${noteIndex}`,
+      parentKey: folderKey,
+      kind: "page",
+      title,
+      tags,
+      markdown: html,
+      assetPaths: keys,
+      format: "html",
+      createdAt: parseEnexDate(childText(note, "created")),
+      updatedAt: parseEnexDate(childText(note, "updated")),
+    });
+  });
+  if (!pages.length) return { nodes, skipped, read: false };
+  nodes.push(folder, ...pages);
+  return { nodes, skipped, read: true };
+}
+
+/** 고른 .enex 파일들을 한꺼번에 가져올 항목 목록으로 바꾼다 (테스트·작은 목록용) */
 export function convertEnex(files: EnexInput[]): EnexResult {
   const nodes: ImportNode[] = [];
   const skipped: string[] = [];
   const blobs = new Map<string, Uint8Array>();
   let read = 0;
   files.forEach((file, fileIndex) => {
-    const doc = parseXml(file.text);
-    if (!doc) {
-      skipped.push(`${file.name} (ENEX 형식을 읽지 못했어요)`);
-      return;
-    }
-    const notes = Array.from(doc.getElementsByTagName("note"));
-    const folderTitle = file.name.replace(/\.enex$/i, "").trim() || "Evernote 노트북";
-    const folderKey = `e:${fileIndex}`;
-    const folder: ImportNode = {
-      key: folderKey,
-      parentKey: null,
-      kind: "folder",
-      title: folderTitle,
-      tags: [],
-      markdown: "",
-      assetPaths: [],
-    };
-    const pages: ImportNode[] = [];
-    notes.forEach((note, noteIndex) => {
-      const title = childText(note, "title").slice(0, 200) || "제목 없음";
-      const { html, keys } = noteToHtml(note, title, blobs, skipped);
-      const tags = [
-        ...new Set(childrenNamed(note, "tag").map((t) => t.textContent?.trim() ?? "")),
-      ].filter(Boolean);
-      pages.push({
-        key: `e:${fileIndex}/${noteIndex}`,
-        parentKey: folderKey,
-        kind: "page",
-        title,
-        tags,
-        markdown: html,
-        assetPaths: keys,
-        format: "html",
-        createdAt: parseEnexDate(childText(note, "created")),
-        updatedAt: parseEnexDate(childText(note, "updated")),
-      });
-    });
-    if (pages.length) {
-      read++;
-      nodes.push(folder, ...pages);
-    }
+    const part = convertEnexFile(file, fileIndex, blobs);
+    nodes.push(...part.nodes);
+    skipped.push(...part.skipped);
+    if (part.read) read++;
   });
-  const error =
-    read || !files.length
-      ? null
-      : "Evernote 파일을 읽지 못했어요. Evernote에서 ENEX 형식으로 내보낸 파일인지 확인해 주세요";
+  const error = read || !files.length ? null : ENEX_READ_ERROR;
   return { nodes, skipped, blobs, error };
 }

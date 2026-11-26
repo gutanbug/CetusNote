@@ -56,6 +56,7 @@ pub fn run() {
             commands::app_import_pick,
             commands::app_import_bytes,
             commands::app_import_enex_pick,
+            commands::app_import_enex_read,
             commands::workspace_export_markdown,
             commands::workspace_export_reveal,
             commands::asset_write,

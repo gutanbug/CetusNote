@@ -57,6 +57,7 @@ const COMMANDS: &[&str] = &[
     "app_import_pick",
     "app_import_bytes",
     "app_import_enex_pick",
+    "app_import_enex_read",
     "confirm_quit",
 ];
 

@@ -42,6 +42,8 @@ type MemoryOptions = {
   /** 다른 앱에서 가져오기 고르기 결과 흉내. 없으면 unsupported (브라우저에서는 zip·폴더를 읽지 못한다) */
   pickAppSource?: (kind: "zip" | "folder") => AppImportPick | null;
   pickEnexFiles?: () => EnexPick | null;
+  /** ENEX 파일 한 개의 글 (번호 → 글). 없으면 not_found */
+  readEnexFile?: (id: number) => string;
   /** 다른 앱 가져오기 항목 바이트 (경로 → 바이트) */
   appImportBytes?: Record<string, Uint8Array>;
   /** 가져올 상대 경로 이미지 (dir/src → 바이트). 없으면 not_found */
@@ -450,6 +452,10 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
         "unsupported",
         "데스크톱 앱에서만 다른 앱의 내보내기를 가져올 수 있어요",
       );
+    },
+    async readEnexFile(id: number) {
+      if (options.readEnexFile) return options.readEnexFile(id);
+      throw new StorageError("not_found", "고른 파일을 찾지 못했어요");
     },
     async pickEnexFiles() {
       if (options.pickEnexFiles) return options.pickEnexFiles();

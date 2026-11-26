@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE en-export SYSTEM "http://xml.evernote.com/pub/evernote-export4.dtd">
+<en-export export-date="20241201T000000Z" application="Evernote" version="10.0">
+<note>
+<title>표와 목록</title>
+<content><![CDATA[<?xml version="1.0" encoding="UTF-8"?><en-note><table><tbody><tr><td>셀 하나</td><td>셀 둘</td></tr><tr><td>셋</td><td>넷</td></tr></tbody></table><ul><li>상위 항목<ul><li>하위 항목<ul><li>더 아래</li></ul></li></ul></li></ul><div><a href="https://example.com/docs">예제 링크</a></div><ul><li><en-todo checked="true"/>완료한 일</li><li><en-todo/>남은 일</li></ul></en-note>]]></content>
+<created>20240101T120000Z</created>
+<updated>20240102T120000Z</updated>
+<tag>업무</tag>
+<tag>업무</tag>
+</note>
+<note>
+<title>그림과 첨부</title>
+<content><![CDATA[<?xml version="1.0" encoding="UTF-8"?><en-note><div>같은 그림 두 번</div><en-media type="image/png" hash="5d41402abc4b2a76b9719d911017c592"/><en-media type="image/png" hash="5d41402abc4b2a76b9719d911017c592"/><en-media type="application/octet-stream" hash="23acceecf103768f091b36010844ea27"/><en-media type="image/jpeg" hash="ea21841da70e6405af19fabc4ff8bdd9"/></en-note>]]></content>
+<created>20240103T120000Z</created>
+<resource>
+<data encoding="base64">aGVsbG8=</data>
+<mime>image/png</mime>
+<resource-attributes><file-name>그림.png</file-name></resource-attributes>
+</resource>
+<resource>
+<data encoding="base64">aGVsbG8=</data>
+<mime>image/png</mime>
+<resource-attributes></resource-attributes>
+</resource>
+<resource>
+<data encoding="base64">Ynl0ZXMy</data>
+<mime>application/octet-stream</mime>
+</resource>
+</note>
+<note>
+<title>제목만 있는 노트</title>
+<content><![CDATA[<?xml version="1.0" encoding="UTF-8"?><en-note></en-note>]]></content>
+<created>20240104T120000Z</created>
+</note>
+</en-export>
