@@ -15,6 +15,13 @@ RUN apt-get update \
         clang lld llvm nsis \
     && rm -rf /var/lib/apt/lists/*
 
+# Ubuntu의 NSIS 3.08에는 Tauri 템플릿이 쓰는 Include/Win/RestartManager.nsh가 없다. Tauri가 받는 NSIS 3.11의 Include에서 없는 파일만 채운다
+RUN curl -fsSL -o /tmp/nsis.zip https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.11/nsis-3.11.zip \
+    && unzip -q /tmp/nsis.zip -d /tmp/nsis-src \
+    && cp -rn "$(find /tmp/nsis-src -type d -name Include | head -1)/." /usr/share/nsis/Include/ \
+    && rm -rf /tmp/nsis.zip /tmp/nsis-src \
+    && test -f /usr/share/nsis/Include/Win/RestartManager.nsh
+
 # cargo-xwin은 clang-cl · lld-link · llvm-lib 이름을 찾는다. Ubuntu 패키지의 버전 붙은 이름을 연결한다
 RUN ln -sf "$(ls /usr/bin/clang-[0-9]* | sort -V | tail -1)" /usr/local/bin/clang-cl \
     && ln -sf "$(ls /usr/bin/lld-link-[0-9]* | sort -V | tail -1)" /usr/local/bin/lld-link \
