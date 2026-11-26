@@ -45,6 +45,43 @@ export const Resized: Story = {
   },
 };
 
+/**
+ * 손잡이 끌기: 경계 손잡이에서 포인터를 누르고 옮기면 두 열의 비율(data-width)이 바뀌고 합계는 그대로다.
+ * 놓은 뒤에는 노드 attrs(문서)에 저장되어 flex-grow가 같이 바뀐다.
+ */
+export const DragResize: Story = {
+  args: { content: TWO },
+  play: async ({ canvasElement }) => {
+    const handle = await waitFor(() => {
+      const el = canvasElement.querySelector<HTMLElement>('[data-type="columns"] > [aria-hidden]');
+      if (!el) throw new Error("손잡이가 아직 없다");
+      return el;
+    });
+    const cols = () => [...canvasElement.querySelectorAll<HTMLElement>('[data-type="column"]')];
+    const before = cols().map((c) => Number(c.dataset.width));
+
+    const r = handle.getBoundingClientRect();
+    const x0 = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const pointer = (type: string, x: number, target: EventTarget) =>
+      target.dispatchEvent(
+        new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: 1, button: 0 }),
+      );
+    pointer("pointerdown", x0, handle);
+    const first = cols()[0];
+    for (const dx of [20, 40, 60]) pointer("pointermove", x0 + dx, window);
+    // 놓기 전(끄는 중)에도 왼쪽 열이 따라 넓어져야 한다. 열 요소가 떨어져 나가면 안 된다(미리보기 회귀 방지)
+    await expect(first.isConnected).toBe(true);
+    await expect(Number(getComputedStyle(first).flexGrow)).toBeGreaterThan(before[0]);
+    pointer("pointerup", x0 + 60, window);
+
+    await waitFor(() => expect(Number(cols()[0].dataset.width)).toBeGreaterThan(before[0]));
+    const after = cols().map((c) => Number(c.dataset.width));
+    await expect(after[0] + after[1]).toBeCloseTo(before[0] + before[1]);
+    await expect(Number(cols()[0].style.flexGrow)).toBeCloseTo(after[0]);
+  },
+};
+
 /** 좁은 폭(32rem 아래): 열이 세로로 쌓인다 */
 export const Narrow: Story = {
   args: { content: THREE },

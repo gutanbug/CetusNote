@@ -245,6 +245,23 @@
   & .sn-columns-body > div {
     display: contents;
   }
+  /* 단 나누기 위에 마우스를 올리면 열 영역을 옅게 채운다(열 경계는 손잡이 구분선이 항상 보인다) */
+  & [data-type="columns"]:hover > .sn-columns-body > div > [data-type="column"] {
+    @apply rounded-md bg-hover;
+  }
+  /* 손잡이를 끄는 중에는 열 비율을 CSS 변수(--sn-col-N, columns.tsx setPreview)로 바꾼다. 열 요소의 inline flex-grow를 이긴다 */
+  & .sn-columns-body.sn-columns-dragging > div > [data-type="column"]:nth-child(1) {
+    flex-grow: var(--sn-col-0) !important;
+  }
+  & .sn-columns-body.sn-columns-dragging > div > [data-type="column"]:nth-child(2) {
+    flex-grow: var(--sn-col-1) !important;
+  }
+  & .sn-columns-body.sn-columns-dragging > div > [data-type="column"]:nth-child(3) {
+    flex-grow: var(--sn-col-2) !important;
+  }
+  & .sn-columns-body.sn-columns-dragging > div > [data-type="column"]:nth-child(4) {
+    flex-grow: var(--sn-col-3) !important;
+  }
 
   /* ── 코드 블록 (ED-CodeBlock) ── */
   & .sn-codeblock {

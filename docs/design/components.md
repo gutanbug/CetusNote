@@ -198,8 +198,9 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 - **목차·검색:** 접힌 제목도 목차에 남는다(제목은 보이는 줄이므로 이동 대상이 항상 보인다). 검색은 문서 글자를 그대로 본다.
 - **ED-ToggleHeading 키보드:** ⌘⇧↵ = 캐럿이 든 토글 접기·펼치기(접을 때 캐럿이 숨은 내용에 있으면 제목 끝으로). 펼침 단추 = 마우스 클릭, 포커스 후 Enter·Space(이름 「토글」 고정, 상태는 `aria-expanded`; 툴팁은 「접기」「펼치기」). 화살표 회전은 `motion-reduce`에서 멈춘다. Enter: 접힌 제목 끝에서 Enter를 치면 아래 문단이 생기고 토글이 펼쳐진다(appendTransaction). Tab은 탭 문자(EDIT-22) 그대로.
 - **ED-Columns 설계:** `columns`(content `column{2,4}`) > `column`(content `block+`, 비율 `width` = flex-grow). 열 안 Tab은 탭 문자(EDIT-22)라 열을 옮기지 않는다.
-- **ED-Columns 키보드:** ⌘⌥←/→ = 앞·뒤 열 첫 줄로(끝 열에서는 멈춤), ⌘⌥⇧←/→ = 캐럿 열 폭 0.25씩(옆 열에서 가져옴, 최소 0.5). 손잡이는 마우스 전용(`aria-hidden`, 포인터 드래그 후 놓을 때 저장).
+- **ED-Columns 키보드:** ⌘⌥←/→ = 앞·뒤 열 첫 줄로(끝 열에서는 멈춤), ⌘⌥⇧←/→ = 캐럿 열 폭 0.25씩(옆 열에서 가져옴, 최소 0.5). 손잡이는 마우스 전용(`aria-hidden`, 포인터 드래그 후 놓을 때 저장). 드래그는 `setPointerCapture`로 손잡이가 포인터를 잡고, mousedown 기본 동작을 막아 WebKit에서 텍스트 선택이 끼지 않는다. 끄는 중에는 손잡이가 포인트 색(`bg-accent`). 끄는 동안의 미리보기는 열 DOM의 style을 바꾸지 않고 `.sn-columns-body`의 CSS 변수(`--sn-col-N`, `.sn-columns-dragging`)로 보낸다. 열 style을 직접 바꾸면 ProseMirror가 열을 다시 그려 미리보기가 사라졌다(WebKit에서 확인).
 - **좁은 폭:** 단 나누기 너비 32rem 아래에서 열이 세로로 쌓인다(컨테이너 쿼리). 그때 손잡이는 숨긴다.
+- **경계 표시 (2026-11-26):** 열 사이 구분선은 평소에도 옅게 보인다(`bg-line`), 손잡이 위에서는 포인트 색(`bg-accent`). 단 나누기 위에 마우스를 올리면 열 영역이 `bg-hover`로 옅게 채워진다(editor.css).
 - **드래그 핸들:** Tiptap DragHandle은 최상위 블록만 잡는다(`nested` 미사용). 단 전체는 핸들로 옮기고, 열 안 블록은 핸들이 없다.
 - **phase 2 연결(다른 작업):** 확장 묶음(`extensions.ts`)에 `ToggleHeading`(`toggle-heading.tsx`, 이름 `toggleHeading`)과 `Columns`·`Column`(`columns.tsx`, 묶음 `columnExtensions`)을 넣고, 스토리용 `NoteEditor.extraExtensions` 경로는 그때 걷는다. 명령: `setToggleHeading({ level })`, `toggleToggleHeading()`, `insertColumns({ count })`, `setColumnWidths({ pos, widths })`, `moveToColumn(±1)`, `resizeColumn(±)`. Markdown은 아직 없다: 토글 제목은 `<details><summary>제목</summary>…</details>`(ED-Toggle과 같은 형식)로 낸다고 제안한다. 단은 Markdown에 대응이 없어 열을 위에서 아래로 펼치는 것을 제안(손실 명시)하며 확정은 phase 2에서 한다.
 

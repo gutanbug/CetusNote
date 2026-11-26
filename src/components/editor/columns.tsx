@@ -8,6 +8,7 @@ import {
   type ReactNodeViewProps,
 } from "@tiptap/react";
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
 /** 열 하나의 최소 비율(flex-grow). 이보다 좁아지지 않는다 */
 export const COLUMN_MIN_WEIGHT = 0.5;
@@ -100,6 +101,11 @@ function sameLayout(a: Layout, b: Layout) {
 function ColumnsView({ node, editor, getPos }: ReactNodeViewProps) {
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const [layout, setLayout] = React.useState<Layout>({ stacked: true, bounds: [] });
+  /** 끌고 있는 경계 번호 (손잡이를 강조한다) */
+  const [dragging, setDragging] = React.useState<number | null>(null);
+  /** 진행 중인 드래그를 끝내는 함수. 언마운트되면 리스너를 떼어 낸다 */
+  const stopDragRef = React.useRef<(() => void) | null>(null);
+  React.useEffect(() => () => stopDragRef.current?.(), []);
 
   const apply = React.useCallback(
     () =>
@@ -124,6 +130,13 @@ function ColumnsView({ node, editor, getPos }: ReactNodeViewProps) {
     const body = wrapRef.current?.querySelector<HTMLElement>(":scope > .sn-columns-body");
     if (typeof pos !== "number" || !body) return;
     e.preventDefault();
+    // 손잡이가 포인터를 잡는다. 창 밖에서 놓아도 pointerup이 여기로 온다
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // 활성 포인터가 아니면(합성 이벤트 등) 캡처 없이도 창 리스너로 끈다
+    }
+    setDragging(i);
     const cols = columnElements(body);
     const widths: number[] = [];
     node.forEach((c) => widths.push(Number(c.attrs.width) || 1));
@@ -134,10 +147,19 @@ function ColumnsView({ node, editor, getPos }: ReactNodeViewProps) {
     const pxPerWeight = cols[i].getBoundingClientRect().width / a;
     const startX = e.clientX;
     let next = a;
-    const preview = () => {
-      cols[i].style.flexGrow = String(next);
-      cols[i + 1].style.flexGrow = String(sum - next);
+    // 끄는 중의 미리보기는 열 DOM을 건드리지 않는다. 열 요소의 style을 바꾸면 ProseMirror가
+    // 그 열을 다시 그려 미리보기 요소가 떨어져 나간다. 대신 NodeView 컨테이너의 CSS 변수로 보낸다
+    const setPreview = (preview: number[] | null) => {
+      if (!preview) {
+        body.classList.remove("sn-columns-dragging");
+        widths.forEach((_, k) => body.style.removeProperty(`--sn-col-${k}`));
+        return;
+      }
+      body.classList.add("sn-columns-dragging");
+      preview.forEach((w, k) => body.style.setProperty(`--sn-col-${k}`, String(w)));
     };
+    const preview = () =>
+      setPreview(widths.map((w, k) => (k === i ? next : k === i + 1 ? sum - next : w)));
     const move = (ev: PointerEvent) => {
       next = clampWeight(a + (ev.clientX - startX) / pxPerWeight, sum - COLUMN_MIN_WEIGHT);
       preview();
@@ -146,19 +168,24 @@ function ColumnsView({ node, editor, getPos }: ReactNodeViewProps) {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);
+      stopDragRef.current = null;
+      setDragging(null);
     };
+    stopDragRef.current = stop;
     const up = () => {
       stop();
-      if (next === a) return;
-      editor.commands.setColumnWidths({
-        pos,
-        widths: widths.map((w, k) => (k === i ? next : k === i + 1 ? sum - next : w)),
-      });
+      if (next !== a) {
+        editor.commands.setColumnWidths({
+          pos,
+          widths: widths.map((w, k) => (k === i ? next : k === i + 1 ? sum - next : w)),
+        });
+      }
+      // 커밋 뒤에 미리보기를 걷는다(같은 작업 안이라 화면에는 바뀐 값만 보인다)
+      setPreview(null);
     };
     const cancel = () => {
       stop();
-      cols[i].style.flexGrow = String(a);
-      cols[i + 1].style.flexGrow = String(b);
+      setPreview(null);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -182,10 +209,18 @@ function ColumnsView({ node, editor, getPos }: ReactNodeViewProps) {
             aria-hidden
             contentEditable={false}
             onPointerDown={(e) => startDrag(e, i)}
+            // 기본 동작을 막아 WebKit에서 텍스트 선택이나 ProseMirror 마우스 처리가 끼어들지 않게 한다
+            onMouseDown={(e) => e.preventDefault()}
             style={{ left: `${x}%` }}
             className="group absolute inset-y-0 z-10 w-3 -translate-x-1/2 cursor-col-resize touch-none"
           >
-            <span className="mx-auto block h-full w-0.5 rounded-pill bg-transparent transition-colors group-hover:bg-line" />
+            {/* 평소에는 옅은 구분선, 손잡이에 올리거나 끄는 중에는 포인트 색 */}
+            <span
+              className={cn(
+                "mx-auto block h-full w-0.5 rounded-pill transition-colors",
+                dragging === i ? "bg-accent" : "bg-line group-hover:bg-accent",
+              )}
+            />
           </div>
         ))}
     </NodeViewWrapper>
