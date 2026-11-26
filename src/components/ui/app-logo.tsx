@@ -5,9 +5,14 @@ import { cn } from "@/lib/utils";
  * lucide 규칙의 예외이며 components.md "UI-AppLogo"에 적는다. 모든 path는 currentColor로 그린다(다크 대응).
  * 외부 요청 없이 번들한다. 로고 상표는 각 회사에 있고, 여기서는 어느 앱인지 알리는 용도로만 쓴다.
  */
-export type AppLogoId = "notion" | "obsidian" | "appflowy" | "affine";
+export type AppLogoId = "notion" | "obsidian" | "appflowy" | "affine" | "evernote";
 
 const MARKS: Record<AppLogoId, { viewBox: string; paths: string[] }> = {
+  // 자체 도형(상표 로고 아님): 노트 한 장. 구멍은 반대 방향으로 그려 nonzero에서 뚫리게 한다
+  evernote: {
+    viewBox: "0 0 24 24",
+    paths: ["M5 3h10l4 4v14H5z M8 10v1.5h8V10z M8 13.5V15h8v-1.5z"],
+  },
   // Simple Icons 16.38.1 · notion (CC0-1.0)
   notion: {
     viewBox: "0 0 24 24",

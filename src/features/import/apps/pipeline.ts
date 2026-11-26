@@ -19,6 +19,8 @@ export type ParseOutcome = {
   skipped: string[];
   /** 사용자에게 보여 줄 오류(고른 것이 이 앱의 내보내기가 아닐 때). 있으면 nodes는 비어 있다 */
   error: string | null;
+  /** 리소스 바이트(키 `enex/<md5>`). ENEX만 쓴다 */
+  blobs?: Map<string, Uint8Array>;
 };
 
 const DOC = /\.(md|markdown|html?|htm)$/i;
@@ -54,6 +56,12 @@ export function parseAppExport(app: ImportAppId, pick: AppImportPick): ParseOutc
     case "affine":
       result = convertMarkdownTree(files);
       break;
+    case "evernote":
+      return {
+        nodes: [],
+        skipped: [],
+        error: "Evernote 파일은 「ENEX 파일 고르기」로 골라 주세요",
+      };
   }
   return { nodes: result.nodes, skipped: [...result.skipped, ...pick.skipped], error: null };
 }
@@ -68,5 +76,7 @@ function notFoundMessage(app: ImportAppId): string {
       return "AppFlowy 내보내기에서 문서를 찾지 못했어요. Markdown 또는 HTML로 내보낸 파일인지 확인해 주세요";
     case "affine":
       return "AFFiNE 내보내기에서 문서를 찾지 못했어요. Markdown으로 내보낸 파일인지 확인해 주세요";
+    case "evernote":
+      return "Evernote 내보내기에서 노트를 찾지 못했어요. ENEX 형식으로 내보낸 파일인지 확인해 주세요";
   }
 }

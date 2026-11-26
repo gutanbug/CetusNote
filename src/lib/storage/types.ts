@@ -385,6 +385,8 @@ export interface Storage {
   readPages(ids: string[]): Promise<LoadResult>;
   /** 다른 앱에서 가져오기(DATA-11): zip 파일 또는 폴더를 고르고 목록을 만든다. 취소하면 null */
   pickAppSource(kind: "zip" | "folder"): Promise<AppImportPick | null>;
+  /** Evernote(ENEX) 파일 여러 개를 고르고 글을 읽는다(DATA-15). 취소하면 null */
+  pickEnexFiles(): Promise<EnexPick | null>;
   /** 고른 원본 안의 항목 하나의 바이트(그림 등). path는 목록의 경로 */
   readAppImportBytes(path: string): Promise<Uint8Array>;
 }
@@ -420,6 +422,8 @@ export type PdfText = { title: string | null; pages: string[] };
 
 /** 다른 앱에서 가져오기(DATA-11)로 고른 zip·폴더의 목록. path는 원본 안 상대 경로(`/`) */
 export type AppImportText = { path: string; text: string };
+/** Evernote 내보내기(.enex) 파일 목록. files.path는 파일 이름, text는 XML 글 */
+export type EnexPick = { files: AppImportText[]; skipped: string[] };
 export type AppImportPick = {
   /** 글 파일(md·csv·html·txt)의 글자 */
   texts: AppImportText[];

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE en-export SYSTEM "http://xml.evernote.com/pub/evernote-export3.dtd">
+<en-export export-date="20240105T000000Z" application="Evernote" version="10.0">
+<note>
+<title>회의 메모</title>
+<content><![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?><!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd"><en-note><div><en-todo checked="true"/>보고서 작성</div><div><en-todo checked="false"/>메일 보내기</div><div>자료 그림</div><div><en-media type="image/png" hash="b357a19c87624c7c4d131aeeb4ae677f"/></div><div><en-media type="application/pdf" hash="44596cbea63f87030766bb98fa4d53bf"/></div><div><en-media type="image/jpeg" hash="00000000000000000000000000000000"/></div><div>끝 &amp; 확인</div></en-note>]]></content>
+<created>20240101T120000Z</created>
+<updated>20240102T090000Z</updated>
+<tag>업무</tag>
+<tag>회의</tag>
+<note-attributes><source>desktop</source></note-attributes>
+<resource>
+<data encoding="base64">
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6
+kgAAAABJRU5ErkJggg==
+</data>
+<mime>image/png</mime>
+<width>1</width><height>1</height>
+<resource-attributes><file-name>chart.png</file-name></resource-attributes>
+</resource>
+<resource>
+<data encoding="base64">
+JVBERi0xLjQKJSB0ZXN0IGF0dGFjaG1lbnQK
+</data>
+<mime>application/pdf</mime>
+<resource-attributes><file-name>spec.pdf</file-name></resource-attributes>
+</resource>
+</note>
+<note>
+<title>비밀 일기</title>
+<content><![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?><!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd"><en-note><en-crypt>U2FsdGVkX1+abc</en-crypt></en-note>]]></content>
+<created>20240103T010000Z</created>
+<updated>20240103T010000Z</updated>
+<note-attributes><source>desktop</source></note-attributes>
+</note>
+</en-export>

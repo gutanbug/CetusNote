@@ -9,6 +9,7 @@ import {
 } from "@/features/import/apps/pipeline";
 import { remapMentions } from "@/features/import/apps/mentions";
 import { decodeSafe, type ImportNode } from "@/features/import/apps/tree";
+import { convertEnex } from "@/features/import/apps/enex";
 import { importSummary, type ImportFailure } from "@/features/import/summary";
 import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
@@ -36,18 +37,28 @@ import { askImportDestination } from "./import-destination";
  */
 export async function importFromApp(
   app: ImportAppId,
-  kind: "zip" | "folder",
+  kind: "zip" | "folder" | "enex",
   storage: Storage = getStorage(),
 ): Promise<Page[]> {
   let pick: AppImportPick | null;
+  let outcome: ParseOutcome;
   try {
-    pick = await storage.pickAppSource(kind);
+    if (kind === "enex") {
+      // Evernote: 노트북 파일(.enex)을 여러 개 고른다. 원본 목록 대신 파일 글을 그대로 변환한다
+      const enex = await storage.pickEnexFiles();
+      if (!enex) return [];
+      const converted = convertEnex(enex.files.map((f) => ({ name: f.path, text: f.text })));
+      outcome = { ...converted, skipped: [...converted.skipped, ...enex.skipped] };
+      pick = { texts: [], paths: [], skipped: [] };
+    } else {
+      pick = await storage.pickAppSource(kind);
+      if (!pick) return [];
+      outcome = parseAppExport(app, pick);
+    }
   } catch (error) {
     toast(error instanceof StorageError ? error.message : "가져올 파일을 읽지 못했어요");
     return [];
   }
-  if (!pick) return [];
-  const outcome = parseAppExport(app, pick);
   if (outcome.error) {
     toast(outcome.error);
     return [];
@@ -131,7 +142,7 @@ export async function writeImport(
       // 문서 폴더(끝에 / 포함): 그림의 상대 경로 기준
       const stem = node.key.slice(2);
       const dir = stem.includes("/") ? stem.slice(0, stem.lastIndexOf("/") + 1) : "";
-      const resolve = imageResolver(page.id, dir, paths, storage);
+      const resolve = imageResolver(page.id, dir, paths, storage, outcome.blobs);
       let doc: JSONContent;
       let title: string | null = null;
       if (node.format === "html") {
@@ -141,6 +152,7 @@ export async function writeImport(
       } else {
         doc = await markdownToDoc(node.markdown, resolve);
       }
+      doc = await writeBlobAttachments(doc, outcome.blobs, page.id, storage);
       doc = remapMentions(doc, ids);
       const latest = pagesStore.getState().pages[page.id]!;
       pagesStore.getState().update(page.id, {
@@ -148,6 +160,10 @@ export async function writeImport(
         props: valuesOf(node, { ...latest.props, tags: node.tags }, collections),
         content: doc as Page["content"],
       });
+      if (node.createdAt || node.updatedAt)
+        pagesStore
+          .getState()
+          .restoreTimes(page.id, { createdAt: node.createdAt, updatedAt: node.updatedAt });
       for (const tag of node.tags)
         if (!meta.meta?.tags[tag]) meta.setTagColor(tag, nextTagColor(known++));
       created.push(pagesStore.getState().pages[page.id]!);
@@ -176,6 +192,23 @@ export async function writeImport(
   return created;
 }
 
+/** ENEX 첨부(`enex/<md5>` 경로)를 그 페이지 assets로 옮기고 경로를 바꾼다 */
+async function writeBlobAttachments(
+  node: JSONContent,
+  blobs: Map<string, Uint8Array> | undefined,
+  pageId: string,
+  storage: Storage,
+): Promise<JSONContent> {
+  if (!blobs) return node;
+  const path = node.attrs?.path;
+  if (node.type === "attachment" && typeof path === "string" && blobs.has(path)) {
+    const assetPath = await storage.writeAsset(pageId, blobs.get(path)!);
+    node.attrs = { ...node.attrs, path: assetPath };
+  }
+  for (const child of node.content ?? []) await writeBlobAttachments(child, blobs, pageId, storage);
+  return node;
+}
+
 /** 가져온 묶음에서 이 페이지가 폴더인지 */
 function isFolderPage(id: string): boolean {
   return pagesStore.getState().pages[id]?.kind === "folder";
@@ -190,9 +223,13 @@ function imageResolver(
   dir: string,
   paths: Set<string>,
   storage: Storage,
+  blobs?: Map<string, Uint8Array>,
 ): ImageResolver {
   return async (src) => {
     const rel = decodeSafe(src).replace(/^\.\//, "");
+    // ENEX 리소스(메모리에 있는 바이트)가 먼저
+    const blob = blobs?.get(rel);
+    if (blob) return storage.writeAsset(pageId, blob);
     const path = paths.has(rel) ? rel : `${dir}${rel}`;
     if (!paths.has(path)) throw new StorageError("not_found", "그림 파일이 없어요");
     return storage.writeAsset(pageId, await storage.readAppImportBytes(path));

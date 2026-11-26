@@ -6,10 +6,10 @@
  * AFFiNE은 공식 블로그(Markdown 내보내기 안내)로 경로를 확인했고, AppFlowy는 공식 문서에 닿지 못해 커뮤니티 자료로만 확인했다(아래 note 참고).
  */
 
-export type ImportKind = "folder" | "zip";
+export type ImportKind = "folder" | "zip" | "enex";
 
 export type ImportGuide = {
-  id: "notion" | "obsidian" | "appflowy" | "affine";
+  id: "notion" | "obsidian" | "appflowy" | "affine" | "evernote";
   label: string;
   /** 앱 고르기 카드의 한 줄: 무엇을 읽는지 */
   hint: string;
@@ -97,6 +97,23 @@ export const IMPORT_GUIDES: ImportGuide[] = [
     ],
     kinds: ["folder", "zip"],
     note: "AFFiNE 공식 블로그(v0.27.4 기준, 2026-10-09 확인)에서 문서 메뉴의 「Markdown」 내보내기를 확인했어요. 상위 「내보내기」 메뉴 이름은 그 글에서 확인하지 못했고, 메뉴 이름은 버전에 따라 다를 수 있어요.",
+  },
+  {
+    id: "evernote",
+    label: "Evernote",
+    hint: "노트북마다 하나씩 만들어지는 ENEX 파일",
+    gets: [
+      "노트 본문(글꼴·목록·표·링크)과 체크 목록",
+      "그림과 첨부 파일, 태그, 만든 날·고친 날. 파일 이름이 노트북 폴더가 돼요",
+    ],
+    misses: ["암호화된 노트(자리에 안내 글만 남겨요)", "원본이 없는 그림, 공유·댓글 정보"],
+    steps: [
+      "사이드바에서 가져올 노트북을 우클릭하고 「노트북 내보내기」를 골라요.",
+      "형식에서 「ENEX」를 고르고 저장해요. 노트북마다 .enex 파일이 하나씩 생겨요.",
+      "「ENEX 파일 고르기」를 누르고 받은 .enex 파일을 골라요. 여러 개를 한 번에 고를 수 있어요.",
+    ],
+    kinds: ["enex"],
+    note: "메뉴 이름은 Evernote 버전에 따라 다를 수 있어요. 내보내기는 노트북 단위로만 돼요.",
   },
 ];
 

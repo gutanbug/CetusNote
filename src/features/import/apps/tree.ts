@@ -25,6 +25,9 @@ export type ImportNode = {
   columns?: Column[];
   /** 레코드(문서)의 CSV 칸 — columns와 같은 순서. 없으면 속성 값 없음 */
   cells?: string[];
+  /** 원본 만든 날·고친 날(ISO). 있으면 가져온 문서에 그대로 옮긴다(ENEX) */
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 /** 목록의 경로가 안전한지 검사한다(zip-slip·절대 경로·역슬래시·`..`). 안전하면 조각 목록, 아니면 null */

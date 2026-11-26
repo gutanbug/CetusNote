@@ -20,7 +20,11 @@ import type { ImportAppId } from "@/features/import/apps/pipeline";
 import { importFromApp } from "./import-apps";
 import { closeImportAppPicker, useImportAppPicker } from "./import-app-picker";
 
-const KIND_LABEL: Record<ImportKind, string> = { zip: "zip 파일", folder: "폴더" };
+const KIND_LABEL: Record<ImportKind, string> = {
+  zip: "zip 파일",
+  folder: "폴더",
+  enex: "ENEX 파일",
+};
 
 /** 「메뉴」 표시를 굵게 보여 준다 */
 function withMenus(text: string): ReactNode[] {

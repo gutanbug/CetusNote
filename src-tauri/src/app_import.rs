@@ -144,6 +144,35 @@ fn zip_err(e: zip::result::ZipError) -> StorageError {
 }
 
 /** 최대 `cap` 바이트까지 읽는다. 넘으면 too_large */
+/// Evernote ENEX 파일 여러 개를 읽는다(DATA-15). 파일 한 개는 MAX_ZIP_BYTES, 합계는 MAX_TOTAL_BYTES까지.
+/// 파일 한 개가 상한을 넘거나 읽지 못하면 건너뛴 이름으로 돌려주고, 합계를 넘으면 전부 거절한다.
+pub fn read_enex(paths: &[PathBuf]) -> Result<(Vec<(String, String)>, Vec<String>)> {
+    let mut texts = Vec::new();
+    let mut skipped = Vec::new();
+    let mut total: u64 = 0;
+    for path in paths {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        total += fs::metadata(path)?.len();
+        if total > MAX_TOTAL_BYTES {
+            return Err(StorageError::new(
+                "too_large",
+                "고른 파일이 합쳐서 2GB를 넘어요. 나눠서 골라 주세요",
+            ));
+        }
+        match File::open(path)
+            .map_err(StorageError::from)
+            .and_then(|f| read_capped(f, MAX_ZIP_BYTES))
+        {
+            Ok(bytes) => texts.push((name, String::from_utf8_lossy(&bytes).into_owned())),
+            Err(_) => skipped.push(name),
+        }
+    }
+    Ok((texts, skipped))
+}
+
 fn read_capped<R: Read>(r: R, cap: u64) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     r.take(cap + 1).read_to_end(&mut bytes)?;

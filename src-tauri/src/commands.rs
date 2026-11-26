@@ -101,6 +101,13 @@ pub struct AppImportPick {
     skipped: Vec<String>,
 }
 
+/// Evernote ENEX 파일 목록(DATA-15). files의 path는 파일 이름, text는 XML 글
+#[derive(Serialize)]
+pub struct EnexPick {
+    files: Vec<AppImportText>,
+    skipped: Vec<String>,
+}
+
 #[derive(Serialize)]
 pub struct WorkspaceInfo {
     /// 화면 표시용 폴더 이름과 전체 경로(설정 화면). 프론트엔드가 이 경로로 파일에 접근하지는 않는다.
@@ -954,6 +961,40 @@ pub async fn app_import_pick(
         paths,
         skipped,
     }))
+}
+
+/// Evernote(ENEX) 파일을 여러 개 고르고 읽는다(DATA-15). 취소하면 None.
+#[tauri::command]
+pub async fn app_import_enex_pick(app: AppHandle) -> Result<Option<EnexPick>> {
+    let Some(picked) = app
+        .dialog()
+        .file()
+        .set_title("Evernote 파일 가져오기")
+        .add_filter("ENEX", &["enex"])
+        .blocking_pick_files()
+    else {
+        return Ok(None);
+    };
+    let paths: Vec<PathBuf> = picked
+        .into_iter()
+        .filter_map(|p| p.into_path().ok())
+        .collect();
+    if paths.is_empty() {
+        return Err(StorageError::new(
+            "invalid_path",
+            "고른 위치를 읽지 못했어요",
+        ));
+    }
+    let (texts, skipped) =
+        match tauri::async_runtime::spawn_blocking(move || app_import::read_enex(&paths)).await {
+            Ok(result) => result?,
+            Err(e) => return Err(StorageError::new("io", e.to_string())),
+        };
+    let files = texts
+        .into_iter()
+        .map(|(path, text)| AppImportText { path, text })
+        .collect();
+    Ok(Some(EnexPick { files, skipped }))
 }
 
 /// 가져오기 목록에 있는 항목 하나의 바이트(그림 등). path는 목록의 상대 경로

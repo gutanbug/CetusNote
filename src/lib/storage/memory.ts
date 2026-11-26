@@ -11,6 +11,7 @@ import {
   type AttachmentPickKind,
   type DocumentFile,
   type AppImportPick,
+  type EnexPick,
   type DocumentPick,
   type Page,
   type Storage,
@@ -38,6 +39,7 @@ type MemoryOptions = {
   pickDocuments?: () => DocumentPick | null;
   /** 다른 앱에서 가져오기 고르기 결과 흉내. 없으면 unsupported (브라우저에서는 zip·폴더를 읽지 못한다) */
   pickAppSource?: (kind: "zip" | "folder") => AppImportPick | null;
+  pickEnexFiles?: () => EnexPick | null;
   /** 다른 앱 가져오기 항목 바이트 (경로 → 바이트) */
   appImportBytes?: Record<string, Uint8Array>;
   /** 가져올 상대 경로 이미지 (dir/src → 바이트). 없으면 not_found */
@@ -443,6 +445,13 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       throw new StorageError(
         "unsupported",
         "데스크톱 앱에서만 다른 앱의 내보내기를 가져올 수 있어요",
+      );
+    },
+    async pickEnexFiles() {
+      if (options.pickEnexFiles) return options.pickEnexFiles();
+      throw new StorageError(
+        "unsupported",
+        "데스크톱 앱에서만 Evernote 내보내기를 가져올 수 있어요",
       );
     },
     async readAppImportBytes(path) {

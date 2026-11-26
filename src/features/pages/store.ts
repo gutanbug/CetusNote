@@ -54,6 +54,8 @@ export type PagesState = {
   create(init?: Parameters<typeof createPage>[0]): Page;
   /** 페이지를 고친다. updatedAt을 갱신하고 자동 저장에 맡긴다. 옮길 때(parentId)도 같은 규칙 */
   update(id: string, patch: Partial<Omit<Page, "id" | "schemaVersion" | "createdAt">>): void;
+  /** 가져온 문서의 원래 만든 날·고친 날을 그대로 붙인다(DATA-15). 없는 값은 그대로 둔다 */
+  restoreTimes(id: string, times: { createdAt?: string; updatedAt?: string }): void;
   /**
    * 여러 페이지를 한 번에 고친다 (태그 관리 SHELL-18). update와 달리 updatedAt을 자동으로 바꾸지 않는다 —
    * 바뀐 시각은 patch에 담는다(실행 취소는 이전 시각을 되돌린다). 없는 페이지는 건너뛴다
@@ -309,6 +311,15 @@ export function createPagesStore(
           if (!canContain(parent, page.kind)) throw new Error("컬렉션 안에는 문서만 둘 수 있어요");
         }
         put({ ...page, ...patch, updatedAt: now() });
+      },
+      restoreTimes(id, times) {
+        const page = get().pages[id];
+        if (!page) return;
+        put({
+          ...page,
+          createdAt: times.createdAt ?? page.createdAt,
+          updatedAt: times.updatedAt ?? page.updatedAt,
+        });
       },
       patchMany(patches) {
         const current = get().pages;
