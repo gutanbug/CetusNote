@@ -274,6 +274,9 @@ fn valid_workspace_name(name: &str) -> Option<String> {
 }
 
 fn set_workspace(app: &AppHandle, state: &State<AppState>, root: PathBuf) -> Result<WorkspaceInfo> {
+    // 같은 폴더를 두 창이 열어 서로 덮지 않도록 먼저 잠근다 (DATA-03, MCP 서버는 잠그지 않는다)
+    std::fs::create_dir_all(&root)?;
+    storage::acquire_app_lock(&root, std::process::id(), storage::process_alive)?;
     let mut ws = Workspace::open(root)?;
     let state_file = config_dir(app)?.join(APP_STATE_FILE);
     let saved = storage::read_json_opt(&state_file).ok().flatten();

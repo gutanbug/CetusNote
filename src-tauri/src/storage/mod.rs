@@ -24,6 +24,9 @@ pub const ASSETS_DIR: &str = "assets";
 pub const WORKSPACE_FILE: &str = "workspace.json";
 /// 다시 만들 수 있는 캐시(페이지 구조 색인, SYS-10). 백업에 넣지 않는다
 pub const CACHE_DIR: &str = ".cache";
+/// 앱 창이 워크스페이스를 열었다는 표시(프로세스 id). 두 창이 같은 폴더를 쓰면 한쪽 저장이 다른 쪽을 덮는다.
+/// MCP 서버는 CAS로 충돌을 막으므로 이 잠금을 잡지 않는다.
+pub const APP_LOCK_FILE: &str = ".cetusnote.lock";
 /// 빈 폴더가 아닌 곳을 고르면 그 안에 이 이름으로 워크스페이스를 만든다.
 /// 개발 빌드는 실사용 폴더(`CetusNote`)를 건드리지 않도록 다른 이름을 쓴다.
 pub fn default_folder_name() -> &'static str {
@@ -148,6 +151,40 @@ pub fn write_json(path: &Path, value: &Value) -> Result<()> {
     let mut bytes = serde_json::to_vec_pretty(value)?;
     bytes.push(b'\n');
     atomic_write(path, &bytes)?;
+    Ok(())
+}
+
+/// 살아 있는 프로세스인가 (kill -0). 권한이 없어도 살아 있는 것으로 본다
+pub fn process_alive(pid: u32) -> bool {
+    // 0 이하는 프로세스 그룹을 뜻하므로 개별 프로세스로 취급하지 않는다
+    let Ok(pid) = i32::try_from(pid) else {
+        return false;
+    };
+    if pid <= 0 {
+        return false;
+    }
+    // SAFETY: 신호 0은 프로세스를 죽이지 않고 존재만 확인한다
+    unsafe {
+        libc::kill(pid, 0) == 0
+            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    }
+}
+
+/// 앱 창이 이 폴더를 쓰기 전에 잠금을 잡는다. 다른 살아 있는 프로세스가 잡고 있으면 `locked`로 거절한다.
+/// 죽은 프로세스의 잠금(예: 강제 종료)은 이어받는다.
+pub fn acquire_app_lock(root: &Path, pid: u32, is_alive: impl Fn(u32) -> bool) -> Result<()> {
+    let path = root.join(APP_LOCK_FILE);
+    if let Ok(text) = fs::read_to_string(&path) {
+        if let Ok(owner) = text.trim().parse::<u32>() {
+            if owner != pid && is_alive(owner) {
+                return Err(StorageError::new(
+                    "locked",
+                    "이 워크스페이스는 다른 CetusNote 창에서 열려 있어요. 그 창을 닫은 뒤 다시 열어 주세요.",
+                ));
+            }
+        }
+    }
+    atomic_write(&path, pid.to_string().as_bytes())?;
     Ok(())
 }
 
@@ -513,6 +550,30 @@ pub fn validate_page(page: &Value) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn app_lock_refuses_a_live_owner_and_takes_over_a_dead_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        // 잠금이 없으면 잡는다
+        acquire_app_lock(root, 100, |_| false).unwrap();
+        assert_eq!(fs::read_to_string(root.join(APP_LOCK_FILE)).unwrap(), "100");
+        // 다른 살아 있는 프로세스가 잡고 있으면 거절한다
+        let err = acquire_app_lock(root, 200, |p| p == 100).unwrap_err();
+        assert_eq!(err.code, "locked");
+        assert!(err.message.contains("다른 CetusNote 창"));
+        // 죽은 프로세스의 잠금은 이어받는다
+        acquire_app_lock(root, 200, |_| false).unwrap();
+        assert_eq!(fs::read_to_string(root.join(APP_LOCK_FILE)).unwrap(), "200");
+        // 자기 잠금은 다시 잡아도 된다
+        acquire_app_lock(root, 200, |_| true).unwrap();
+    }
+
+    #[test]
+    fn process_alive_sees_this_process() {
+        assert!(process_alive(std::process::id()));
+        assert!(!process_alive(0));
+    }
+
     use super::*;
     use serde_json::json;
 
