@@ -42,7 +42,7 @@ function InlineText({ parts }: { parts: Inline[] }) {
               <a
                 key={i}
                 href={part.href}
-                className="text-accent underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-accent"
+                className="text-accent underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent focus-visible:outline-solid"
                 onClick={(e) => {
                   e.preventDefault();
                   void openLink(part.href);
@@ -93,12 +93,12 @@ export function WhatsNewDialog() {
 
   return (
     <Dialog open={version !== null} onOpenChange={(open) => !open && close()}>
-      <DialogContent>
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Cetus Note {version} 업데이트 내용</DialogTitle>
           <DialogDescription>이번 버전에서 바뀐 내용이에요.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 overflow-y-auto pr-1">
+        <div className="grid min-h-0 content-start gap-3 overflow-y-auto pr-1">
           {blocks.map((block, i) => (
             <BlockView key={i} block={block} />
           ))}
