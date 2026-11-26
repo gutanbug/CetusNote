@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { Progress } from "@/components/ui/progress";
-import { toast, ToastCancelButton } from "@/components/ui/toast";
+import { toast, ToastCancelButton, ToastCloseButton } from "@/components/ui/toast";
 import { releaseUrl } from "@/features/release-notes/release-url";
 import { openLink } from "@/lib/storage/open-link";
 import type { UpdaterStoreApi } from "./store";
@@ -70,7 +70,13 @@ export function announceUpdateToast(store: UpdaterStoreApi, version: string) {
     duration: Infinity,
     dismissible: false,
     action: installAction("업데이트", () => runInstallWithToast(store)),
-    cancel: releaseButton(version),
+    // 「릴리스 보기」와 아이콘 전용 ✕를 한 줄에 둔다(sonner의 cancel 슬롯은 요소 하나만 받는다)
+    cancel: createElement(
+      "span",
+      { className: "flex items-center gap-1" },
+      releaseButton(version),
+      createElement(ToastCloseButton, { onClick: () => toast.dismiss(UPDATE_TOAST_ID) }),
+    ),
   });
 }
 

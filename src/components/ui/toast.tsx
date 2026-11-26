@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 import type * as React from "react";
 import { toast as sonnerToast, Toaster as SonnerToaster } from "sonner";
 
@@ -84,4 +85,25 @@ function ToastCancelButton({
   );
 }
 
-export { toast, Toaster, ToastCancelButton };
+/**
+ * 토스트 안의 아이콘 전용 「닫기」(✕). 글 버튼(「릴리스 보기」)과 나란히 둔다.
+ * 아이콘만 있으므로 aria-label을 달고, 마우스 안내는 title로 준다(토스트 안에는 UI-Tooltip 공급자가 없다).
+ */
+function ToastCloseButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="닫기"
+      title="닫기"
+      className={cn(
+        "shrink-0 rounded-pill p-1 text-inverse-fg/70 hover:bg-inverse-fg/8 hover:text-inverse-fg force-hover:bg-inverse-fg/8 force-hover:text-inverse-fg",
+        focusRing,
+      )}
+      onClick={onClick}
+    >
+      <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
+    </button>
+  );
+}
+
+export { toast, Toaster, ToastCancelButton, ToastCloseButton };

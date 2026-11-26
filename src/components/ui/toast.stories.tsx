@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Row, Sheet } from "@/debug/specimen";
 import { Button } from "./button";
 import { Progress } from "./progress";
-import { toast, Toaster, ToastCancelButton } from "./toast";
+import { toast, Toaster, ToastCancelButton, ToastCloseButton } from "./toast";
 
 const meta = {
   title: "L2 오버레이/OV-Toast",
@@ -62,10 +62,12 @@ export const Persistent: Story = {
         toasterId: "story-persistent-update",
         id: "persistent-update",
         action: { label: "업데이트", onClick: (e) => e.preventDefault() },
+        // 새 버전 토스트와 같은 모양: 글 버튼(릴리스 보기) + 아이콘 전용 ✕ (닫기)
         cancel: (
-          <ToastCancelButton onClick={() => toast.dismiss("persistent-update")}>
-            닫기
-          </ToastCancelButton>
+          <span className="flex items-center gap-1">
+            <ToastCancelButton onClick={() => {}}>릴리스 보기</ToastCancelButton>
+            <ToastCloseButton onClick={() => toast.dismiss("persistent-update")} />
+          </span>
         ),
       });
       toast.error("업데이트를 내려받지 못했어요. 다시 시도해 주세요.", {

@@ -15,6 +15,7 @@ vi.mock("@/components/ui/toast", () => ({
   toast: toastMock,
   // 테스트에서는 요소의 props(onClick)만 읽으면 되므로 함수 자체를 돌려준다
   ToastCancelButton: (props: unknown) => props,
+  ToastCloseButton: (props: unknown) => props,
 }));
 
 vi.mock("@/lib/storage/open-link", () => ({ openLink: openLinkMock }));
@@ -38,6 +39,14 @@ function lastOpts(mock: typeof toastMock | typeof toastMock.error): Opts {
 function clickCancel(opts: Opts) {
   if (!isValidElement(opts.cancel)) throw new Error("닫기 버튼이 없어요");
   (opts.cancel as ReactElement<{ onClick: () => void }>).props.onClick();
+}
+
+/** 새 버전 토스트의 cancel 슬롯: [릴리스 보기, ✕] 두 요소 */
+function cancelParts(opts: Opts) {
+  const wrap = opts.cancel as ReactElement<{
+    children: ReactElement<{ children?: string; onClick: () => void }>[];
+  }>;
+  return wrap.props.children;
 }
 
 const preventDefault = () => {};
@@ -72,12 +81,26 @@ describe("새 버전 토스트 (SYS-07)", () => {
     announceUpdateToast(store, "0.2.0");
     const opts = lastOpts(toastMock);
     expect(isValidElement(opts.cancel)).toBe(true);
-    expect((opts.cancel as ReactElement<{ children: string }>).props.children).toBe("릴리스 보기");
-    clickCancel(opts);
+    const release = cancelParts(opts)[0];
+    expect(release.props.children).toBe("릴리스 보기");
+    release.props.onClick();
     expect(openLinkMock).toHaveBeenCalledWith(
       "https://github.com/gutanbug/CetusNote/releases/tag/v0.2.0",
     );
     expect(toastMock.dismiss).toHaveBeenCalledWith(UPDATE_TOAST_ID);
+  });
+
+  it("아이콘 ✕ 닫기는 버튼 글 없이 토스트만 지우고, 업데이트는 그대로 남는다", () => {
+    const store = createUpdaterStore({
+      updater: createFakeUpdater({ latest: NEW }),
+      flush: async () => true,
+    });
+    announceUpdateToast(store, "0.2.0");
+    const close = cancelParts(lastOpts(toastMock))[1];
+    expect(close.type).toBeTypeOf("function");
+    close.props.onClick();
+    expect(toastMock.dismiss).toHaveBeenCalledWith(UPDATE_TOAST_ID);
+    expect(openLinkMock).not.toHaveBeenCalled();
   });
 
   it("업데이트를 누르면 토스트를 지우지 않고 내려받아 다시 연다", async () => {
