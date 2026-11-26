@@ -187,12 +187,19 @@ export function PageMenu({
         </>
       ) : null}
       {csv ? (
-        <DropdownMenuItem
-          icon={<FileSpreadsheet {...ic} />}
-          onSelect={() => void exportCsv(page.id)}
-        >
-          CSV로 내보내기
-        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger icon={<FileSpreadsheet {...ic} />}>
+            CSV로 내보내기
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onSelect={() => void exportCsv(page.id, "view")}>
+              지금 보기 그대로
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void exportCsv(page.id, "all")}>
+              전체 레코드
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
       ) : null}
       {doc ? (
         <>

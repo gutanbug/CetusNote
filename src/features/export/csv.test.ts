@@ -88,3 +88,68 @@ describe("컬렉션 레코드 선택 (DATA-13)", () => {
     expect(collectionRecords("c", all).map((p) => p.id)).toEqual(["a", "b"]);
   });
 });
+
+describe("지금 보기 CSV (DATA-13 · scope view)", () => {
+  const viewCollection = {
+    id: "c",
+    title: "할 일",
+    kind: "collection",
+    collection: {
+      fields: [
+        { id: "fpriority", name: "우선순위", type: "text", options: [] },
+        { id: "fdone", name: "완료", type: "checkbox", options: [] },
+        { id: "ftags", name: "태그들", type: "multi", options: [] },
+      ],
+      // 담당 열은 숨기고, 완료를 상태 바로 뒤에 둔다. 우선순위·태그들은 순서 목록에 없다
+      properties: [
+        { key: "status", hidden: false, card: false },
+        { key: "assignee", hidden: true, card: false },
+        { key: "fdone", hidden: false, card: false },
+      ],
+      filters: [{ field: "fdone", value: "true" }],
+      sort: null,
+      statuses: [],
+    },
+  } as unknown as Page;
+
+  const rec = (id: string, title: string, done: boolean) =>
+    record({
+      id,
+      title,
+      parentId: "c",
+      props: {
+        status: "진행",
+        assignee: "현민",
+        due: "",
+        tags: [],
+        values: { fdone: done },
+      } as unknown as Page["props"],
+    });
+
+  it("숨긴 열은 빼고, 열 순서는 속성 순서를 따르며, 순서 목록에 없는 속성은 뒤에 붙는다", async () => {
+    const { viewRecords } = await import("./csv");
+    const all = { a: rec("a", "가", true), b: rec("b", "나", false) };
+    const csv = collectionToCsv(viewCollection, viewRecords(viewCollection, all), "view");
+    expect(csv.slice(1).split("\r\n")[0]).toBe("제목,상태,완료,우선순위,태그들");
+  });
+
+  it("필터를 거른 레코드만, 화면의 수동 순서대로 내보낸다", async () => {
+    const { viewRecords } = await import("./csv");
+    const all = {
+      a: rec("a", "가", true),
+      b: rec("b", "나", false),
+      c2: rec("c2", "다", true),
+    };
+    // 순서 목록은 c2, a, b — 필터로 b는 빠진다
+    const picked = viewRecords(viewCollection, all, ["c2", "a", "b"]);
+    expect(picked.map((r) => r.id)).toEqual(["c2", "a"]);
+    const lines = collectionToCsv(viewCollection, picked, "view").slice(1).split("\r\n");
+    expect(lines[1]).toBe("다,진행,예,,");
+    expect(lines[2]).toBe("가,진행,예,,");
+  });
+
+  it("범위 all은 숨긴 열과 상관없이 고정 열 전부를 쓴다", () => {
+    const csv = collectionToCsv(viewCollection, [rec("a", "가", true)], "all");
+    expect(csv.slice(1).split("\r\n")[0]).toBe("제목,상태,담당,마감,태그,우선순위,완료,태그들");
+  });
+});

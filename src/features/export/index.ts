@@ -1,12 +1,12 @@
 import type { Page, Storage } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
 import { pageAssets } from "./assets";
-import { collectionRecords, collectionToCsv } from "./csv";
+import { collectionRecords, collectionToCsv, type CsvScope, viewRecords } from "./csv";
 import { markdownFileName, pageToMarkdown } from "./markdown";
 import { capUtf8Bytes } from "@/lib/utf8-cap";
 import { frontMatterPref } from "./prefs";
 
-export { collectionRecords, collectionToCsv } from "./csv";
+export { collectionRecords, collectionToCsv, viewRecords, type CsvScope } from "./csv";
 export { docToMarkdown, markdownFileName, pageToMarkdown, type MdNode } from "./markdown";
 
 /**
@@ -42,18 +42,24 @@ export function exportPageMarkdown(
 }
 
 /**
- * 컬렉션을 CSV 파일로 내보낸다 (DATA-13). 레코드는 전부 내보내고(필터·정렬 무시), 저장 대화상자에서 위치를 고른다.
+ * 컬렉션을 CSV 파일로 내보낸다 (DATA-13). 범위 "all"은 레코드 전부(필터·정렬 무시),
+ * "view"는 지금 보기 그대로(order는 화면의 수동 순서). 저장 대화상자에서 위치를 고른다.
  * 취소하면 null, 저장하면 파일 이름과 레코드 수.
  */
 export async function exportCollectionCsv(
   collection: Page,
   all: Readonly<Record<string, Page>>,
-  { storage = getStorage() }: { storage?: Storage } = {},
+  {
+    scope = "all",
+    order = [],
+    storage = getStorage(),
+  }: { scope?: CsvScope; order?: string[]; storage?: Storage } = {},
 ): Promise<{ name: string; records: number } | null> {
-  const records = collectionRecords(collection.id, all);
+  const records =
+    scope === "view" ? viewRecords(collection, all, order) : collectionRecords(collection.id, all);
   const name = await storage.exportCsv(
     `${sanitizeCsvName(collection.title)}.csv`,
-    collectionToCsv(collection, records),
+    collectionToCsv(collection, records, scope),
   );
   return name ? { name, records: records.length } : null;
 }
