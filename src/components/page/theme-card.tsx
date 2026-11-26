@@ -49,7 +49,7 @@ function ThemeCardGroup({ value, onValueChange, className }: ThemeCardGroupProps
       aria-label="테마"
       data-roving=""
       data-slot="theme-cards"
-      className={cn("grid grid-cols-3 gap-3", className)}
+      className={cn("grid max-w-full grid-cols-[repeat(3,minmax(0,1fr))] gap-3", className)}
     >
       {THEMES.map(({ id, name, icon: Icon }) => {
         const checked = id === value;
