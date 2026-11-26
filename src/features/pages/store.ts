@@ -192,6 +192,16 @@ export function createPagesStore(
      * 자리 값 본문을 그대로 쓰면 파일의 본문이 지워지므로, 본문이 있을 때만 저장 큐에 넣는다.
      */
     const pendingMeta = new Set<string>();
+    /**
+     * 지금 스토어의 페이지가 어느 워크스페이스 세대의 것인가. 폴더를 바꾼 뒤 새 목록을 읽기 전까지는
+     * 옛 폴더의 페이지(열려 있는 옛 에디터 포함)가 남아 있는데, 그 사이 편집은 새 세대·새 토큰으로 저장돼
+     * 새 폴더에 쓰일 수 있다. 세대가 다르면 저장 큐에 넣지 않고 버린다 (DATA-03)
+     */
+    let loadedGen = generation();
+    const scheduleSave = (page: Page) => {
+      if (loadedGen !== generation()) return;
+      queue.schedule(page);
+    };
 
     const put = (page: Page) => {
       set((s) => {
@@ -200,7 +210,7 @@ export function createPagesStore(
       });
       if (isBodyLoaded(page)) {
         pendingMeta.delete(page.id);
-        queue.schedule(page);
+        scheduleSave(page);
       } else pendingMeta.add(page.id);
     };
 
@@ -231,7 +241,7 @@ export function createPagesStore(
       }
       if (!loaded.length) return;
       set({ pages });
-      for (const id of loaded) if (pendingMeta.delete(id)) queue.schedule(pages[id]!);
+      for (const id of loaded) if (pendingMeta.delete(id)) scheduleSave(pages[id]!);
     };
 
     const ensureBodies = async (ids: string[]): Promise<void> => {
@@ -284,6 +294,7 @@ export function createPagesStore(
         const { pages, errors } = await storage.loadPageMeta();
         // 기다리는 사이 워크스페이스가 바뀌었으면 이 결과는 이전 폴더의 것이다 (SYS-09)
         if (gen !== generation()) return;
+        loadedGen = gen;
         set({
           loaded: true,
           loadSeq: get().loadSeq + 1,
@@ -330,7 +341,7 @@ export function createPagesStore(
           next[id] = { ...page, ...patch };
           if (isBodyLoaded(next[id]!)) {
             pendingMeta.delete(id);
-            queue.schedule(next[id]!);
+            scheduleSave(next[id]!);
           } else pendingMeta.add(id);
         }
         set((s) => ({

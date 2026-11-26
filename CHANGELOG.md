@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An edit typed while switching folders is no longer saved into the newly opened folder.
 - The update notice can now be closed without opening the release page.
 - Reopening the same folder no longer marks every page as changed.
 - Toggle headings, math and dates keep their form when exporting to Markdown and importing back.
