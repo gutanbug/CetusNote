@@ -35,6 +35,7 @@ import { restoreBuiltinTemplates } from "./actions";
 import { importDocuments } from "./import-document";
 import { openImportAppPicker } from "./import-app-picker";
 import { exportWorkspaceMarkdown } from "./export-workspace";
+import { frontMatterPref, setFrontMatterPref } from "@/features/export/prefs";
 import { canReveal, revealInFinder } from "@/lib/storage/open-link";
 import { currentPlatform, revealLabel } from "@/lib/platform-labels";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -209,6 +210,7 @@ function Data({ onRestored }: { onRestored: () => void }) {
   const restoring = useWorkspace((s) => s.busy === "restore");
   const [exporting, setExporting] = React.useState(false);
   const [last, setLast] = React.useState<string | null | undefined>();
+  const [frontMatter, setFrontMatter] = React.useState(frontMatterPref);
 
   React.useEffect(() => {
     let alive = true;
@@ -343,6 +345,21 @@ function Data({ onRestored }: { onRestored: () => void }) {
           <Button variant="secondary" size="sm" onClick={() => void exportWorkspaceMarkdown()}>
             내보내기…
           </Button>
+        </SettingsRow>
+        <SettingsRow
+          name="Markdown에 front matter 넣기"
+          description="파일 맨 위에 id·태그·만든 날짜·고친 날짜·아이콘을 적어요. 다시 가져오면 페이지 링크와 태그를 되살려요."
+          controlId="front-matter"
+        >
+          <Switch
+            id="front-matter"
+            aria-describedby="front-matter-desc"
+            checked={frontMatter}
+            onCheckedChange={(on) => {
+              setFrontMatter(on);
+              setFrontMatterPref(on);
+            }}
+          />
         </SettingsRow>
       </DataSection>
       <DataSection id="data-templates" title="템플릿">
