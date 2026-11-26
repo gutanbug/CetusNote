@@ -3,7 +3,14 @@ import { pagesStore } from "@/features/pages";
 import { getStorage } from "@/lib/storage/default";
 import { beforeAll, describe, expect, it } from "vitest";
 import { sessionStore } from "@/features/session";
-import { createIn, duplicatePage, moveTargets, movePage, promoteQuickNote } from "./actions";
+import {
+  createIn,
+  duplicatePage,
+  moveTargets,
+  movePage,
+  promoteQuickNote,
+  setBodyWidth,
+} from "./actions";
 
 beforeAll(async () => {
   await getStorage().openDefaultWorkspace();
@@ -91,20 +98,22 @@ describe("빠른 메모 → 페이지 (QN-02)", () => {
 });
 
 describe("새 페이지 기본값 (SET-03, SET-04)", () => {
-  it("본문 폭·글꼴 설정을 새 문서에만 적용한다(폴더는 그대로)", () => {
-    sessionStore.getState().setAppearance({ newPageWide: true });
+  it("글꼴만 새 문서에 적용하고, 본문 폭은 굳히지 않고 상속한다", () => {
+    sessionStore.getState().setAppearance({ defaultWide: true });
     sessionStore.getState().setEditor({ newPageFont: "serif" });
     const page = createIn(null);
-    expect(pagesStore.getState().pages[page.id]!.layout).toEqual({
-      fullWidth: true,
-      font: "serif",
-    });
+    expect(pagesStore.getState().pages[page.id]!.layout).toEqual({ font: "serif" });
     const folder = createIn(null, "folder");
-    expect(pagesStore.getState().pages[folder.id]!.layout).toEqual({
-      fullWidth: false,
-      font: "default",
-    });
-    sessionStore.getState().setAppearance({ newPageWide: false });
+    expect(pagesStore.getState().pages[folder.id]!.layout).toEqual({ font: "default" });
+    sessionStore.getState().setAppearance({ defaultWide: false });
     sessionStore.getState().setEditor({ newPageFont: "default" });
+  });
+
+  it("setBodyWidth는 명시 값을 넣고 undefined면 상속으로 되돌린다", () => {
+    const page = createIn(null);
+    setBodyWidth(page.id, "wide");
+    expect(pagesStore.getState().pages[page.id]!.layout.width).toBe("wide");
+    setBodyWidth(page.id, undefined);
+    expect(pagesStore.getState().pages[page.id]!.layout).toEqual({ font: "default" });
   });
 });

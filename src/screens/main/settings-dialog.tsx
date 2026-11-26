@@ -576,17 +576,17 @@ function Appearance() {
         />
       </SettingsRow>
       <SettingsRow
-        name="새 페이지 본문 폭"
-        description="페이지마다 ··· 메뉴의 전체 폭으로 바꿀 수 있어요."
+        name="페이지 본문 폭 기본값"
+        description="폴더나 페이지에서 따로 정하지 않으면 이 폭을 써요. 폴더와 페이지마다 바꿀 수 있어요."
       >
         <Segmented
-          label="새 페이지 본문 폭"
+          label="페이지 본문 폭 기본값"
           options={[
             { value: "default", label: "기본" },
             { value: "wide", label: "전체 폭" },
           ]}
-          value={a.newPageWide ? "wide" : "default"}
-          onValueChange={(v) => set({ newPageWide: v === "wide" })}
+          value={a.defaultWide ? "wide" : "default"}
+          onValueChange={(v) => set({ defaultWide: v === "wide" })}
         />
       </SettingsRow>
       <SettingsRow

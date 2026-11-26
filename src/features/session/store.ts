@@ -31,8 +31,8 @@ export type Appearance = {
   zoom: number;
   /** 고래자리 — 홈·페이지·빈 화면에 그린다 (concept.md §3, SET-03). 끄면 모든 화면에서 숨긴다 */
   constellation: boolean;
-  /** 새 페이지를 전체 폭으로 시작 (본문 폭 설정). 페이지마다 메뉴에서 바꿀 수 있다 */
-  newPageWide: boolean;
+  /** 본문 폭 기본값 (SET-03). 폴더·페이지가 따로 정하지 않으면 이 값을 쓴다 */
+  defaultWide: boolean;
   /** 앱 아이콘(SET-07): 자동은 테마를 따른다 */
   appIcon: AppIconPref;
 };
@@ -89,7 +89,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   fontScale: 1,
   zoom: 1,
   constellation: true,
-  newPageWide: false,
+  defaultWide: false,
   appIcon: "auto",
 };
 
@@ -115,7 +115,8 @@ function readAppearance(raw: unknown): Appearance {
     fontScale: a.fontScale === 0.9 || a.fontScale === 1.1 ? a.fontScale : 1,
     zoom: normalizeZoom(a.zoom),
     constellation: a.constellation !== false,
-    newPageWide: a.newPageWide === true,
+    // 예전 이름(newPageWide)의 값은 옮겨 받는다
+    defaultWide: a.defaultWide === undefined ? a.newPageWide === true : a.defaultWide === true,
     appIcon: parseAppIconPref(a.appIcon),
   };
 }

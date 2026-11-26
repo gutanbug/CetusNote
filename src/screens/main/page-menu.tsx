@@ -8,7 +8,8 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { pagesStore } from "@/features/pages";
+import { inheritedBodyWidth, pagesStore, resolveBodyWidth, usePages } from "@/features/pages";
+import { useSession } from "@/features/session";
 import { docStats, formatDocStats } from "@/features/pages/stats";
 import type { Page, PageFont } from "@/lib/storage";
 import {
@@ -16,6 +17,7 @@ import {
   Download,
   Printer,
   FolderInput,
+  RotateCcw,
   History,
   LayoutTemplate,
   Link,
@@ -35,6 +37,7 @@ import {
   exportPdf,
   moveToTrash,
   saveAsTemplate,
+  setBodyWidth,
   toggleFavorite,
 } from "./actions";
 import { openInNewTab } from "./tabs";
@@ -58,6 +61,11 @@ export function PageMenu({
   onMove: () => void;
 }) {
   const { update } = pagesStore.getState();
+  const structure = usePages((s) => s.structure);
+  const defaultWide = useSession((s) => s.appearance.defaultWide);
+  // 전체 폭 칸은 실제로 쓰이는 값을 보여 준다. 따로 정한 값이 있으면 상속으로 되돌리는 줄을 더한다
+  const body = resolveBodyWidth(page.id, structure, defaultWide);
+  const inherited = inheritedBodyWidth(page.id, structure, defaultWide);
   // 컬렉션(COLL-01)은 본문 모양·복제·내보내기가 없다
   const doc = page.kind === "page";
   // 템플릿(PAGE-14)은 즐겨찾기·탭·링크·옮기기·내보내기가 없다
@@ -124,13 +132,19 @@ export function PageMenu({
           <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem
             icon={<MoveHorizontal {...ic} aria-hidden />}
-            checked={page.layout.fullWidth}
-            onCheckedChange={(fullWidth) =>
-              update(page.id, { layout: { ...page.layout, fullWidth: fullWidth === true } })
-            }
+            checked={body.width === "wide"}
+            onCheckedChange={(on) => setBodyWidth(page.id, on === true ? "wide" : "default")}
           >
             전체 폭
           </DropdownMenuCheckboxItem>
+          {page.layout.width ? (
+            <DropdownMenuItem
+              icon={<RotateCcw {...ic} />}
+              onSelect={() => setBodyWidth(page.id, undefined)}
+            >
+              {inherited.from === "folder" ? "폴더 설정 따르기" : "기본 설정 따르기"}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSub>
             <DropdownMenuSubTrigger icon={<Type {...ic} />}>글꼴</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>

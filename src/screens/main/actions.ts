@@ -5,7 +5,13 @@ import { exportPageMarkdown } from "@/features/export";
 import { metaStore } from "@/features/meta";
 import type { DropPosition } from "@/components/shell/drop-indicator";
 import type { Crumb } from "@/components/shell/breadcrumb";
-import { pagesStore, planDrop, type PageMeta, type PagesState } from "@/features/pages";
+import {
+  layoutWithWidth,
+  pagesStore,
+  planDrop,
+  type PageMeta,
+  type PagesState,
+} from "@/features/pages";
 import { isBodyLoaded } from "@/features/pages/body";
 import { buildPageTree } from "@/features/pages/tree";
 import { sessionStore } from "@/features/session";
@@ -19,7 +25,13 @@ import {
 } from "@/features/templates";
 import { setTodoChecked } from "@/features/todos";
 import { mentionTitleOf, resolveMention } from "./mention-model";
-import { canContain, type Page, type PageKind, type PageTemplate } from "@/lib/storage";
+import {
+  canContain,
+  type BodyWidth,
+  type Page,
+  type PageKind,
+  type PageTemplate,
+} from "@/lib/storage";
 import { nextTagColor } from "./tag-colors";
 import { runPdfExport } from "./pdf-export";
 import { useMainUi } from "./ui-store";
@@ -124,16 +136,17 @@ export function openPageLink(id: string) {
   else toast("지워졌거나 휴지통에 있는 페이지예요.");
 }
 
-/** 새 문서의 모양 기본값: 본문 폭(SET-03) · 본문 글꼴(SET-04) */
+/** 새 문서의 모양 기본값: 본문 글꼴(SET-04). 본문 폭은 굳히지 않고 상속한다(PAGE-05·SHELL-14) */
 function applyNewPageLayout(page: Page) {
-  const { appearance, editor } = sessionStore.getState();
-  const layout = {
-    ...page.layout,
-    fullWidth: page.layout.fullWidth || appearance.newPageWide,
-    font: editor.newPageFont,
-  };
-  if (layout.fullWidth !== page.layout.fullWidth || layout.font !== page.layout.font)
-    pagesStore.getState().update(page.id, { layout });
+  const { editor } = sessionStore.getState();
+  if (page.layout.font !== editor.newPageFont)
+    pagesStore.getState().update(page.id, { layout: { ...page.layout, font: editor.newPageFont } });
+}
+
+/** 본문 폭 정하기(PAGE-05 · SHELL-14). undefined면 상위를 따른다 */
+export function setBodyWidth(id: string, width: BodyWidth | undefined) {
+  const page = pagesStore.getState().pages[id];
+  if (page) pagesStore.getState().update(id, { layout: layoutWithWidth(page.layout, width) });
 }
 
 /**

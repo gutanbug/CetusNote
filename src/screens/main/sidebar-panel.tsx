@@ -12,7 +12,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
@@ -41,6 +46,7 @@ import {
   FolderSearch,
   House,
   LayoutTemplate,
+  MoveHorizontal,
   PenLine,
   Plus,
   Search,
@@ -62,6 +68,7 @@ import {
   purgeWithChildren,
   recordHome,
   restore,
+  setBodyWidth,
   toggleFavorite,
   displayTitle,
 } from "./actions";
@@ -212,6 +219,25 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
         <DropdownMenuItem icon={<FolderInput {...ic} />} onSelect={() => setMoving(node.id)}>
           옮기기…
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {/* 안의 페이지가 따를 본문 폭 (SHELL-14). 전체 설정을 따르면 값을 비운다 */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger icon={<MoveHorizontal {...ic} />}>
+            안의 페이지 본문 폭
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={pages[node.id]?.layout.width ?? "inherit"}
+              onValueChange={(v) =>
+                setBodyWidth(node.id, v === "inherit" ? undefined : (v as "default" | "wide"))
+              }
+            >
+              <DropdownMenuRadioItem value="inherit">전체 설정 따르기</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="default">기본</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="wide">전체 폭</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="danger"

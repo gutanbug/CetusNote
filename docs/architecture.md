@@ -93,13 +93,13 @@ src-tauri/
   //   "statuses": [{ "name", "color" }], "board": { "groupBy": "status|assignee|tags", "hidden": ["<기준>:<값>"], "colors": {}, "calc": "count|due|late|none" },
   //   "fields": [{ "id": "f…", "name", "type": "text|number|select|multi|date|checkbox|url|email|phone|created|updated", "options": [{ "name", "color" }] }],
   //   "properties": [{ "key": "status|assignee|due|tags|f…", "hidden", "card" }], "openMode": "modal|side|tab" | null } (스키마 4·5)
-  "layout": { "fullWidth": false, "font": "default" }, // 페이지 메뉴(PAGE-05): 전체 폭, 글꼴 default|serif|mono
+  "layout": { "width": "wide", "font": "default" }, // 본문 폭(PAGE-05·SHELL-14): "default"|"wide", 없으면 상위(폴더 → 전체 설정)를 따른다. 글꼴 default|serif|mono
   "content": { "type": "doc", "content": [] }, // Tiptap JSON
   "createdAt": "2026-11-19T09:00:00Z",
   "updatedAt": "2026-11-19T09:12:00Z",
   "trashedAt": null,
   "template": null, // 템플릿 문서(PAGE-14)면 { category, description, pageTitle, builtin }, 아니면 null (ADR-012)
-  "schemaVersion": 6, // 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
+  "schemaVersion": 7, // 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
 }
 ```
 
@@ -262,6 +262,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 | 023 | 긴 문서 입력 경로: 코드 블록 하이라이트는 바뀐 범위와 겹치는 블록만 다시 칠하고, 본문 검색 색인은 찾기·유휴 시간에 한 번에 만든다                                                                                                                                                                                                                                                                                                | 확정 | SYS-11. Tiptap 기본 lowlight 플러그인은 문서 변경마다 전체 노드를 두 번 훑고 스텝마다 코드 블록 전체와 맞춰, 코드 블록 1만 개에서 한 글자에 2.4초가 걸렸다(측정). 색인은 고친 페이지의 본문 전체를 낱말로 쪼개므로 입력마다 하지 않는다. 같은 페이지를 여러 번 고치면 마지막 본문만 만든다. 찾기는 밀린 페이지를 먼저 만들어 결과는 즉시 만든 것과 같다. 대안: content-visibility(스크롤 개선이 측정되지 않았고 선택 링이 잘릴 위험이 있어 취소), 노드 뷰 가상화(큰 변경이라 후속 과제)                                                                                                                                                                                                                                                                       | —                                                                                                             |
 | 024 | 워크스페이스 토큰(DATA-03): Rust가 워크스페이스를 열 때마다 새 토큰을 발급하고, 쓰기 커맨드(`page_write`·`page_purge`·`history_save`·`history_delete`·`workspace_write`·`asset_write`)는 호출 순간의 토큰을 싣는다. Rust는 잠금 아래에서 현재 토큰과 맞지 않으면 `stale_workspace`로 거절한다. 같은 폴더를 다시 열어도 토큰이 새로 나오므로 A→B→A 되돌아오기도 막는다. 저장 대기열은 이 오류를 다시 쓰지 않고 오류 상태로 남긴다 |
 | 025 | 파일 첨부 · 미디어 저장(제안, 2026-11-24, EDIT-31~33): 파일은 `assets/<pageId>/`에 복사하고 노드에는 상대 경로·이름·크기·종류만 둔다. PDF·영상·소리는 Tauri 자산 프로토콜(`convertFileSrc`)로 읽는다. 확정 전 — 아래 상세                                                                                                                                                                                                        |
+| 026 | 본문 폭은 세 값이다(SHELL-14·SET-03, 2026-11-26): 페이지 `layout.width`가 있으면 그 값, 없으면 가까운 상위 폴더의 값, 없으면 전체 설정(`appearance.defaultWide`). 만들 때 굳히지 않고 상속하므로 폴더 설정이 나중에 바뀌어도 따라간다. 해석은 `features/pages/body-width.ts` 한 곳에서 한다. 스키마 6 → 7 마이그레이션: `fullWidth: true` → `"wide"`, `false` → 없음                                                             |
 
 ### ADR-022 — 본문 지연 로딩 (상태: 확정, 2026-11-24 구현)
 

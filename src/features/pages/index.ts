@@ -3,6 +3,13 @@ import { useStore } from "zustand";
 import { createPagesStore, type PagesState } from "./store";
 
 export { assetOwner, assetRefs, replaceAssetRefs } from "./assets";
+export {
+  inheritedBodyWidth,
+  layoutWithWidth,
+  resolveBodyWidth,
+  type ResolvedWidth,
+  type WidthNode,
+} from "./body-width";
 export { findBacklinks, type Backlink, type BacklinkSnippet } from "./backlinks";
 export { planDrop, type DropPlan } from "./drop";
 export { createSaveQueue, type SaveQueue, type SaveState } from "./save-queue";

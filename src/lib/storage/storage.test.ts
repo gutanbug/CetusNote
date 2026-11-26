@@ -46,7 +46,7 @@ describe("normalizePage", () => {
       parentId: null,
       props: { tags: [], status: null, assignee: null, due: null, values: {} },
       collection: null,
-      layout: { fullWidth: false, font: "default" },
+      layout: { font: "default" },
       content: { type: "doc", content: [] },
       createdAt: "2026-11-19T09:00:00Z",
       updatedAt: "2026-11-19T09:00:00Z",
@@ -61,7 +61,7 @@ describe("normalizePage", () => {
       id: ID,
       parentId: ID, // 자기 자신
       props: { tags: ["회의", "", "회의", 3], status: 7 },
-      layout: { fullWidth: "yes", font: "comic" },
+      layout: { width: "huge", font: "comic" },
       content: { type: "paragraph" },
     });
     expect(page.parentId).toBeNull();
@@ -72,8 +72,25 @@ describe("normalizePage", () => {
       due: null,
       values: {},
     });
-    expect(page.layout).toEqual({ fullWidth: false, font: "default" });
+    expect(page.layout).toEqual({ font: "default" });
     expect(page.content).toEqual({ type: "doc", content: [] });
+  });
+
+  it("v6 전체 폭(fullWidth)을 본문 폭으로 옮긴다: true → wide, false → 상속", () => {
+    const base = { id: ID, title: "x", content: { type: "doc", content: [] } };
+    const wide = normalizePage({
+      ...base,
+      schemaVersion: 6,
+      layout: { fullWidth: true, font: "mono" },
+    });
+    expect(wide.layout).toEqual({ width: "wide", font: "mono" });
+    const plain = normalizePage({
+      ...base,
+      schemaVersion: 6,
+      layout: { fullWidth: false, font: "default" },
+    });
+    expect(plain.layout).toEqual({ font: "default" });
+    expect(plain.schemaVersion).toBe(7);
   });
 
   it("올바른 값은 그대로 둔다", () => {
@@ -86,14 +103,14 @@ describe("normalizePage", () => {
       parentId: PARENT,
       icon: "📝",
       props: { tags: ["회의"], status: "진행 중" },
-      layout: { fullWidth: true, font: "serif" },
+      layout: { width: "wide", font: "serif" },
       content,
       trashedAt: "2026-11-19T10:00:00Z",
     });
     expect(page.parentId).toBe(PARENT);
     expect(page.icon).toBe("📝");
     expect(page.props.status).toBe("진행 중");
-    expect(page.layout).toEqual({ fullWidth: true, font: "serif" });
+    expect(page.layout).toEqual({ width: "wide", font: "serif" });
     expect(page.content).toEqual(content);
     expect(page.trashedAt).toBe("2026-11-19T10:00:00Z");
   });
@@ -109,7 +126,11 @@ describe("normalizePage", () => {
   it("스키마 1 파일은 문서(kind page)로 읽는다 · 폴더는 그대로 (SHELL-14)", () => {
     expect(normalizePage({ schemaVersion: 1, id: ID, kind: "folder" }).kind).toBe("page");
     const folder = normalizePage({ schemaVersion: 2, id: ID, kind: "folder", title: "업무" });
-    expect(folder).toMatchObject({ schemaVersion: 6, kind: "folder", title: "업무" });
+    expect(folder).toMatchObject({
+      schemaVersion: PAGE_SCHEMA_VERSION,
+      kind: "folder",
+      title: "업무",
+    });
     expect(normalizePage({ schemaVersion: 2, id: ID, kind: "외계" }).kind).toBe("page");
   });
 

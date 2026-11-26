@@ -14,7 +14,7 @@ const BASE = {
   cover: null,
   parentId: null,
   props: { tags: [], status: null, assignee: null, due: null, values: {} },
-  layout: { fullWidth: false, font: "default" },
+  layout: { font: "default" },
   content: {
     type: "doc",
     content: [{ type: "paragraph", content: [{ type: "text", text: "첫 줄" }] }],

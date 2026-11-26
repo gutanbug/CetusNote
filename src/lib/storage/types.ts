@@ -15,6 +15,8 @@ export type PageStatus = string;
 /** PDF 쪽 하나의 찍을 영역 (웹뷰 문서 좌표, pt = CSS px). DATA-06 */
 export type PdfPageRect = { x: number; y: number; width: number; height: number };
 export type PageFont = "default" | "serif" | "mono";
+/** 본문 폭 (PAGE-05·SHELL-14·SET-03). 없으면(undefined) 상위(폴더 → 전체 설정)를 따른다 */
+export type BodyWidth = "default" | "wide";
 
 export type PageKind = "page" | "folder" | "collection";
 
@@ -114,7 +116,7 @@ export type Page = {
     values: Record<FieldId, FieldValue>;
   };
   collection: CollectionSettings | null;
-  layout: { fullWidth: boolean; font: PageFont };
+  layout: { width?: BodyWidth; font: PageFont };
   content: DocJSON;
   /** ISO 8601 (UTC) */
   createdAt: string;

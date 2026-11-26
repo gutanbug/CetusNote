@@ -24,7 +24,7 @@ import type {
 } from "./types";
 import { isValidId, ulid } from "./ulid";
 
-export const PAGE_SCHEMA_VERSION = 6;
+export const PAGE_SCHEMA_VERSION = 7;
 export const WORKSPACE_SCHEMA_VERSION = 1;
 
 /** 기본 상태 4단계 — 일반 문서와 새 컬렉션이 쓴다 */
@@ -248,6 +248,12 @@ const PAGE_MIGRATIONS: Record<number, (raw: Raw) => Raw> = {
   4: (raw) => raw,
   // 6: 템플릿(PAGE-14) — template 필드. 기존 파일은 템플릿이 아니다(null)
   5: (raw) => raw,
+  // 7: 본문 폭을 세 값(상속·기본·전체 폭)으로 — fullWidth true → "wide", false → 없음(상위를 따른다)
+  6: (raw) => {
+    const layout = isObj(raw.layout) ? raw.layout : {};
+    const { fullWidth, ...rest } = layout;
+    return { ...raw, layout: fullWidth === true ? { ...rest, width: "wide" } : rest };
+  },
 };
 
 const TEMPLATE_TEXT_MAX = 120;
@@ -313,7 +319,7 @@ export function normalizePage(input: unknown): Page {
     },
     collection: kind === "collection" ? normalizeCollection(raw.collection) : null,
     layout: {
-      fullWidth: layout.fullWidth === true,
+      ...(layout.width === "wide" || layout.width === "default" ? { width: layout.width } : {}),
       font: FONTS.includes(layout.font as PageFont) ? (layout.font as PageFont) : "default",
     },
     content:

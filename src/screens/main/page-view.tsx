@@ -13,7 +13,7 @@ import { TopBar } from "@/components/shell/top-bar";
 import { useAssetUrl } from "@/features/assets";
 import { useMeta } from "@/features/meta";
 import { SkyMark } from "@/screens/main/sky-mark";
-import { pagesStore, usePages } from "@/features/pages";
+import { pagesStore, resolveBodyWidth, usePages } from "@/features/pages";
 import { backlinksIn, useSummaryVersion } from "@/features/pages/summary";
 import { sessionStore, useSession } from "@/features/session";
 import { formatAgo, formatDate } from "@/lib/format-date";
@@ -139,6 +139,10 @@ export function PageView({ page }: { page: Page }) {
   }));
   // 이미지 (EDIT-14) — 에디터는 경로만 알고, 읽기·저장·고르기는 이 함수들로
   const editorPrefs = useSession((s) => s.editor);
+  // 본문 폭(PAGE-05·SHELL-14·SET-03): 페이지 → 상위 폴더 → 전체 설정 순서로 정한다
+  const structure = usePages((s) => s.structure);
+  const defaultWide = useSession((s) => s.appearance.defaultWide);
+  const wide = resolveBodyWidth(page.id, structure, defaultWide).width === "wide";
   const images = usePageImages(page.id);
   const attachments = usePageAttachments(page.id);
   const coverUrl = useAssetUrl(page.cover);
@@ -275,7 +279,7 @@ export function PageView({ page }: { page: Page }) {
           <article className="@container relative pb-[30vh]">
             {/* 고래자리는 제목 줄 오른쪽 여백에 둔다(concept.md §3). 커버 아래라 겹치지 않고, 여백이 모자라거나 전체 폭이면 숨긴다 */}
             <PageHeader
-              aside={page.layout.fullWidth ? undefined : <SkyMark className="hidden @6xl:block" />}
+              aside={wide ? undefined : <SkyMark className="hidden @6xl:block" />}
               title={page.title}
               onTitleChange={(title) => update(page.id, { title })}
               onTitleExit={focusEditor}
@@ -284,7 +288,7 @@ export function PageView({ page }: { page: Page }) {
               onAddCover={chooseCover}
               onChangeCover={chooseCover}
               onRemoveCover={() => update(page.id, { cover: null })}
-              wide={page.layout.fullWidth}
+              wide={wide}
             >
               <Properties
                 tags={tags}
@@ -309,7 +313,7 @@ export function PageView({ page }: { page: Page }) {
             <div
               className={cn(
                 "mx-auto mt-6 w-full",
-                page.layout.fullWidth ? "px-16" : "max-w-(--content-w) px-12",
+                wide ? "px-16" : "max-w-(--content-w) px-12",
                 // 페이지 글꼴(PAGE-05): 본문 글꼴 토큰만 바꾼다
                 page.layout.font === "serif" && "[--font-body:var(--font-serif)]",
                 page.layout.font === "mono" && "[--font-body:var(--font-mono)]",
