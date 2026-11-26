@@ -171,8 +171,32 @@ pub fn process_alive(pid: u32) -> bool {
     }
 }
 
-/// 신호를 보낼 수 없는 플랫폼에서는 살아 있다고 본다(잠금을 쉽게 풀지 않는 쪽).
-#[cfg(not(unix))]
+/// Windows: 프로세스를 열어 종료 코드가 STILL_ACTIVE인지 본다. 열 권한이 없으면(다른 사용자) 살아 있는 것으로 본다.
+/// 열 수 없는데 권한 문제도 아니면(없는 pid) 죽은 것으로 본다 — 비정상 종료 뒤 잠금이 남지 않게.
+#[cfg(windows)]
+pub fn process_alive(pid: u32) -> bool {
+    use windows::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, STILL_ACTIVE};
+    use windows::Win32::System::Threading::{
+        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    if pid == 0 {
+        return false;
+    }
+    // SAFETY: 연 핸들은 이 함수 안에서만 쓰고 닫는다
+    unsafe {
+        let handle = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
+            Ok(h) => h,
+            Err(e) => return e.code() == windows::core::HRESULT::from_win32(ERROR_ACCESS_DENIED.0),
+        };
+        let mut code = 0u32;
+        let alive = GetExitCodeProcess(handle, &mut code).is_ok() && code == STILL_ACTIVE.0 as u32;
+        let _ = CloseHandle(handle);
+        alive
+    }
+}
+
+/// 유닉스도 Windows도 아닌 플랫폼에서는 살아 있다고 본다(잠금을 쉽게 풀지 않는 쪽).
+#[cfg(not(any(unix, windows)))]
 pub fn process_alive(_pid: u32) -> bool {
     true
 }
@@ -206,7 +230,32 @@ pub fn process_started_at(pid: u32) -> Option<u64> {
     rest.split_whitespace().nth(19)?.parse().ok()
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+/// Windows: 프로세스 생성 시각(FILETIME, 100ns 단위)
+#[cfg(windows)]
+pub fn process_started_at(pid: u32) -> Option<u64> {
+    use windows::Win32::Foundation::{CloseHandle, FILETIME};
+    use windows::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    if pid == 0 {
+        return None;
+    }
+    // SAFETY: 연 핸들은 이 함수 안에서만 쓰고 닫는다
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let (mut created, mut exited, mut kernel, mut user) = (
+            FILETIME::default(),
+            FILETIME::default(),
+            FILETIME::default(),
+            FILETIME::default(),
+        );
+        let ok = GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user).is_ok();
+        let _ = CloseHandle(handle);
+        ok.then(|| (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime))
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 pub fn process_started_at(_pid: u32) -> Option<u64> {
     None
 }

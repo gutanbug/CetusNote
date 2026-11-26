@@ -58,7 +58,8 @@ block2 = "=0.6.2"
 # Windows PDF 내보내기(DATA-06·SYS-08): WebView2 PrintToPdf. wry·tauri가 쓰는 판과 같다
 [target.'cfg(windows)'.dependencies]
 webview2-com = "=0.39.1"
-windows = "=0.62.2"
+# 잠금(DATA-03): 프로세스 생존·시작 시각 확인
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 # Linux PDF 내보내기(DATA-06·SYS-08): WebKitGTK 인쇄 작업을 파일 PDF로. wry·tauri가 쓰는 판과 같다
 [target.'cfg(target_os = "linux")'.dependencies]
