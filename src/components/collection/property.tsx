@@ -200,6 +200,7 @@ function TextPicker({ field, value, text, onChange, label, className }: ValuePro
               kind === "number" && "tabular-nums",
               href && "text-accent underline decoration-line-strong underline-offset-2",
             )}
+            title={typeof shown === "string" ? shown : undefined}
           >
             {shown}
           </span>

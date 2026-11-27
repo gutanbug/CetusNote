@@ -284,3 +284,88 @@ export const CustomColumns: Story = {
     await userEvent.keyboard("{Escape}");
   },
 };
+
+/** 열 너비 상태를 들고 있는 견본 — 바뀐 너비가 화면에 남는다 (COLL-02) */
+function WidthLive(args: GridViewProps) {
+  const [widths, setWidths] = React.useState<Record<string, number>>(args.widths ?? {});
+  return (
+    <GridView
+      {...args}
+      widths={widths}
+      onWidthsChange={(next) => {
+        args.onWidthsChange?.(next);
+        setWidths(next);
+      }}
+    />
+  );
+}
+
+const widthHandle = (root: HTMLElement, name: string) =>
+  within(root).getByRole("separator", { name: `“${name}” 칸 너비` });
+const firePointer = (el: HTMLElement, type: string, clientX: number) =>
+  el.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX }));
+
+/**
+ * 열 너비 조절 (COLL-02): 끌면 미리 보고 손을 뗄 때 한 번 저장한다. ←/→는 한 칸씩, 더블클릭은 기본 너비로.
+ */
+export const ResizeColumns: Story = {
+  args: { widths: {}, onWidthsChange: fn() },
+  render: (args) => <WidthLive {...args} />,
+  play: async ({ canvasElement, args }) => {
+    const saves = args.onWidthsChange as unknown as ReturnType<typeof fn>;
+    const handle = widthHandle(canvasElement, "상태");
+    const th = handle.closest("th")!;
+    const startW = th.getBoundingClientRect().width;
+    const box = handle.getBoundingClientRect();
+    const x0 = box.left + box.width / 2;
+    // 끄는 동안: 미리 보기만 바뀌고 저장은 아직
+    firePointer(handle, "pointerdown", x0);
+    firePointer(handle, "pointermove", x0 + 40);
+    await waitFor(() => expect(th.getBoundingClientRect().width).toBeCloseTo(startW + 40, 0));
+    await expect(args.onWidthsChange).not.toHaveBeenCalled();
+    // 손을 떼면 한 번 저장
+    firePointer(handle, "pointerup", x0 + 40);
+    await expect(args.onWidthsChange).toHaveBeenCalledTimes(1);
+    const dragged = saves.mock.calls[0]?.[0] as Record<string, number>;
+    await expect(Math.abs((dragged.status ?? 0) - (startW + 40))).toBeLessThanOrEqual(1);
+    // ←/→는 한 칸(16px)씩
+    handle.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(args.onWidthsChange).toHaveBeenCalledTimes(2);
+    await expect(handle).toHaveAttribute("aria-valuenow", String((dragged.status ?? 0) + 16));
+    // 더블클릭은 기본 너비(키 제거)
+    handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await expect(args.onWidthsChange).toHaveBeenCalledTimes(3);
+    const reset = saves.mock.calls[2]?.[0] as Record<string, number>;
+    await expect(reset).not.toHaveProperty("status");
+    await expect(handle).toHaveAttribute("aria-valuenow", "160");
+  },
+};
+
+const LINK_ENTRY = SAMPLE_ENTRIES.find((e) => e.key === "flink0001")!;
+const LINK_DEF = SAMPLE_PROPERTIES.find((p) => p.id === "flink0001")!;
+const LONG_URL = `https://cetus.example/docs/${"very-long-segment-".repeat(12)}end`;
+
+/** 긴 URL 칸은 열 안에서 잘린다 — 칸 밖으로 넘치지 않고, 전체 값은 title 속성에 있다 (COLL-02) */
+export const LongValueClipped: Story = {
+  args: {
+    columns: [
+      {
+        key: "flink0001",
+        name: LINK_ENTRY.name,
+        kind: LINK_ENTRY.kind,
+        cell: () => <PropertyValueCell field={LINK_DEF} value={LONG_URL} onChange={fn()} />,
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const td = canvasElement.querySelector<HTMLElement>('tbody td[data-row="0"][data-col="1"]')!;
+    const btn = td.querySelector<HTMLElement>("button")!;
+    const value = btn.querySelector<HTMLElement>("span[title]")!;
+    await expect(value).toHaveAttribute("title", LONG_URL);
+    const cellRight = td.getBoundingClientRect().right;
+    await expect(btn.getBoundingClientRect().right).toBeLessThanOrEqual(cellRight + 0.5);
+    await expect(value.getBoundingClientRect().right).toBeLessThanOrEqual(cellRight + 0.5);
+    await expect(value.scrollWidth).toBeGreaterThan(value.clientWidth);
+  },
+};

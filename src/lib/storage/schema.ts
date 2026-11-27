@@ -25,7 +25,7 @@ import type {
 } from "./types";
 import { isValidId, ulid } from "./ulid";
 
-export const PAGE_SCHEMA_VERSION = 8;
+export const PAGE_SCHEMA_VERSION = 9;
 export const WORKSPACE_SCHEMA_VERSION = 1;
 
 /** 기본 상태 4단계 — 일반 문서와 새 컬렉션이 쓴다 */
@@ -210,8 +210,18 @@ export function normalizeCollection(v: unknown): CollectionSettings {
     calc: CALCS.includes(b.calc as BoardCalc) ? (b.calc as BoardCalc) : "count",
   };
   const fields = normalizeFields(raw.fields);
+  // 표 열 너비(px): 키는 "title"·기본 속성·사용자 속성 id, 값은 40~2000 사이 정수만 남긴다 (스키마 9)
+  const widths: Record<string, number> = {};
+  if (isObj(raw.widths))
+    for (const [k, w] of Object.entries(raw.widths)) {
+      const known =
+        k === "title" || isFieldId(k) || (BUILTIN_PROPERTIES as readonly string[]).includes(k);
+      if (known && typeof w === "number" && Number.isFinite(w) && w >= 40 && w <= 2000)
+        widths[k] = Math.round(w);
+    }
   return {
     statuses,
+    widths,
     board,
     fields,
     properties: normalizeProperties(raw.properties, fields),
@@ -264,6 +274,8 @@ const PAGE_MIGRATIONS: Record<number, (raw: Raw) => Raw> = {
   },
   // 8: 시작일(COLL-03). 기존 파일은 그대로 읽고 start는 null로 채운다
   7: (raw) => raw,
+  // 9: 표 열 너비(COLL-02) — collection.widths. 기존 파일은 그대로 읽고 빈 객체(기본 너비)로 채운다
+  8: (raw) => raw,
 };
 
 const TEMPLATE_TEXT_MAX = 120;

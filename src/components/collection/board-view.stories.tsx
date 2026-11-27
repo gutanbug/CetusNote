@@ -332,6 +332,58 @@ export const CardMetaOneLine: Story = {
   },
 };
 
+const META_CARD_MANY: RecordItem = {
+  id: "meta-many",
+  title: "태그가 많은 카드",
+  status: "할 일",
+  statusColor: "gray",
+  tags: [
+    { name: "이슈", color: "red" },
+    { name: "작업", color: "green" },
+    { name: "INNOGRID", color: "blue" },
+    { name: "회의", color: "purple" },
+    { name: "디자인", color: "orange" },
+    { name: "리뷰", color: "yellow" },
+  ],
+  due: { date: "2026-11-27", text: "11월 27일", late: false },
+};
+/** 좁은 카드 + 태그 많음 — 들어가지 않는 칩은 「+N」으로 접고 줄은 한 줄 */
+export const CardMetaOverflow: Story = {
+  args: { columns: [] },
+  render: () => (
+    <div className="grid w-56 gap-3 bg-app p-6">
+      <Card item={META_CARD_MANY} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="collection-card"]');
+    const row = card?.querySelector<HTMLElement>(":scope > span.flex-nowrap");
+    if (!card || !row) throw new Error("card or meta row not found");
+    const more = card.querySelector<HTMLElement>('[data-slot="collection-card-more"]');
+    await expect(more).toBeTruthy();
+    await expect(more!.textContent).toMatch(/^\+\d+$/);
+    await expect(more!.getAttribute("aria-label")).toMatch(/^외 \d+개: /);
+    await expect(row.getBoundingClientRect().height).toBeLessThan(30);
+  },
+};
+
+/** 넓은 카드 — 칩이 모두 들어가면 「+N」이 없다 */
+export const CardMetaWide: Story = {
+  args: { columns: [] },
+  render: () => (
+    <div className="grid w-340 gap-3 bg-app p-6">
+      <Card item={META_CARD_ON_TIME} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="collection-card"]');
+    const row = card?.querySelector<HTMLElement>(":scope > span.flex-nowrap");
+    if (!card || !row) throw new Error("card or meta row not found");
+    await expect(card.querySelector('[data-slot="collection-card-more"]')).toBeNull();
+    await expect(row.getBoundingClientRect().height).toBeLessThan(30);
+  },
+};
+
 /** 레코드 1만 개 — 칸마다 카드는 BOARD_PAGE장까지만 그리고 「더 보기」로 늘린다 (SYS-11) */
 const tenThousandColumns = columnsOf(
   Array.from({ length: 10_000 }, (_, i) => ({

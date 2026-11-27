@@ -49,9 +49,15 @@ export const screens: Messages["screens"] = {
     },
   },
   shortcuts: {
+    calendar: {
+      move: "Move a bar's dates (after selecting it)",
+      start: "Extend or shorten start",
+      due: "Extend or shorten due",
+    },
     groups: {
       app: "App",
       edit: "Editing",
+      calendar: "Calendar",
       markdown: "Markdown input (at the start of a line)",
     },
     app: {

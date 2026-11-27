@@ -94,6 +94,7 @@ export const collection = {
     moveCellRight: "오른쪽 칸으로",
     moveUp: "위로",
     moveDown: "아래로",
+    hiddenChips: (count: number, names: string) => `외 ${count}개: ${names}`,
   },
   property: {
     numberOnly: "숫자만 입력해요",
@@ -155,6 +156,12 @@ export const collection = {
     dayLabel: (name: string, count: string) => `${name}, 레코드 ${count}`,
     newOn: (date: string) => `${date} 마감 레코드 만들기`,
     more: (n: number) => `+${n}개 더`,
+    modeMonth: "월",
+    modeWeek: "주",
+    prevWeek: "이전 주",
+    nextWeek: "다음 주",
+    weekRange: (from: string, to: string) => `${from} – ${to}`,
+    moved: (label: string) => `${label} 일정을 옮겼어요`,
   },
   grid: {
     table: "레코드 표",
@@ -167,6 +174,8 @@ export const collection = {
     dueOf: (name: string) => `${name} 마감`,
     openPage: (title: string) => `“${title}” 페이지로 열기`,
     tagsOf: (name: string) => `${name} 태그 편집`,
+    resizeColumn: (name: string) => `“${name}” 칸 너비`,
+    resizeHint: "끌어서 너비를 바꾸고, 더블클릭하면 기본 너비로 돌아가요",
   },
   fields: {
     empty: "비어 있음",

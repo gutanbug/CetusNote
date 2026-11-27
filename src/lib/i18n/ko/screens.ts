@@ -49,9 +49,15 @@ export const screens = {
     },
   },
   shortcuts: {
+    calendar: {
+      move: "막대 날짜 옮기기 (막대 선택 후)",
+      start: "시작 늘리기·줄이기",
+      due: "마감 늘리기·줄이기",
+    },
     groups: {
       app: "앱",
       edit: "편집",
+      calendar: "캘린더",
       markdown: "마크다운 입력 (줄 맨 앞에서)",
     },
     app: {

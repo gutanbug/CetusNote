@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 페이지 스키마 번호. 앱의 `PAGE_SCHEMA_VERSION`(src/lib/storage/schema.ts)과 맞춘다.
 /// 앱이 더 높은 번호를 쓰면 앱이 읽을 때 마이그레이션한다 (낮은 번호로 써도 안전하다).
-pub const PAGE_SCHEMA_VERSION: u64 = 8;
+pub const PAGE_SCHEMA_VERSION: u64 = 9;
 
 /// 한 번에 가져올 수 있는 목록 항목 상한
 pub const LIST_MAX: usize = 200;
@@ -1134,7 +1134,7 @@ mod tests {
     fn new_page_uses_v8_shape_without_legacy_full_width() {
         // v7: layout.fullWidth는 없어졌다(v8은 props.start만 더함). 새 페이지는 layout을 넣지 않고(앱이 채운다) width도 없다(상위를 따른다)
         let v = new_page_value("abc", "page", "제목", None, json!({ "type": "doc" }), "now");
-        assert_eq!(v["schemaVersion"], 8);
+        assert_eq!(v["schemaVersion"], 9);
         assert!(v.get("layout").is_none());
         assert!(!v.to_string().contains("fullWidth"));
         assert!(!v.to_string().contains("\"width\""));

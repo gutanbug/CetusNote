@@ -106,7 +106,7 @@ describe("normalizePage", () => {
       layout: { fullWidth: false, font: "default" },
     });
     expect(plain.layout).toEqual({ font: "default" });
-    expect(plain.schemaVersion).toBe(8);
+    expect(plain.schemaVersion).toBe(9);
   });
 
   it("올바른 값은 그대로 둔다", () => {
@@ -241,6 +241,27 @@ describe("normalizePage", () => {
         .collection?.statuses,
     ).toEqual([]);
     expect(normalizePage({ id: ID, props: { status: " 보류 " } }).props.status).toBe("보류");
+  });
+
+  it("스키마 9: 표 열 너비(widths)는 제목·속성 키와 40~2000 사이 정수만 남긴다 (COLL-02)", () => {
+    const col = (collection: unknown) =>
+      normalizePage({ schemaVersion: 8, id: ID, kind: "collection", collection }).collection;
+    expect(col({ view: "grid" })?.widths).toEqual({});
+    expect(col({ view: "grid", widths: [1, 2] })?.widths).toEqual({});
+    expect(
+      col({
+        view: "grid",
+        widths: {
+          title: 320.4,
+          status: 200,
+          due: 39,
+          tags: 2001,
+          zzz: 200,
+          flink0001: 150,
+          assignee: "wide",
+        },
+      })?.widths,
+    ).toEqual({ title: 320, status: 200, flink0001: 150 });
   });
 
   it("루트·폴더·문서 아래에는 무엇이든, 컬렉션 아래에는 문서만", () => {

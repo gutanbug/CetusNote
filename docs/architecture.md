@@ -99,7 +99,7 @@ src-tauri/
   "updatedAt": "2026-11-19T09:12:00Z",
   "trashedAt": null,
   "template": null, // 템플릿 문서(PAGE-14)면 { category, description, pageTitle, builtin }, 아니면 null (ADR-012)
-  "schemaVersion": 8, // 7 → 8: props.start(시작일)를 더한다. 없거나 잘못되면 null(identity migration). 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
+  "schemaVersion": 9, // 8 → 9: collection.widths(표 열 너비, 값 없으면 {}). 7 → 8: props.start(시작일)를 더한다. 없거나 잘못되면 null(identity migration). 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
 }
 ```
 

@@ -90,6 +90,8 @@ export type CollectionSettings = {
   properties: PropertySlot[];
   /** 이 컬렉션의 레코드 여는 방식. null이면 앱 기본값(settings.json recordOpen)을 따른다 */
   openMode: RecordOpenMode | null;
+  /** 표 열 너비(px, 스키마 9). 키는 "title"·속성 키, 없으면 기본 너비 */
+  widths: Record<string, number>;
 };
 
 export type Page = {

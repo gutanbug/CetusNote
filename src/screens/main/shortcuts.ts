@@ -53,6 +53,12 @@ const editShortcuts = (s: ShortcutMessages): Shortcut[] => [
   { name: s.edit.replace, keys: ["⌥", "⌘", "F"] },
 ];
 
+const calendarShortcuts = (s: ShortcutMessages): Shortcut[] => [
+  { name: s.calendar.move, keys: ["⌥", "←/→"] },
+  { name: s.calendar.start, keys: ["⌥", "⌘", "←/→"] },
+  { name: s.calendar.due, keys: ["⌥", "⇧", "←/→"] },
+];
+
 /** 마크다운 단축 입력은 슬래시 메뉴 항목의 힌트에서 가져온다(한 곳에서만 고치게) */
 const markdownShortcuts = (): Shortcut[] =>
   SLASH_ITEMS.filter((i) => i.hint).map((i) => ({
@@ -65,6 +71,7 @@ export function shortcutGroups(s: ShortcutMessages = msg().screens.shortcuts): S
   return [
     { title: s.groups.app, items: appShortcuts(s) },
     { title: s.groups.edit, items: editShortcuts(s) },
+    { title: s.groups.calendar, items: calendarShortcuts(s) },
     { title: s.groups.markdown, items: markdownShortcuts() },
   ];
 }

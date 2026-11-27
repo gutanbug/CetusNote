@@ -89,6 +89,10 @@ type GridViewProps = {
   columns?: GridColumn[];
   /** 머리 맨 끝 "속성 추가" (CL-AddProperty) */
   addColumn?: React.ReactNode;
+  /** 표 열 너비(px). 키는 "title"·열 키, 없으면 기본 너비 (COLL-02) */
+  widths?: Record<string, number>;
+  /** 열 너비를 바꾸면 알린다 — 끌기는 손을 뗄 때 한 번, 키보드는 한 칸마다 */
+  onWidthsChange?: (widths: Record<string, number>) => void;
   className?: string;
 };
 
@@ -97,7 +101,7 @@ const th =
   "sticky top-0 z-2 border-b border-line bg-subtle px-3 py-2 text-left text-label font-medium tracking-(--tracking-label) whitespace-nowrap text-secondary [&_svg]:mr-1 [&_svg]:inline [&_svg]:size-3.5 [&_svg]:align-text-bottom [&_svg]:text-tertiary";
 /** 버튼이 없는 칸(읽기 전용 날짜 등)은 셀 자체가 탭 정지점이라 포커스 링을 셀에 준다 */
 const td = cn(
-  "border-b border-line px-3 py-1.5 align-middle",
+  "overflow-hidden border-b border-line px-3 py-1.5 align-middle",
   focusRing,
   "focus-visible:-outline-offset-2",
 );
@@ -106,6 +110,102 @@ const titleTh = "left-0 z-3";
 const titleTd = "sticky left-0 z-1 bg-app group-hover/row:bg-hover force-hover:bg-hover";
 /** 스크롤돼 제목 열 뒤 칸이 숨어 있을 때만 쓰는 가장자리 선 (그림자 토큰은 팝오버·모달용이라 쓰지 않는다) */
 const titleEdge = "border-r border-line";
+/** 열 너비 (COLL-02, px): 제목 기본 320(w-80), 다른 열 160, 최소 96(w-24), 최대 640. ←/→는 16씩(Shift면 64씩) */
+const GRID_WIDTH = { title: 320, column: 160, min: 96, max: 640, step: 16 } as const;
+const EMPTY_WIDTHS: Record<string, number> = {};
+const clampWidth = (w: number) => Math.min(GRID_WIDTH.max, Math.max(GRID_WIDTH.min, Math.round(w)));
+const defaultWidth = (key: string) => (key === "title" ? GRID_WIDTH.title : GRID_WIDTH.column);
+
+/**
+ * 열 너비 조절 손잡이 (COLL-02) — role=separator. 끄는 동안은 미리 보기만 하고 손을 뗄 때 한 번 저장한다.
+ * 더블클릭은 기본 너비, ←/→는 한 칸씩 바꾼다.
+ */
+function ColumnResizer({
+  label,
+  hint,
+  width,
+  onPreview,
+  onCommit,
+  onReset,
+  onStep,
+}: {
+  label: string;
+  hint: string;
+  width: number;
+  onPreview: (w: number | null) => void;
+  onCommit: (w: number) => void;
+  onReset: () => void;
+  onStep: (delta: number) => void;
+}) {
+  const drag = React.useRef<{ x: number; start: number; last: number } | null>(null);
+  const [dragging, setDragging] = React.useState(false);
+  const finish = (commit: boolean) => {
+    const d = drag.current;
+    drag.current = null;
+    setDragging(false);
+    if (d && commit && d.last !== d.start) onCommit(d.last);
+    else onPreview(null);
+  };
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuenow={width}
+      aria-valuemin={GRID_WIDTH.min}
+      aria-valuemax={GRID_WIDTH.max}
+      aria-valuetext={`${width}px`}
+      tabIndex={0}
+      title={hint}
+      data-slot="column-resizer"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // 포인터가 없는 합성 이벤트는 캡처할 수 없다 — 그래도 이동은 받는다
+        }
+        drag.current = { x: e.clientX, start: width, last: width };
+        setDragging(true);
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        const next = clampWidth(d.start + e.clientX - d.x);
+        if (next === d.last) return;
+        d.last = next;
+        onPreview(next);
+      }}
+      onPointerUp={() => finish(true)}
+      onPointerCancel={() => finish(false)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onReset();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        e.stopPropagation();
+        const step = e.shiftKey ? GRID_WIDTH.step * 4 : GRID_WIDTH.step;
+        onStep(e.key === "ArrowRight" ? step : -step);
+      }}
+      className={cn(
+        "group/resizer absolute inset-y-0 right-0 flex w-2 translate-x-1/2 cursor-col-resize touch-none justify-center rounded-sm select-none",
+        focusRing,
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "h-full w-px transition-colors duration-(--dur-fast)",
+          dragging ? "bg-accent" : "bg-transparent group-hover/resizer:bg-line-strong",
+        )}
+      />
+    </span>
+  );
+}
 
 /**
  * CL-GridView — 표 뷰 (프로토타입 §12 `.gtable`). 행 높이 36px, 머리만 bg-subtle, 구분선은 border-line 하나.
@@ -126,11 +226,39 @@ function GridView({
   empty,
   columns: columnsProp,
   addColumn,
+  widths = EMPTY_WIDTHS,
+  onWidthsChange,
   className,
 }: GridViewProps) {
   const m = useMessages();
   const columns = React.useMemo(() => columnsProp ?? builtinColumns(m), [columnsProp, m]);
   const [scrolled, setScrolled] = React.useState(false);
+  /** 끌고 있는 열의 미리 보기 너비 — 저장은 손을 뗄 때 한 번 (COLL-02) */
+  const [drag, setDrag] = React.useState<{ key: string; width: number } | null>(null);
+  const widthOf = (key: string) =>
+    clampWidth(drag?.key === key ? drag.width : (widths[key] ?? defaultWidth(key)));
+  const commitWidth = (key: string, w: number) => {
+    setDrag(null);
+    onWidthsChange?.({ ...widths, [key]: w });
+  };
+  const resetWidth = (key: string) => {
+    setDrag(null);
+    if (!(key in widths)) return;
+    const next = { ...widths };
+    delete next[key];
+    onWidthsChange?.(next);
+  };
+  const resizer = (key: string, name: string) => (
+    <ColumnResizer
+      label={m.collection.grid.resizeColumn(name)}
+      hint={m.collection.grid.resizeHint}
+      width={widthOf(key)}
+      onPreview={(w) => setDrag(w === null ? null : { key, width: w })}
+      onCommit={(w) => commitWidth(key, w)}
+      onReset={() => resetWidth(key)}
+      onStep={(d) => commitWidth(key, clampWidth(widthOf(key) + d))}
+    />
+  );
   const [active, setActive] = React.useState({ row: 0, col: 0 });
   const tableRef = React.useRef<HTMLTableElement>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -368,16 +496,24 @@ function GridView({
           onFocus={onFocus}
           className="w-full min-w-190 table-fixed border-collapse text-ui"
         >
+          <colgroup>
+            <col style={{ width: widthOf("title") }} />
+            {columns.map((c) => (
+              <col key={c.key} style={{ width: widthOf(c.key) }} />
+            ))}
+            {addColumn ? <col className="w-10" /> : null}
+          </colgroup>
           <thead role="rowgroup">
             <tr role="row" aria-rowindex={1}>
               <th
                 scope="col"
                 role="columnheader"
                 aria-colindex={1}
-                className={cn(th, "w-80", titleTh, scrolled && titleEdge)}
+                className={cn(th, titleTh, scrolled && titleEdge)}
               >
                 <Type {...ic} />
                 {m.collection.grid.title}
+                {resizer("title", m.collection.grid.title)}
               </th>
               {columns.map((c, i) => {
                 const head = (
@@ -400,16 +536,19 @@ function GridView({
                     scope="col"
                     role="columnheader"
                     aria-colindex={i + 2}
-                    className={cn(th, "min-w-30")}
+                    className={th}
                   >
                     {c.menu ? (
                       c.menu(head)
                     ) : (
                       <>
                         <PropertyIcon kind={c.kind} />
-                        {c.name}
+                        <span className="inline-block max-w-full truncate align-bottom">
+                          {c.name}
+                        </span>
                       </>
                     )}
+                    {resizer(c.key, c.name)}
                   </th>
                 );
               })}
@@ -596,7 +735,10 @@ function TagCell({
 }) {
   const m = useMessages();
   const chips = item.tags.length ? (
-    <span className="flex min-w-0 flex-wrap gap-1">
+    <span
+      className="flex min-w-0 flex-nowrap gap-1 overflow-hidden"
+      title={item.tags.map((t) => t.name).join(", ")}
+    >
       {item.tags.map((t) => (
         <TagChip key={t.name} color={t.color}>
           {t.name}
@@ -606,7 +748,7 @@ function TagCell({
   ) : (
     <EmptyValue />
   );
-  if (!editor) return <span className="flex px-1">{chips}</span>;
+  if (!editor) return <span className="flex min-w-0 px-1">{chips}</span>;
   return (
     <Popover>
       <PopoverTrigger className={valueButton} aria-label={m.collection.grid.tagsOf(name)}>

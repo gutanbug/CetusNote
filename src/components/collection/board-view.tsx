@@ -18,6 +18,7 @@ import { inputClass } from "@/components/ui/input";
 import { StatusChip } from "@/components/ui/status-chip";
 import { focusRing } from "@/components/ui/styles";
 import { SOFT_COLORS, TagChip, type SoftColor } from "@/components/ui/tag-chip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -68,8 +69,8 @@ const COLUMN_TINT: Record<SoftColor, string> = {
 
 /** 다크에서 칩 바탕이 카드·칸과 거의 같아 가장자리가 죽는다. 글자색 테두리를 얇게 둘러 칩 윤곽을 살린다 (라이트 무변화) */
 const BOARD_CHIP = "dark:ring-1 dark:ring-inset dark:ring-current/35";
-/** 카드 속성 줄의 칩 — 줄이 모자라면 줄어든다(잘림은 칩 안 글자에서) */
-const BOARD_META_CHIP = `${BOARD_CHIP} min-w-0 shrink`;
+/** 카드 속성 줄의 칩 — 줄어들지 않는다. 들어가지 않는 칩은 MetaRow가 「외 N개」로 접는다 (COLL-03) */
+const BOARD_META_CHIP = `${BOARD_CHIP} shrink-0`;
 
 /** 칸 머리 계산 */
 export type BoardCalcKind = "count" | "due" | "late" | "none";
@@ -99,11 +100,202 @@ type CardProps = {
   className?: string;
 } & Omit<React.ComponentProps<"button">, "children">;
 
+type MetaUnit = { key: string; label: string; due?: boolean; node: React.ReactNode };
+
+const sameIdx = (a: number[], b: number[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+
+/** 들어갈 칩을 고른다. 마감을 먼저, 나머지는 원래 순서. 「외 N개」 칸을 남기고, 처음 안 들어가는 칩에서 멈춘다. */
+function fitUnits(
+  units: MetaUnit[],
+  widths: number[],
+  avail: number,
+  gap: number,
+  moreW: number,
+): number[] {
+  const total = widths.reduce((sum, w) => sum + w, 0) + gap * Math.max(0, widths.length - 1);
+  if (total <= avail) return units.map((_, i) => i);
+  const order = units
+    .map((_, i) => i)
+    .sort((a, b) => (units[a]?.due ? 0 : 1) - (units[b]?.due ? 0 : 1) || a - b);
+  const picked: number[] = [];
+  let used = 0;
+  for (const i of order) {
+    const next = used + (picked.length ? gap : 0) + (widths[i] ?? 0);
+    if (next + gap + moreW > avail) break;
+    picked.push(i);
+    used = next;
+  }
+  return picked.sort((a, b) => a - b);
+}
+
+/**
+ * 카드 속성 줄 (COLL-03) — 한 줄을 넘지 않고, 들어가는 칩만 보인다. 나머지는 「외 N개」 칩으로 접고 툴팁에 값을 보인다.
+ * 내용이 바뀔 때만 칩 폭을 한 번 재고, 줄 폭이 바뀌면(ResizeObserver) 잰 폭으로 다시 고른다. 칩을 다시 재지 않는다.
+ */
+function MetaRow({ units }: { units: MetaUnit[] }) {
+  const m = useMessages();
+  const rowRef = React.useRef<HTMLSpanElement>(null);
+  const moreRef = React.useRef<HTMLSpanElement>(null);
+  const unitRefs = React.useRef<(HTMLSpanElement | null)[]>([]);
+  const widths = React.useRef<number[]>([]);
+  // 효과는 내용 키가 바뀔 때만 다시 돈다. 최신 칩 목록은 ref로 읽는다(칩 목록은 매 그림마다 새 배열이다)
+  const latest = React.useRef(units);
+  const contentKey = units
+    .map((u) => `${u.key}\u0001${u.label}\u0001${u.due ? 1 : 0}`)
+    .join("\u0002");
+  const [fit, setFit] = React.useState<{ key: string; shown: number[] }>({ key: "", shown: [] });
+  // 내용이 바뀐 뒤 첫 그림은 모든 칩을 그려서 폭을 잰다
+  const shown = fit.key === contentKey ? fit.shown : units.map((_, i) => i);
+  const shownSet = new Set(shown);
+  const hidden = units.filter((_, i) => !shownSet.has(i));
+  const names = hidden.map((u) => u.label).join(", ");
+
+  React.useLayoutEffect(() => {
+    latest.current = units;
+  });
+
+  React.useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const list = latest.current;
+    widths.current = list.map((_, i) => unitRefs.current[i]?.offsetWidth ?? 0);
+    const apply = () => {
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      const picked = fitUnits(
+        list,
+        widths.current,
+        row.clientWidth,
+        gap,
+        moreRef.current?.offsetWidth ?? 0,
+      );
+      setFit((prev) =>
+        prev.key === contentKey && sameIdx(prev.shown, picked)
+          ? prev
+          : { key: contentKey, shown: picked },
+      );
+    };
+    apply();
+    let lastWidth = row.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (row.clientWidth === lastWidth) return;
+      lastWidth = row.clientWidth;
+      apply();
+    });
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [contentKey]);
+
+  return (
+    <span
+      ref={rowRef}
+      className="relative flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden"
+    >
+      {units.map((u, i) =>
+        shownSet.has(i) ? (
+          <span
+            key={`${i}:${u.key}`}
+            ref={(el) => {
+              unitRefs.current[i] = el;
+            }}
+            className="inline-flex shrink-0"
+          >
+            {u.node}
+          </span>
+        ) : null,
+      )}
+      {hidden.length ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              role="note"
+              tabIndex={0}
+              aria-label={m.collection.board.hiddenChips(hidden.length, names)}
+              data-slot="collection-card-more"
+              // 키보드 포커스로도 툴팁이 열린다. 카드 열기(클릭·Enter)로 번지지 않게 막는다
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              className={cn("inline-flex shrink-0 rounded-pill", focusRing)}
+            >
+              <TagChip color="gray" className={BOARD_META_CHIP}>
+                +{hidden.length}
+              </TagChip>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{names}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {/* 「외 N개」 칩 폭을 재는 숨은 칸 — 가장 긴 숫자 기준 */}
+      <span
+        ref={moreRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute top-0 left-0 inline-flex"
+      >
+        <TagChip color="gray" className={BOARD_META_CHIP}>
+          +{units.length}
+        </TagChip>
+      </span>
+    </span>
+  );
+}
+
 /** CL-Card — 보드 카드 (프로토타입 §13 `.bcard`). 아이콘 + 제목 · 태그 · 담당 · 마감 */
 function Card({ item, dragging, className, ...props }: CardProps) {
   const m = useMessages();
   const extra = item.extra ?? [];
   const meta = item.tags.length || item.assignee || item.due || extra.length;
+  const units: MetaUnit[] = [
+    ...item.tags.map((t) => ({
+      key: `tag:${t.name}`,
+      label: t.name,
+      node: (
+        <TagChip color={t.color} className={BOARD_META_CHIP}>
+          {t.name}
+        </TagChip>
+      ),
+    })),
+    ...(item.assignee
+      ? [{ key: "assignee", label: item.assignee, node: <Owner name={item.assignee} /> }]
+      : []),
+    ...(item.due
+      ? [
+          {
+            key: "due",
+            label: item.due.text,
+            due: true,
+            node: <DateText value={item.due} compact />,
+          },
+        ]
+      : []),
+    ...extra.flatMap((x) =>
+      x.chips?.length
+        ? x.chips.map((c) => ({
+            key: `${x.key}:${c.name}`,
+            label: c.name,
+            node: (
+              <TagChip color={c.color} className={BOARD_META_CHIP}>
+                <span className="sr-only">{x.name}: </span>
+                {c.name}
+              </TagChip>
+            ),
+          }))
+        : [
+            {
+              key: x.key,
+              label: x.text,
+              node: (
+                <span
+                  title={x.name}
+                  className="inline-flex items-center gap-1 text-label whitespace-nowrap text-secondary"
+                >
+                  <span className="sr-only">{x.name}: </span>
+                  {x.text}
+                </span>
+              ),
+            },
+          ],
+    ),
+  ];
   return (
     <button
       type="button"
@@ -136,42 +328,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
           {item.title || m.collection.untitled}
         </span>
       </span>
-      {meta ? (
-        // 속성 줄은 한 줄을 넘기지 않는다. 날짜는 줄어들지 않고, 칩·담당·값은 줄어들며 잘린다.
-        // 그래도 넘치면 줄 끝에서 가린다(카드 폭이 같으면 줄 길이와 무관하게 높이가 같다).
-        <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
-          {item.tags.map((t) => (
-            <TagChip key={t.name} color={t.color} className={BOARD_META_CHIP}>
-              {t.name}
-            </TagChip>
-          ))}
-          {item.assignee ? (
-            <span className="flex min-w-0 shrink">
-              <Owner name={item.assignee} />
-            </span>
-          ) : null}
-          {item.due ? <DateText value={item.due} compact /> : null}
-          {extra.map((x) =>
-            x.chips?.length ? (
-              x.chips.map((c) => (
-                <TagChip key={`${x.key}:${c.name}`} color={c.color} className={BOARD_META_CHIP}>
-                  <span className="sr-only">{x.name}: </span>
-                  {c.name}
-                </TagChip>
-              ))
-            ) : (
-              <span
-                key={x.key}
-                title={x.name}
-                className="inline-flex min-w-0 shrink items-center gap-1 text-label text-secondary"
-              >
-                <span className="sr-only">{x.name}: </span>
-                <span className="min-w-0 truncate">{x.text}</span>
-              </span>
-            ),
-          )}
-        </span>
-      ) : null}
+      {meta ? <MetaRow units={units} /> : null}
     </button>
   );
 }

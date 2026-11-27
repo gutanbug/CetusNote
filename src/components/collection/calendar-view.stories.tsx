@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { layoutCalendar, type CalendarSpanInput } from "@/features/collection/calendar-span";
+import { weekDates } from "@/features/collection/calendar-range";
 import { CalendarView, type CalendarDay } from "./calendar-view";
 
 /** 2026년 11월: 11월 1일이 일요일 → 42칸 (6주) */
@@ -56,6 +57,9 @@ const meta = {
     onToday: fn(),
     onOpen: fn(),
     onNew: fn(),
+    onModeChange: fn(),
+    onReschedule: fn(),
+    onCreateRange: fn(),
   },
   decorators: [(Story) => <div className="w-220 bg-app p-6">{Story()}</div>],
 } satisfies Meta<typeof CalendarView>;
@@ -137,5 +141,120 @@ export const Spans: Story = {
     await expect(
       Math.abs(plan!.getBoundingClientRect().top - qa!.getBoundingClientRect().top),
     ).toBeGreaterThan(4);
+  },
+};
+
+/** 끌어서 옮기기: 막대 가운데를 잡고 2칸 오른쪽 칸으로 끈다 → 기간 전체가 2일 옮겨진다 */
+export const MoveDrag: Story = {
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    const [plan] = c.getAllByRole("button", { name: /^“기획 초안”/ }) as HTMLElement[];
+    const r = plan!.getBoundingClientRect();
+    const cell = canvasElement.querySelector<HTMLElement>('[data-date="2026-11-13"]')!;
+    const cr = cell.getBoundingClientRect();
+    await userEvent.pointer([
+      {
+        keys: "[MouseLeft>]",
+        target: plan,
+        coords: { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 },
+      },
+      {
+        target: cell,
+        coords: { clientX: cr.left + cr.width / 2, clientY: cr.top + cr.height / 2 },
+      },
+      { keys: "[/MouseLeft]", target: cell },
+    ]);
+    // 잡은 칸은 가운데 칸(11/11) → 11/13으로 끌었으니 2일
+    await expect(args.onReschedule).toHaveBeenCalledWith("plan", { kind: "move", days: 2 });
+    await expect(args.onOpen).not.toHaveBeenCalled();
+  },
+};
+
+/** 가장자리 늘이기: 디자인 QA의 오른쪽 손잡이를 11/16까지 끌면 마감만 바뀐다 */
+export const EdgeResize: Story = {
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    const [qa] = c.getAllByRole("button", { name: /^“디자인 QA”/ }) as HTMLElement[];
+    const handle = qa!.querySelector<HTMLElement>('[data-handle="due"]')!;
+    const hr = handle.getBoundingClientRect();
+    const cell = canvasElement.querySelector<HTMLElement>('[data-date="2026-11-16"]')!;
+    const cr = cell.getBoundingClientRect();
+    await userEvent.pointer([
+      {
+        keys: "[MouseLeft>]",
+        target: handle,
+        coords: { clientX: hr.left + hr.width / 2, clientY: hr.top + hr.height / 2 },
+      },
+      {
+        target: cell,
+        coords: { clientX: cr.left + cr.width / 2, clientY: cr.top + cr.height / 2 },
+      },
+      { keys: "[/MouseLeft]", target: cell },
+    ]);
+    await expect(args.onReschedule).toHaveBeenCalledWith("qa", { kind: "due", date: "2026-11-16" });
+  },
+};
+
+/** 빈 날 끌어 만들기: 11/17을 눌러 11/19에서 놓으면 그 범위로 새 레코드 */
+export const CreateDrag: Story = {
+  play: async ({ canvasElement, args }) => {
+    const from = canvasElement.querySelector<HTMLElement>('[data-date="2026-11-17"]')!;
+    const to = canvasElement.querySelector<HTMLElement>('[data-date="2026-11-19"]')!;
+    const a = from.getBoundingClientRect();
+    const b = to.getBoundingClientRect();
+    await userEvent.pointer([
+      {
+        keys: "[MouseLeft>]",
+        target: from,
+        coords: { clientX: a.left + a.width / 2, clientY: a.top + a.height / 2 },
+      },
+      { target: to, coords: { clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 } },
+      { keys: "[/MouseLeft]", target: to },
+    ]);
+    await expect(args.onCreateRange).toHaveBeenCalledWith({
+      start: "2026-11-17",
+      due: "2026-11-19",
+    });
+  },
+};
+
+/** 키보드: 막대에 포커스 → ⌥→ 는 하루 옮기고, ⌥⇧→ 는 마감을 하루 늘린다. 결과는 aria-live로 알린다 */
+export const AltArrow: Story = {
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    const [plan] = c.getAllByRole("button", { name: /^“기획 초안”/ }) as HTMLElement[];
+    plan!.focus();
+    await userEvent.keyboard("{Alt>}{ArrowRight}{/Alt}");
+    await expect(args.onReschedule).toHaveBeenLastCalledWith("plan", { kind: "move", days: 1 });
+    await userEvent.keyboard("{Alt>}{Shift>}{ArrowRight}{/Shift}{/Alt}");
+    await expect(args.onReschedule).toHaveBeenLastCalledWith("plan", {
+      kind: "due",
+      date: "2026-11-13",
+    });
+    const live = canvasElement.querySelector('[aria-live="polite"].sr-only');
+    await expect(live?.textContent ?? "").toContain("기획 초안");
+  },
+};
+
+/** 주 보기: 한 주 7칸, 키 막대는 그대로. 다음 주로 넘기면 상위에 알린다 */
+export const Week: Story = {
+  globals: { theme: "both" },
+  args: {
+    mode: "week",
+    monthLabel: "11월 22일 – 11월 28일",
+    days: weekDates("2026-11-22").map((date) => ({
+      date,
+      day: Number(date.slice(8)),
+      today: date === "2026-11-20",
+    })),
+    weeks: layoutCalendar(weekDates("2026-11-22"), RECORDS, 5).weeks,
+    dayItems: layoutCalendar(weekDates("2026-11-22"), RECORDS, 5).dayItems,
+  },
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    // 라이트·다크 두 열이므로 막대는 열마다 하나씩 (주 안 한 조각)
+    await expect(c.getAllByRole("button", { name: /^“릴리스 준비”/ }).length).toBeGreaterThan(0);
+    await userEvent.click(c.getAllByRole("button", { name: "다음 주" })[0]!);
+    await expect(args.onNext).toHaveBeenCalled();
   },
 };

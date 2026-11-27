@@ -93,6 +93,7 @@ export const collection: Messages["collection"] = {
     moveCellRight: "To right column",
     moveUp: "Up",
     moveDown: "Down",
+    hiddenChips: (count, names) => `${count} more: ${names}`,
   },
   property: {
     numberOnly: "Numbers only",
@@ -154,6 +155,12 @@ export const collection: Messages["collection"] = {
     dayLabel: (name, count) => `${name}, ${count}`,
     newOn: (date) => `New record due ${date}`,
     more: (n) => `+${n} more`,
+    modeMonth: "Month",
+    modeWeek: "Week",
+    prevWeek: "Previous week",
+    nextWeek: "Next week",
+    weekRange: (from, to) => `${from} – ${to}`,
+    moved: (label) => `Moved ${label}`,
   },
   grid: {
     table: "Records table",
@@ -166,6 +173,8 @@ export const collection: Messages["collection"] = {
     dueOf: (name) => `${name} due`,
     openPage: (title) => `Open “${title}” as a page`,
     tagsOf: (name) => `Edit ${name} tags`,
+    resizeColumn: (name) => `“${name}” column width`,
+    resizeHint: "Drag to resize, double-click to reset the width",
   },
   fields: {
     empty: "Empty",

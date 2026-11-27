@@ -4,8 +4,14 @@ import {
   type BoardCalcKind,
   type BoardColumn,
 } from "@/components/collection/board-view";
-import { CalendarView } from "@/components/collection/calendar-view";
+import { CalendarView, type CalendarMode } from "@/components/collection/calendar-view";
 import { layoutCalendar } from "@/features/collection/calendar-span";
+import {
+  rescheduleRecord,
+  shiftDate,
+  weekDates,
+  type RescheduleChange,
+} from "@/features/collection/calendar-range";
 import { GridView } from "@/components/collection/grid-view";
 import { RecordDetail } from "@/components/collection/record-detail";
 import { Toolbar, type FilterGroup, type ToolbarFilter } from "@/components/collection/toolbar";
@@ -480,12 +486,23 @@ export function CollectionView({ page }: { page: Page }) {
   }, []);
 
   // 달력 칸과 막대는 달력 보기일 때만 계산한다 (시작~마감 막대를 주 단위로 나눈다, 줄 3개)
+  // 주 보기 상태 — 스키마에 칸이 없어 화면 상태로만 둔다. 주 보기는 기준 날짜가 든 주(일요일 시작) 7칸
+  const [calMode, setCalMode] = React.useState<CalendarMode>("month");
+  const [weekOf, setWeekOf] = React.useState(today);
+  const weekMode = calMode === "week";
   const days = React.useMemo(
     () =>
       settings.view === "calendar"
-        ? monthGrid(month.year, month.month).map((d) => ({ ...d, today: d.date === today }))
+        ? weekMode
+          ? weekDates(weekOf).map((date) => ({
+              date,
+              day: Number(date.slice(8)),
+              out: false,
+              today: date === today,
+            }))
+          : monthGrid(month.year, month.month).map((d) => ({ ...d, today: d.date === today }))
         : [],
-    [settings.view, month.year, month.month, today],
+    [settings.view, weekMode, weekOf, month.year, month.month, today],
   );
   const calendar = React.useMemo(
     () =>
@@ -501,15 +518,44 @@ export function CollectionView({ page }: { page: Page }) {
               due: r.due?.date ?? null,
             }))
           : [],
-        3,
+        weekMode ? 5 : 3,
       ),
-    [days, items, settings.view],
+    [days, items, settings.view, weekMode],
   );
+  const fmtDay = (iso: string | undefined) =>
+    iso
+      ? new Intl.DateTimeFormat(intlLocale(), { month: "long", day: "numeric" }).format(
+          new Date(`${iso}T00:00:00`),
+        )
+      : "";
   const shiftMonth = (by: number) =>
     setMonth((m) => {
       const d = new Date(m.year, m.month + by, 1);
       return { year: d.getFullYear(), month: d.getMonth() };
     });
+
+  /** 보기 방식을 바꾼다. 주로 갈 때는 이번 주(이번 달이 아니면 그 달 1일의 주), 달로 올 때는 주의 달 */
+  const changeCalMode = (next: CalendarMode) => {
+    if (next === calMode) return;
+    if (next === "week") {
+      const monthKey = `${month.year}-${String(month.month + 1).padStart(2, "0")}`;
+      setWeekOf(today.startsWith(monthKey) ? today : `${monthKey}-01`);
+    } else {
+      const d = new Date(`${weekOf}T00:00:00`);
+      setMonth({ year: d.getFullYear(), month: d.getMonth() });
+    }
+    setCalMode(next);
+  };
+  /** 달력에서 끌거나 ⌥←/→로 바꾼 날짜를 레코드에 쓴다 — 페이지 갱신 한 번 (실행 취소 한 번) */
+  const rescheduleRecordDates = (id: string, change: RescheduleChange) => {
+    const rec = pagesStore.getState().pages[id];
+    if (!rec) return;
+    const next = rescheduleRecord(
+      { start: rec.props.start ?? null, due: rec.props.due ?? null },
+      change,
+    );
+    if (next) setRecordProps(id, next);
+  };
 
   const openIndex = openId ? shown.findIndex((p) => p.id === openId) : -1;
   const opened = openId ? all[openId] : undefined;
@@ -681,21 +727,34 @@ export function CollectionView({ page }: { page: Page }) {
               />
             ) : (
               <CalendarView
-                monthLabel={new Intl.DateTimeFormat(intlLocale(), {
-                  year: "numeric",
-                  month: "long",
-                }).format(new Date(month.year, month.month, 1))}
+                monthLabel={
+                  weekMode
+                    ? m.collection.calendar.weekRange(fmtDay(days[0]?.date), fmtDay(days[6]?.date))
+                    : new Intl.DateTimeFormat(intlLocale(), {
+                        year: "numeric",
+                        month: "long",
+                      }).format(new Date(month.year, month.month, 1))
+                }
                 days={days}
                 weeks={calendar.weeks}
                 dayItems={calendar.dayItems}
-                onPrev={() => shiftMonth(-1)}
-                onNext={() => shiftMonth(1)}
+                mode={calMode}
+                onModeChange={changeCalMode}
+                onPrev={() => (weekMode ? setWeekOf(shiftDate(weekOf, -7)) : shiftMonth(-1))}
+                onNext={() => (weekMode ? setWeekOf(shiftDate(weekOf, 7)) : shiftMonth(1))}
                 onToday={() => {
+                  if (weekMode) {
+                    setWeekOf(today);
+                    return;
+                  }
                   const d = new Date();
                   setMonth({ year: d.getFullYear(), month: d.getMonth() });
                 }}
                 onOpen={openRecord}
                 onNew={(due) => createRecord({ due })}
+                onReschedule={rescheduleRecordDates}
+                onCreateRange={(range) => createRecord(range)}
+                maxLanes={weekMode ? 5 : 3}
                 empty={empty}
               />
             )}

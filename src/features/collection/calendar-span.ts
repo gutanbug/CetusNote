@@ -51,6 +51,9 @@ export type CalendarSegment = {
   continuesAfter: boolean;
   from: string;
   to: string;
+  /** 레코드의 원래 시작·마감 (드래그 미리보기·손잡이에 쓴다) */
+  start: string | null;
+  due: string | null;
 };
 
 export type CalendarWeek = {
@@ -122,6 +125,8 @@ export function layoutCalendar(
         continuesAfter: to > last,
         from: range.from,
         to: range.to,
+        start: r.start,
+        due: r.due,
       });
     }
     segments.sort((a, b) => a.lane - b.lane || a.col - b.col);
