@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { inputClass } from "@/components/ui/input";
 import { focusRing, press } from "@/components/ui/styles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMessages } from "@/lib/i18n";
 
 export type DateChipProps = Omit<React.ComponentProps<"button">, "value"> & {
   value: DateChipValue;
@@ -42,6 +43,7 @@ export type DateChipProps = Omit<React.ComponentProps<"button">, "value"> & {
  * 누르면 날짜 팝오버(DateChipEditor)가 열린다 — 부르는 쪽이 PopoverTrigger로 감싼다.
  */
 function DateChip({ value, now, selected, open, className, ...props }: DateChipProps) {
+  const m = useMessages();
   const view = describeDateChip(value, now);
   return (
     <Tooltip>
@@ -73,7 +75,7 @@ function DateChip({ value, now, selected, open, className, ...props }: DateChipP
           {view.hasReminder ? (
             <Bell
               role="img"
-              aria-label="알림 설정됨"
+              aria-label={m.editor.dateChip.reminderSet}
               className="size-4 shrink-0"
               strokeWidth={1.5}
             />
@@ -103,6 +105,7 @@ export type DateChipEditorProps = {
  * 시각을 지우면 「N분 전」·「시간 지정」 알림은 없음으로 바뀐다(시각 기준이 없어진다).
  */
 function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipEditorProps) {
+  const m = useMessages();
   const today = now ?? new Date();
   const key = reminderOptionKey(value.reminder);
 
@@ -111,12 +114,16 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
 
   return (
     <div data-slot="date-chip-editor" className={cn("grid w-70 gap-3 p-1", className)}>
-      <div role="group" aria-label="빠른 선택" className="flex flex-wrap gap-1.5">
+      <div
+        role="group"
+        aria-label={m.editor.dateChip.quickSelect}
+        className="flex flex-wrap gap-1.5"
+      >
         {(
           [
-            ["오늘", toIsoDate(today)],
-            ["내일", toIsoDate(addDays(today, 1))],
-            ["다음 주 월요일", toIsoDate(nextMonday(today))],
+            [m.editor.dateChip.today, toIsoDate(today)],
+            [m.editor.dateChip.tomorrow, toIsoDate(addDays(today, 1))],
+            [m.editor.dateChip.nextMonday, toIsoDate(nextMonday(today))],
           ] as const
         ).map(([label, date]) => (
           <Button
@@ -134,13 +141,13 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
       <Calendar
         value={value.date}
         today={today}
-        label="날짜 고르기"
+        label={m.editor.dateChip.pick}
         onChange={(date: IsoDate) => onChange({ date })}
       />
 
       <div className="grid gap-2">
         <label className="flex items-center justify-between gap-3 text-label font-medium text-secondary">
-          시간
+          {m.editor.dateChip.time}
           <input
             type="time"
             name="time"
@@ -160,14 +167,14 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
         </label>
 
         <label className="flex items-center justify-between gap-3 text-label font-medium text-secondary">
-          알림
+          {m.editor.dateChip.reminder}
           <span className="flex items-center gap-2">
             {value.reminder.kind === "custom" ? (
               <input
                 type="time"
                 name="reminder-time"
                 autoComplete="off"
-                aria-label="알림 시각"
+                aria-label={m.editor.dateChip.reminderTime}
                 value={value.reminder.time}
                 onChange={(e) =>
                   e.target.value && setReminder({ kind: "custom", time: e.target.value })
@@ -178,7 +185,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
             <select
               name="reminder"
               autoComplete="off"
-              aria-label="알림"
+              aria-label={m.editor.dateChip.reminderAria}
               aria-describedby={key === "custom" ? reminderHintId : undefined}
               value={key}
               onChange={(e) => {
@@ -207,13 +214,13 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
         {value.reminder.kind === "custom" ? (
           <p id={reminderHintId} className="text-caption text-tertiary">
             {value.reminder.time === value.time
-              ? "시간과 같은 시각에 알려요"
-              : "시간과 따로 정한 시각에 알려요"}
+              ? m.editor.dateChip.reminderSameTime
+              : m.editor.dateChip.reminderCustomTime}
           </p>
         ) : null}
 
         <label className="flex items-center justify-between gap-3 text-label font-medium text-secondary">
-          완료
+          {m.editor.dateChip.done}
           <Checkbox
             checked={value.done}
             onCheckedChange={(checked) => onChange({ done: checked === true })}
@@ -224,7 +231,7 @@ function DateChipEditor({ value, now, onChange, onRemove, className }: DateChipE
       {onRemove ? (
         <div className="flex justify-end border-t border-line pt-2">
           <Button size="sm" variant="ghost" onClick={onRemove}>
-            날짜 제거
+            {m.editor.dateChip.remove}
           </Button>
         </div>
       ) : null}

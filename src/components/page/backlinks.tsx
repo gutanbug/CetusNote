@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { ChevronRight, FileText } from "lucide-react";
 import * as React from "react";
 import { PageIcon } from "@/components/ui/page-icon";
+import { useMessages } from "@/lib/i18n";
 
 export type BacklinkItem = {
   id: string;
@@ -28,6 +29,7 @@ type BacklinksProps = {
  * 머리(접기·개수) + 페이지마다 제목과 언급 문맥(언급 자리는 진하게).
  */
 function Backlinks({ items, onOpen, defaultOpen = true, className }: BacklinksProps) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(defaultOpen);
   const headId = React.useId();
   const listId = React.useId();
@@ -58,11 +60,15 @@ function Backlinks({ items, onOpen, defaultOpen = true, className }: BacklinksPr
             data-open={open || undefined}
             className="size-3.5 transition-transform duration-(--dur-fast) data-open:rotate-90"
           />
-          백링크
+          {m.page.backlinks.title}
           <span className="font-normal tabular-nums">
-            <span className="sr-only">: 페이지 </span>
+            <span className="sr-only">{m.page.backlinks.pagesLabel}</span>
             {items.length}
-            <span className="sr-only">개, 언급 {total}번</span>
+            <span className="sr-only">
+              {m.page.backlinks.pagesSuffix}
+              {total}
+              {m.page.backlinks.mentionsSuffix}
+            </span>
           </span>
         </button>
       </h2>
@@ -91,11 +97,11 @@ function Backlinks({ items, onOpen, defaultOpen = true, className }: BacklinksPr
                     />
                   )}
                   <span className={cn("truncate", !item.title && "text-tertiary")}>
-                    {item.title || "제목 없음"}
+                    {item.title || m.page.untitled}
                   </span>
                   {item.count > 1 ? (
                     <span className="shrink-0 text-label font-normal text-tertiary">
-                      {item.count}번
+                      {m.page.backlinks.count(item.count)}
                     </span>
                   ) : null}
                 </span>

@@ -5,6 +5,7 @@ import { FileText } from "lucide-react";
 import * as React from "react";
 import type { MentionTarget } from "./page-mention";
 import { PageIcon } from "@/components/ui/page-icon";
+import { useMessages } from "@/lib/i18n";
 
 export type MentionMenuProps = {
   items: MentionTarget[];
@@ -32,6 +33,7 @@ export function MentionMenu({
   id = "mention-menu",
   className,
 }: MentionMenuProps) {
+  const m = useMessages();
   const listRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     const active = items[activeIndex];
@@ -46,18 +48,18 @@ export function MentionMenu({
       ref={listRef}
       id={id}
       role={items.length ? "listbox" : "status"}
-      aria-label="페이지 멘션"
+      aria-label={m.editor.mention.menuLabel}
       data-slot="mention-menu"
       className={cn(popoverSurface, "max-h-80 w-72 overflow-y-auto overscroll-contain", className)}
     >
       {items.length === 0 ? (
         <p className="px-2 py-3 text-caption text-tertiary">
-          {query ? <>“{query}”에 맞는 페이지가 없어요.</> : "멘션할 페이지가 없어요."}
+          {query ? m.editor.mention.noMatch(query) : m.editor.mention.empty}
         </p>
       ) : (
         <>
           <p className={menuLabel} aria-hidden>
-            {query ? "페이지" : "최근 페이지"}
+            {query ? m.editor.mention.pages : m.editor.mention.recent}
           </p>
           {items.map((item, index) => {
             const selected = index === activeIndex;
@@ -80,7 +82,7 @@ export function MentionMenu({
                     <FileText strokeWidth={1.5} className="text-tertiary" />
                   )}
                 </span>
-                <span className="min-w-0 flex-1 truncate">{item.title || "제목 없음"}</span>
+                <span className="min-w-0 flex-1 truncate">{item.title || m.editor.untitled}</span>
               </div>
             );
           })}

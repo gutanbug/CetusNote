@@ -3,6 +3,7 @@ import { motionTokens } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "motion/react";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 /** 스플래시와 폴더 선택 화면이 같은 별자리를 이어 쓴다(Motion layoutId) */
 export const BRAND_MARK_LAYOUT_ID = "cetus-mark";
@@ -20,6 +21,7 @@ type SplashProps = {
  * 빛은 별자리의 radiant 빛만 쓴다(배경 글로우·그라데이션 없음, concept.md).
  */
 function Splash({ onDone, className }: SplashProps) {
+  const m = useMessages();
   const reduced = useReducedMotion();
   const t = motionTokens();
   const [drawn, setDrawn] = React.useState(false);
@@ -58,7 +60,7 @@ function Splash({ onDone, className }: SplashProps) {
   return (
     <section
       data-slot="splash"
-      aria-label="Cetus Note 시작 화면"
+      aria-label={m.page.splash.label}
       className={cn("grid min-h-full place-items-center bg-app px-6 py-12", className)}
     >
       <div className="grid justify-items-center gap-6 text-center">
@@ -78,10 +80,10 @@ function Splash({ onDone, className }: SplashProps) {
           transition={{ duration: t.slow, ease: t.ease }}
         >
           <p className="text-h1 font-semibold tracking-tight text-primary">Cetus Note</p>
-          <p className="text-ui text-secondary">흩어진 생각을 별자리처럼 잇는 노트</p>
+          <p className="text-ui text-secondary">{m.page.splash.tagline}</p>
         </motion.div>
         <p role="status" className="sr-only">
-          Cetus Note를 여는 중이에요. 아무 키나 누르면 건너뛰어요.
+          {m.page.splash.opening}
         </p>
       </div>
     </section>

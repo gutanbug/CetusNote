@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { COLOR_NAMES } from "@/components/ui/color-popover";
 import { SOFT_COLORS, softColor, type SoftColor } from "@/components/ui/tag-chip";
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n";
 
 /** 콜아웃에 바로 고를 수 있는 이모지. 전체 이모지 선택은 OV-EmojiPicker가 생기면 붙인다. */
 const CALLOUT_EMOJIS = ["💡", "📌", "✅", "⚠️", "❗", "ℹ️", "🔥", "📝", "💬", "🎯", "🚧", "⭐"];
@@ -26,6 +27,7 @@ declare module "@tiptap/core" {
 }
 
 function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
+  const m = useMessages();
   const color = (node.attrs.color ?? "blue") as SoftColor;
   const emoji = node.attrs.emoji as string;
   return (
@@ -42,23 +44,30 @@ function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
                 <button
                   type="button"
                   disabled={!editor.isEditable}
-                  aria-label="콜아웃 아이콘과 색 바꾸기"
+                  aria-label={m.editor.callout.customize}
                   className={cn("sn-callout-emoji", focusRing)}
                 >
                   {emoji}
                 </button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>아이콘과 색</TooltipContent>
+            <TooltipContent>{m.editor.callout.customizeTooltip}</TooltipContent>
           </Tooltip>
-          <PopoverContent aria-label="콜아웃 꾸미기" className="grid w-auto min-w-0 gap-2 p-2">
-            <div role="group" aria-label="아이콘" className="grid grid-cols-6 gap-1">
+          <PopoverContent
+            aria-label={m.editor.callout.popover}
+            className="grid w-auto min-w-0 gap-2 p-2"
+          >
+            <div
+              role="group"
+              aria-label={m.editor.callout.iconGroup}
+              className="grid grid-cols-6 gap-1"
+            >
               {CALLOUT_EMOJIS.map((e) => (
                 <button
                   key={e}
                   type="button"
                   aria-pressed={e === emoji}
-                  aria-label={`아이콘 ${e}`}
+                  aria-label={m.editor.callout.iconItem(e)}
                   onClick={() => updateAttributes({ emoji: e })}
                   className={cn(
                     "grid size-8 place-items-center rounded-pill text-body hover:bg-hover aria-pressed:bg-active force-hover:bg-hover",
@@ -69,13 +78,17 @@ function CalloutView({ node, updateAttributes, editor }: ReactNodeViewProps) {
                 </button>
               ))}
             </div>
-            <div role="group" aria-label="배경색" className="grid grid-cols-9 gap-1">
+            <div
+              role="group"
+              aria-label={m.editor.callout.colorGroup}
+              className="grid grid-cols-9 gap-1"
+            >
               {SOFT_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   aria-pressed={c === color}
-                  aria-label={`배경색 ${COLOR_NAMES[c]}`}
+                  aria-label={m.editor.callout.colorItem(COLOR_NAMES[c])}
                   onClick={() => updateAttributes({ color: c })}
                   className={cn(
                     "size-6 rounded-pill border border-line aria-pressed:ring-2 aria-pressed:ring-accent",

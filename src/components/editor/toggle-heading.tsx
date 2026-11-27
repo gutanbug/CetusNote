@@ -18,6 +18,7 @@ import { ChevronRight } from "lucide-react";
 import { focusRing } from "@/components/ui/styles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -102,6 +103,7 @@ const HEADING_ROW: Record<number, { pad: string; text: string }> = {
 };
 
 function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
+  const m = useMessages();
   const open = node.attrs.open !== false;
   // 이름은 고정(「토글」), 상태는 aria-expanded가 전한다. 툴팁 문구만 동작을 말한다
   const row = HEADING_ROW[Number(node.firstChild?.attrs.level)] ?? HEADING_ROW[1];
@@ -127,7 +129,7 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
               type="button"
               disabled={!editor.isEditable}
               aria-expanded={open}
-              aria-label="토글"
+              aria-label={m.editor.toggle.toggleAria}
               onClick={onToggle}
               className={cn(
                 "grid size-6 shrink-0 place-items-center rounded-md text-secondary transition-colors hover:bg-hover force-hover:bg-hover",
@@ -144,7 +146,9 @@ function ToggleHeadingView({ node, editor, getPos }: ReactNodeViewProps) {
               />
             </button>
           </TooltipTrigger>
-          <TooltipContent>{open ? "접기" : "펼치기"}</TooltipContent>
+          <TooltipContent>
+            {open ? m.editor.toggle.collapse : m.editor.toggle.expand}
+          </TooltipContent>
         </Tooltip>
       </div>
       {/* 제목의 위 여백은 행(wrapper)이 가져가므로 제목 자신의 mt는 지운다 */}

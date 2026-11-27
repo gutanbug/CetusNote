@@ -1,13 +1,8 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { insetFocus } from "./parts";
 
 export type SaveState = "saved" | "saving" | "error";
-
-const TEXT: Record<SaveState, string> = {
-  saved: "모든 변경사항 저장됨",
-  saving: "저장 중…",
-  error: "저장하지 못했어요",
-};
 
 type SaveStatusProps = {
   state: SaveState;
@@ -21,6 +16,7 @@ type SaveStatusProps = {
  * 저장됨·저장 중은 조용히(role="status"), 오류는 바로(role="alert") 읽는다.
  */
 function SaveStatus({ state, onRetry, className }: SaveStatusProps) {
+  const m = useMessages();
   return (
     <div
       data-slot="save-status"
@@ -42,7 +38,7 @@ function SaveStatus({ state, onRetry, className }: SaveStatusProps) {
         role={state === "error" ? "alert" : "status"}
         className={cn("min-w-0 flex-1 truncate", state === "error" && "text-danger")}
       >
-        {TEXT[state]}
+        {m.shell.saveStatus[state]}
       </span>
       {state === "error" && onRetry ? (
         <button
@@ -53,7 +49,7 @@ function SaveStatus({ state, onRetry, className }: SaveStatusProps) {
             insetFocus,
           )}
         >
-          다시 시도
+          {m.shell.saveStatus.retry}
         </button>
       ) : null}
     </div>

@@ -4,6 +4,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs
 import { Download, ExternalLink, ZoomIn, ZoomOut } from "lucide-react";
 import * as React from "react";
 import { FileAttachment, type AttachmentActions } from "./file-attachment";
+import { useMessages } from "@/lib/i18n";
 
 // pdf.js는 PDF 블록이 마운트될 때만 불러온다 (번들 분할). 워커도 앱 번들의 파일이다(CSP 'self').
 type PdfJs = typeof import("pdfjs-dist");
@@ -67,6 +68,7 @@ function PdfPage({
   root: React.RefObject<HTMLDivElement | null>;
   register: (el: HTMLDivElement | null) => void;
 }) {
+  const m = useMessages();
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [visible, setVisible] = React.useState(false);
@@ -123,7 +125,7 @@ function PdfPage({
       {visible && (
         <canvas
           ref={canvasRef}
-          aria-label={`${pageNumber}쪽`}
+          aria-label={m.editor.pdf.page(pageNumber)}
           role="img"
           style={{ width: cssWidth, height: cssHeight }}
           className="block"
@@ -148,6 +150,7 @@ export function PdfViewer({
   className,
   ...actions
 }: PdfViewerProps) {
+  const m = useMessages();
   const url = resolveSrc ? resolveSrc(src) : src;
   const [loaded, setLoaded] = React.useState<Load | null>(null);
   const load: Load | { status: "loading" } = loaded?.url === url ? loaded : { status: "loading" };
@@ -207,7 +210,7 @@ export function PdfViewer({
         missing={missing}
         selected={selected}
         editable={editable}
-        notice={missing ? undefined : "미리 보기를 열 수 없어요"}
+        notice={missing ? undefined : m.editor.pdf.unavailable}
         className={className}
         {...actions}
       />
@@ -251,15 +254,15 @@ export function PdfViewer({
       {ready ? (
         <div
           role="toolbar"
-          aria-label="PDF 도구"
+          aria-label={m.editor.pdf.tools}
           className="flex items-center gap-1 border-b border-line px-2 py-1"
         >
           <span className="px-1 text-caption text-secondary tabular-nums">
-            {current} / {ready.pageCount} 쪽
+            {m.editor.pdf.pageOf(current, ready.pageCount)}
           </span>
           <span className="flex-1" />
           <IconButton
-            label="축소"
+            label={m.editor.pdf.zoomOut}
             disabled={zoomIndex === 0}
             onClick={() => setZoom(zoomIndex - 1)}
           >
@@ -269,7 +272,7 @@ export function PdfViewer({
             {Math.round(zoom * 100)}%
           </span>
           <IconButton
-            label="확대"
+            label={m.editor.pdf.zoomIn}
             disabled={zoomIndex === ZOOMS.length - 1}
             onClick={() => setZoom(zoomIndex + 1)}
           >
@@ -279,12 +282,12 @@ export function PdfViewer({
             <span aria-hidden className="mx-1 h-4 w-px bg-line" />
           )}
           {actions.onOpen && (
-            <IconButton label="외부 앱에서 열기" onClick={actions.onOpen}>
+            <IconButton label={m.editor.pdf.openExternal} onClick={actions.onOpen}>
               <ExternalLink strokeWidth={1.5} />
             </IconButton>
           )}
           {actions.onDownload && (
-            <IconButton label="다른 이름으로 저장" onClick={actions.onDownload}>
+            <IconButton label={m.editor.attachment.saveAs} onClick={actions.onDownload}>
               <Download strokeWidth={1.5} />
             </IconButton>
           )}
@@ -293,7 +296,7 @@ export function PdfViewer({
       <div
         ref={regionRef}
         role="group"
-        aria-label={`${name} 미리 보기`}
+        aria-label={m.editor.pdf.previewAria(name)}
         aria-busy={!ready}
         tabIndex={0}
         onScroll={onScroll}
@@ -322,7 +325,7 @@ export function PdfViewer({
           </div>
         ) : (
           <p role="status" className="py-16 text-center text-caption text-tertiary">
-            PDF 불러오는 중…
+            {m.editor.pdf.loading}
           </p>
         )}
       </div>

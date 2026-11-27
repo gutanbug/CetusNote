@@ -17,6 +17,7 @@ import {
 } from "@/lib/code-language";
 import { cn } from "@/lib/utils";
 import { incrementalLowlight } from "./code-highlight";
+import { msg } from "@/lib/i18n";
 
 export { CODE_LANGUAGES, lowlight, normalizeLanguage };
 
@@ -132,7 +133,7 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
   bar.contentEditable = "false";
   const label = el("label", "sr-only");
   label.htmlFor = selectId;
-  label.textContent = "코드 언어";
+  label.textContent = msg().editor.codeBlock.languageLabel;
   const wrap = el("span", "relative inline-grid");
   const sizer = el(
     "span",
@@ -149,7 +150,7 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
   const copyBtn = el("button", COPY_CLASS);
   copyBtn.type = "button";
   copyBtn.setAttribute("data-press", "");
-  copyBtn.setAttribute("aria-label", "코드 복사");
+  copyBtn.setAttribute("aria-label", msg().editor.codeBlock.copy);
   const copyIcon = el("span", "inline-grid place-items-center");
   copyBtn.append(copyIcon);
   const pre = el("pre");
@@ -161,7 +162,10 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
   pre.append(code);
   dom.append(bar, pre);
 
-  const autoLabel = () => (detected ? `자동 감지 · ${languageLabel(detected)}` : "자동 감지");
+  const autoLabel = () =>
+    detected
+      ? msg().editor.codeBlock.autoDetectWith(languageLabel(detected))
+      : msg().editor.codeBlock.autoDetect;
   const attrLanguage = () => node.attrs.language as string | null;
 
   /** 목록을 채우기 전에는 현재 언어 한 칸만 둔다. 펼칠 때 전체 목록을 채운다. */
@@ -236,7 +240,7 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
     dom.toggleAttribute("data-copied", value);
     if (value) copyBtn.setAttribute("data-on", "true");
     else copyBtn.removeAttribute("data-on");
-    status.textContent = value ? "복사됨" : "";
+    status.textContent = value ? msg().editor.codeBlock.copied : "";
     if (chromeRoot)
       chromeRoot.render(
         <BlockChrome copied={copiedNow} chevronSlot={chevron} iconSlot={copyIcon} />,
@@ -272,7 +276,7 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
       copyTimer = setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
-      status.textContent = "복사 실패";
+      status.textContent = msg().editor.codeBlock.copyFailed;
     }
   });
 

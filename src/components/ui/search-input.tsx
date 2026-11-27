@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import type * as React from "react";
@@ -16,10 +17,12 @@ function SearchInput({
   className,
   value,
   onValueChange,
-  clearLabel = "검색어 지우기",
+  clearLabel: clearLabelProp,
   onKeyDown,
   ...props
 }: SearchInputProps) {
+  const m = useMessages();
+  const clearLabel = clearLabelProp ?? m.ui.search.clear;
   return (
     <div data-slot="search-input" className={cn("relative", className)}>
       <Search

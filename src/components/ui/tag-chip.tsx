@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -47,6 +48,7 @@ type TagChipProps = Omit<React.ComponentProps<"span">, "color"> & {
 
 /** UI-TagChip — 프로토타입 .chip[data-color] */
 function TagChip({ color, onRemove, removeLabel, className, children, ...props }: TagChipProps) {
+  const m = useMessages();
   return (
     <span
       data-slot="tag-chip"
@@ -58,7 +60,10 @@ function TagChip({ color, onRemove, removeLabel, className, children, ...props }
         <button
           type="button"
           onClick={onRemove}
-          aria-label={removeLabel ?? `${typeof children === "string" ? children : "태그"} 삭제`}
+          aria-label={
+            removeLabel ??
+            m.ui.tag.remove(typeof children === "string" ? children : m.ui.tag.untitled)
+          }
           className={cn(
             // 보조 컨트롤: 칩에 마우스를 올리거나 키보드로 오면 드러난다 (taste B).
             // 자리를 차지하지 않게 칩 오른쪽 끝에 겹쳐 띄운다 — 숨어 있을 때도 글자가 가운데에 온다

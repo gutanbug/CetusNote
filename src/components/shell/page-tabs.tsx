@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { IconButton } from "@/components/ui/icon-button";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ function PageTabs({
   titleBar,
   className,
 }: PageTabsProps) {
+  const m = useMessages();
   const listRef = React.useRef<HTMLDivElement>(null);
   const tabAt = (i: number) =>
     listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[i] ?? null;
@@ -92,7 +94,7 @@ function PageTabs({
       <div
         ref={listRef}
         role="tablist"
-        aria-label="열린 탭"
+        aria-label={m.shell.tabs.label}
         className="flex min-w-0 [scrollbar-width:none] items-stretch overflow-x-auto overscroll-contain"
       >
         {items.map((item, i) => {
@@ -153,7 +155,7 @@ function PageTabs({
         })}
       </div>
       <IconButton
-        label="새 탭"
+        label={m.shell.tabs.newTab}
         shortcut={<Kbd keys={["⌘", "T"]} />}
         onClick={onAdd}
         className="my-auto ml-1 shrink-0"

@@ -1,3 +1,4 @@
+/* i18n-ignore-file — 스토리 전용 샘플 문서 본문 (앱 데이터·기본 템플릿이 아님) */
 import type { PreviewNode } from "./doc-preview";
 
 /** 스토리용 템플릿 본문 견본 (실제 기본 템플릿과 같은 모양) */

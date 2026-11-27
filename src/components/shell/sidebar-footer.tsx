@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type * as React from "react";
@@ -23,6 +24,7 @@ function SidebarFooter({
   children,
   className,
 }: SidebarFooterProps) {
+  const m = useMessages();
   return (
     <div
       data-slot="sidebar-footer"
@@ -31,7 +33,7 @@ function SidebarFooter({
       {children}
       <SidebarItem
         icon={Trash2}
-        label="휴지통"
+        label={m.shell.sidebar.trash}
         count={trashCount}
         aria-haspopup="dialog"
         onClick={onOpenTrash}

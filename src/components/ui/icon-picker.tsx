@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { iconValue, parsePageIcon } from "@/lib/page-icon";
 import { cn } from "@/lib/utils";
 import { ImageUp, Shuffle } from "lucide-react";
@@ -68,6 +69,7 @@ function IconPicker({
   defaultTab,
   className,
 }: IconPickerProps) {
+  const m = useMessages();
   const current = parsePageIcon(value);
   const [tab, setTab] = React.useState<IconPickerTab>(
     defaultTab ??
@@ -84,20 +86,20 @@ function IconPicker({
       className={cn("flex w-80 flex-col text-primary", className)}
     >
       <div className="flex items-center gap-3 border-b border-line px-3">
-        <Tabs.List aria-label="아이콘 종류" className="flex gap-3">
+        <Tabs.List aria-label={m.ui.iconPicker.tabs} className="flex gap-3">
           <Tabs.Trigger value="emoji" className={tabClass}>
-            이모지
+            {m.ui.iconPicker.emoji}
           </Tabs.Trigger>
           <Tabs.Trigger value="icon" className={tabClass}>
-            아이콘
+            {m.ui.iconPicker.icon}
           </Tabs.Trigger>
           <Tabs.Trigger value="upload" className={tabClass}>
-            업로드
+            {m.ui.iconPicker.upload}
           </Tabs.Trigger>
         </Tabs.List>
         {value && onRemove ? (
           <Button size="sm" variant="ghost" className="ml-auto" onClick={onRemove}>
-            제거
+            {m.ui.iconPicker.remove}
           </Button>
         ) : null}
       </div>
@@ -150,6 +152,8 @@ function IconTab({
   onSelect: (icon: string) => void;
   onApply?: (icon: string) => void;
 }) {
+  const m = useMessages();
+  const catNames: Record<string, string> = m.ui.iconPicker.categories;
   const [query, setQuery] = React.useState("");
   const [color, setColor] = React.useState<string>(current?.color ?? "default");
   const q = query.trim().toLowerCase();
@@ -157,12 +161,16 @@ function IconTab({
   const groups = React.useMemo(() => {
     const cats = PAGE_ICON_CATEGORIES.map((c) => ({
       id: c.id,
-      name: c.name,
+      name: catNames[c.id] ?? c.name,
       icons: q ? c.icons.filter((i) => matches(i, q)) : c.icons,
     })).filter((c) => c.icons.length);
     const found = cats.flatMap((c) => c.icons);
-    return q ? (found.length ? [{ id: "result", name: "검색 결과", icons: found }] : []) : cats;
-  }, [q]);
+    return q
+      ? found.length
+        ? [{ id: "result", name: m.ui.iconPicker.searchResults, icons: found }]
+        : []
+      : cats;
+  }, [q, m, catNames]);
 
   const recentEntries = q
     ? []
@@ -176,7 +184,10 @@ function IconTab({
         // 색만 다른 같은 아이콘은 한 번만
         .filter((e, i, all) => all.indexOf(e) === i);
   const sections = recentEntries.length
-    ? [{ id: "recent", name: "최근", icons: recentEntries.slice(0, COLUMNS) }, ...groups]
+    ? [
+        { id: "recent", name: m.ui.iconPicker.recent, icons: recentEntries.slice(0, COLUMNS) },
+        ...groups,
+      ]
     : groups;
 
   const pick = (name: string) => onSelect(iconValue(name, color));
@@ -192,21 +203,21 @@ function IconTab({
       <div className="flex items-center gap-2 p-2">
         <input
           type="search"
-          aria-label="아이콘 검색"
-          placeholder="아이콘 검색…"
+          aria-label={m.ui.iconPicker.search}
+          placeholder={m.ui.iconPicker.searchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           // 이모지 탭과 검색 칸 폭을 같게 맞춘다 (w-56). 뒤 버튼 수가 달라도 칸은 그대로
           className={cn(inputClass, "min-h-8 w-56 shrink-0")}
         />
-        <IconButton label="무작위 아이콘" size="md" onClick={shuffle}>
+        <IconButton label={m.ui.iconPicker.random} size="md" onClick={shuffle}>
           <Shuffle strokeWidth={1.5} />
         </IconButton>
       </div>
 
       <ToggleGroup.Root
         type="single"
-        aria-label="아이콘 색"
+        aria-label={m.ui.iconPicker.color}
         value={color}
         onValueChange={(c) => {
           if (!c) return;
@@ -219,7 +230,7 @@ function IconTab({
           <ToggleGroup.Item
             key={c}
             value={c}
-            aria-label={COLOR_NAMES[c]}
+            aria-label={m.ui.color[c]}
             className={cn(
               "grid size-6 place-items-center rounded-pill hover:bg-hover data-[state=on]:bg-active force-hover:bg-hover",
               focusRing,
@@ -241,24 +252,11 @@ function IconTab({
         colorClass={iconColorClass(color === "default" ? null : color)}
         selected={current?.name}
         onPick={pick}
-        empty={q ? `“${query.trim()}”에 맞는 아이콘이 없어요.` : undefined}
+        empty={q ? m.ui.iconPicker.noResults(query.trim()) : undefined}
       />
     </div>
   );
 }
-
-const COLOR_NAMES: Record<"default" | (typeof SOFT_COLORS)[number], string> = {
-  default: "기본",
-  gray: "회색",
-  brown: "갈색",
-  orange: "주황",
-  yellow: "노랑",
-  green: "초록",
-  blue: "파랑",
-  purple: "보라",
-  pink: "분홍",
-  red: "빨강",
-};
 
 type Section = { id: string; name: string; icons: PageIconEntry[] };
 
@@ -276,6 +274,7 @@ function IconGrid({
   onPick: (name: string) => void;
   empty?: string;
 }) {
+  const m = useMessages();
   // 줄 단위 위치 (카테고리마다 줄을 새로 시작한다)
   const rows = React.useMemo(() => {
     const out: { key: string }[][] = [];
@@ -323,7 +322,7 @@ function IconGrid({
       <div
         ref={listRef}
         role="group"
-        aria-label="아이콘 목록"
+        aria-label={m.ui.iconPicker.list}
         className="min-h-0 flex-1 overflow-y-auto pb-2"
       >
         {sections.length === 0 ? (
@@ -399,7 +398,7 @@ function IconGrid({
             <span className="truncate text-caption text-secondary">{hover.keywords}</span>
           </>
         ) : (
-          <span className="text-caption text-tertiary">아이콘을 골라 주세요</span>
+          <span className="text-caption text-tertiary">{m.ui.iconPicker.pickHint}</span>
         )}
       </div>
     </>
@@ -428,6 +427,7 @@ function UploadTab({
   uploading?: boolean;
   error?: string;
 }) {
+  const m = useMessages();
   const [over, setOver] = React.useState(false);
   const [link, setLink] = React.useState("");
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -480,7 +480,7 @@ function UploadTab({
       >
         <ImageUp aria-hidden strokeWidth={1.5} className="size-5 text-tertiary" />
         <span role="status">
-          {uploading ? "올리는 중…" : "이미지를 끌어 놓거나, 눌러서 고르거나, 붙여 넣으세요"}
+          {uploading ? m.ui.iconPicker.uploading : m.ui.iconPicker.dropzone}
         </span>
       </button>
       <input
@@ -504,13 +504,13 @@ function UploadTab({
           }}
         >
           <label htmlFor={linkId} className="sr-only">
-            이미지 링크
+            {m.ui.iconPicker.imageLink}
           </label>
           <input
             id={linkId}
             type="url"
             inputMode="url"
-            placeholder="이미지 링크 붙여넣기"
+            placeholder={m.ui.iconPicker.linkPlaceholder}
             value={link}
             readOnly={uploading}
             aria-invalid={error ? true : undefined}
@@ -525,7 +525,7 @@ function UploadTab({
             disabled={!link.trim()}
             aria-disabled={uploading || undefined}
           >
-            올리기
+            {m.ui.iconPicker.apply}
           </Button>
         </form>
       ) : null}
@@ -538,13 +538,19 @@ function UploadTab({
 
       {recent.length ? (
         <div className="min-h-0">
-          <div className="pb-1 text-label font-medium text-tertiary">최근</div>
-          <div role="group" aria-label="최근 올린 이미지" className="grid grid-cols-8 gap-1">
+          <div className="pb-1 text-label font-medium text-tertiary">
+            {m.ui.iconPicker.recentImages}
+          </div>
+          <div
+            role="group"
+            aria-label={m.ui.iconPicker.recentImagesGroup}
+            className="grid grid-cols-8 gap-1"
+          >
             {recent.slice(0, 16).map((r, i) => (
               <button
                 key={r}
                 type="button"
-                aria-label={`최근 올린 이미지 ${i + 1}`}
+                aria-label={m.ui.iconPicker.recentImage(i + 1)}
                 onClick={() => onSelect(r)}
                 className={cn(
                   "grid size-8 place-items-center rounded-md text-h3 hover:bg-hover force-hover:bg-hover",

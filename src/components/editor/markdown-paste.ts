@@ -9,6 +9,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Marked } from "marked";
 import { calloutColorOf } from "@/lib/callout-type";
 import { imagesToFigures } from "./remote-images";
+import { msg } from "@/lib/i18n";
 
 /** 줄 맨 앞 블록 기호: 제목 · 목록 · 할 일 · 인용 · 코드 울타리 · 표 · 구분선 */
 const BLOCK_LINE =
@@ -312,7 +313,7 @@ export function markdownToDom(
       if (label === undefined) continue;
       const span = doc.createElement("span");
       span.setAttribute("data-page-mention", id);
-      span.textContent = label || "제목 없음";
+      span.textContent = label || msg().editor.untitled;
       a.replaceWith(span);
     }
   // marked는 코드 블록 끝에 줄바꿈을 하나 더 붙인다

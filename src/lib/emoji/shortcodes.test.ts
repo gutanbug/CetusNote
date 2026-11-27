@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocale } from "@/lib/i18n";
 import {
   matchShortcodes,
   nextActiveIndex,
@@ -40,5 +41,16 @@ describe("이모지 단축 코드", () => {
     expect(nextActiveIndex(2, "ArrowDown", 3)).toBe(0);
     expect(nextActiveIndex(0, "ArrowUp", 3)).toBe(2);
     expect(nextActiveIndex(0, "ArrowUp", 0)).toBe(-1);
+  });
+});
+
+describe("이모지 단축 코드 이름 (SYS-14)", () => {
+  afterEach(() => setLocale("ko"));
+
+  it("이름은 지금 언어로 읽힌다", () => {
+    const smile = SHORTCODES.find((s) => s.code === "smile");
+    expect(smile?.label).toBe("웃는 얼굴");
+    setLocale("en");
+    expect(smile?.label).toBe("Smiling face");
   });
 });

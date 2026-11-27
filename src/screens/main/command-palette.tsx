@@ -64,6 +64,7 @@ import { closeTabAt, newTab } from "./tabs";
 import { useMainUi } from "./ui-store";
 import { PageIcon } from "@/components/ui/page-icon";
 import type { Page } from "@/lib/storage";
+import { useMessages } from "@/lib/i18n";
 
 const ic = { strokeWidth: 1.5 } as const;
 
@@ -98,19 +99,25 @@ type Command = {
   run: () => void;
 };
 
-const THEMES: { value: ThemePref; title: string; icon: LucideIcon; keywords: string[] }[] = [
+type ThemeTitleKey = "lightTheme" | "darkTheme" | "systemTheme";
+const THEMES: {
+  value: ThemePref;
+  titleKey: ThemeTitleKey;
+  icon: LucideIcon;
+  keywords: string[];
+}[] = [
   {
     value: "light",
-    title: "라이트 테마로 바꾸기",
+    titleKey: "lightTheme",
     icon: Sun,
-    keywords: ["theme", "light", "밝게"],
+    keywords: ["theme", "light", "밝게"], // i18n-ignore
   },
-  { value: "dark", title: "다크 테마로 바꾸기", icon: Moon, keywords: ["theme", "dark", "어둡게"] },
+  { value: "dark", titleKey: "darkTheme", icon: Moon, keywords: ["theme", "dark", "어둡게"] }, // i18n-ignore
   {
     value: "system",
-    title: "시스템 테마 따르기",
+    titleKey: "systemTheme",
     icon: Monitor,
-    keywords: ["theme", "system", "테마", "자동"],
+    keywords: ["theme", "system", "테마", "자동"], // i18n-ignore
   },
 ];
 
@@ -118,6 +125,7 @@ const NO_PAGES: Record<string, Page> = {};
 
 /** 팔레트에서 실행할 명령 (SRCH-02). 지금 상태에 맞는 것만 — 이미 켜진 테마는 빼고, 페이지 명령은 열린 페이지가 있을 때만 */
 function useCommands(): Command[] {
+  const m = useMessages();
   const pages = usePages((s) => s.structure);
   const activeId = useSession((s) => s.activeId);
   const theme = useSession((s) => s.appearance.theme);
@@ -133,54 +141,54 @@ function useCommands(): Command[] {
     const list: Command[] = [
       {
         id: "home",
-        title: "홈으로",
-        keywords: ["home", "dashboard", "대시보드", "할 일"],
+        title: m.screens.palette.cmd.home,
+        keywords: ["home", "dashboard", "대시보드", "할 일"], // i18n-ignore
         icon: House,
         run: () => ui.setView({ kind: "home" }),
       },
       {
         id: "new-tab",
-        title: "새 탭",
-        keywords: ["tab", "new tab", "탭"],
+        title: m.screens.palette.cmd.newTab,
+        keywords: ["tab", "new tab", "탭"], // i18n-ignore
         icon: SquarePlus,
         keys: ["⌘", "T"],
         run: () => newTab(),
       },
       {
         id: "close-tab",
-        title: "탭 닫기",
-        keywords: ["tab", "close", "탭"],
+        title: m.screens.palette.cmd.closeTab,
+        keywords: ["tab", "close", "탭"], // i18n-ignore
         icon: X,
         keys: ["⌘", "W"],
         run: () => closeTabAt(),
       },
       {
         id: "templates",
-        title: "템플릿에서 새 페이지",
-        keywords: ["template", "gallery", "템플릿", "회의록", "일일 노트"],
+        title: m.screens.palette.cmd.templateNewPage,
+        keywords: ["template", "gallery", "템플릿", "회의록", "일일 노트"], // i18n-ignore
         icon: LayoutTemplate,
         keys: ["⌘", "⇧", "T"],
         run: () => ui.setTemplatesOpen(true),
       },
       {
         id: "quick-note",
-        title: "빠른 메모",
-        keywords: ["quick", "note", "memo", "메모", "생각"],
+        title: m.screens.palette.cmd.quickNote,
+        keywords: ["quick", "note", "memo", "메모", "생각"], // i18n-ignore
         icon: NotebookPen,
         keys: ["⌘", "⇧", "N"],
         run: () => openQuickNote(),
       },
       {
         id: "daily-note",
-        title: "오늘의 일일 노트",
-        keywords: ["daily", "today", "journal", "오늘", "일기", "일지", "데일리"],
+        title: m.screens.palette.cmd.todayDaily,
+        keywords: ["daily", "today", "journal", "오늘", "일기", "일지", "데일리"], // i18n-ignore
         icon: CalendarDays,
         keys: ["⌥", "⌘", "T"],
         run: () => openDailyNote(),
       },
       {
         id: "import-document",
-        title: "문서 가져오기…",
+        title: m.screens.palette.cmd.importDocs,
         keywords: [
           "import",
           "document",
@@ -190,96 +198,98 @@ function useCommands(): Command[] {
           "html",
           "docx",
           "pdf",
-          "가져오기",
-          "불러오기",
-          "문서",
-          "파일",
+          "가져오기", // i18n-ignore
+          "불러오기", // i18n-ignore
+          "문서", // i18n-ignore
+          "파일", // i18n-ignore
         ],
         icon: FileDown,
         run: () => void importDocuments(),
       },
       {
         id: "import-app",
-        title: "다른 앱에서 가져오기…",
+        title: m.screens.palette.cmd.importApps,
         keywords: [
           "import",
           "notion",
           "obsidian",
           "appflowy",
           "affine",
-          "가져오기",
-          "노션",
-          "옵시디언",
-          "앱",
+          "가져오기", // i18n-ignore
+          "노션", // i18n-ignore
+          "옵시디언", // i18n-ignore
+          "앱", // i18n-ignore
         ],
         icon: FileDown,
         run: () => openImportAppPicker(),
       },
       {
         id: "export-workspace-markdown",
-        title: "워크스페이스를 Markdown으로 내보내기",
+        title: m.screens.palette.cmd.exportWorkspace,
         keywords: [
           "export",
           "markdown",
           "md",
           "workspace",
-          "내보내기",
-          "전체",
-          "모두",
-          "백업",
-          "워크스페이스",
+          "내보내기", // i18n-ignore
+          "전체", // i18n-ignore
+          "모두", // i18n-ignore
+          "백업", // i18n-ignore
+          "워크스페이스", // i18n-ignore
         ],
         icon: Download,
         run: () => void exportWorkspaceMarkdown(),
       },
       {
         id: "settings",
-        title: "설정 열기",
-        keywords: ["settings", "preferences", "환경설정"],
+        title: m.screens.palette.cmd.openSettings,
+        keywords: ["settings", "preferences", "환경설정"], // i18n-ignore
         icon: Settings,
         keys: ["⌘", ","],
         run: () => ui.openSettings(),
       },
       {
         id: "shortcuts",
-        title: "단축키 보기",
-        keywords: ["shortcuts", "keyboard", "키보드"],
+        title: m.screens.palette.cmd.shortcuts,
+        keywords: ["shortcuts", "keyboard", "키보드"], // i18n-ignore
         icon: Keyboard,
         run: () => ui.openSettings("shortcuts"),
       },
       {
         id: "check-update",
-        title: "업데이트 확인",
-        keywords: ["update", "upgrade", "version", "업데이트", "버전", "새 버전", "최신"],
+        title: m.screens.palette.cmd.checkUpdate,
+        keywords: ["update", "upgrade", "version", "업데이트", "버전", "새 버전", "최신"], // i18n-ignore
         icon: RefreshCw,
         run: () => void checkForUpdates(),
       },
       {
         id: "release-notes",
-        title: "릴리스 노트 보기",
+        title: m.screens.palette.cmd.releaseNotes,
         keywords: [
           "release notes",
           "changelog",
           "what's new",
           "update",
-          "릴리스",
-          "업데이트 내용",
-          "변경",
-          "새 기능",
+          "릴리스", // i18n-ignore
+          "업데이트 내용", // i18n-ignore
+          "변경", // i18n-ignore
+          "새 기능", // i18n-ignore
         ],
         icon: ScrollText,
         run: () => void openWhatsNewForCurrent(),
       },
       ...THEMES.filter((t) => t.value !== theme).map((t) => ({
         id: `theme-${t.value}`,
-        title: t.title,
+        title: m.screens.palette.cmd[t.titleKey],
         keywords: t.keywords,
         icon: t.icon,
         run: () => sessionStore.getState().setAppearance({ theme: t.value }),
       })),
       {
         id: "sidebar",
-        title: collapsed ? "사이드바 펼치기" : "사이드바 접기",
+        title: collapsed
+          ? m.screens.palette.cmd.expandSidebar
+          : m.screens.palette.cmd.collapseSidebar,
         keywords: ["sidebar", "panel"],
         icon: PanelLeft,
         keys: ["⌘", "\\"],
@@ -287,8 +297,8 @@ function useCommands(): Command[] {
       },
       {
         id: "focus",
-        title: focusMode ? "집중 모드 끄기" : "집중 모드 켜기",
-        keywords: ["focus", "zen", "집중"],
+        title: focusMode ? m.screens.palette.cmd.focusOff : m.screens.palette.cmd.focusOn,
+        keywords: ["focus", "zen", "집중"], // i18n-ignore
         icon: Focus,
         keys: ["⌘", "."],
         run: () => useMainUi.getState().setFocusMode(!focusMode),
@@ -299,30 +309,30 @@ function useCommands(): Command[] {
       list.push(
         {
           id: "favorite",
-          title: fav ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가",
-          keywords: ["favorite", "star", "즐겨찾기"],
+          title: fav ? m.screens.palette.cmd.unfavorite : m.screens.palette.cmd.favorite,
+          keywords: ["favorite", "star", "즐겨찾기"], // i18n-ignore
           icon: fav ? StarOff : Star,
           run: () => toggleFavorite(page.id),
         },
         {
           id: "duplicate",
-          title: "페이지 복제",
-          keywords: ["duplicate", "copy", "복사"],
+          title: m.screens.palette.cmd.duplicate,
+          keywords: ["duplicate", "copy", "복사"], // i18n-ignore
           icon: Copy,
           keys: ["⌘", "D"],
           run: () => void duplicatePage(page.id),
         },
         {
           id: "export",
-          title: "Markdown으로 내보내기",
-          keywords: ["export", "markdown", "md", "내보내기"],
+          title: m.screens.palette.cmd.exportMd,
+          keywords: ["export", "markdown", "md", "내보내기"], // i18n-ignore
           icon: Download,
           run: () => void exportMarkdown(page.id),
         },
         {
           id: "export-pdf",
-          title: "PDF로 내보내기",
-          keywords: ["export", "pdf", "print", "인쇄", "내보내기"],
+          title: m.screens.palette.cmd.exportPdf,
+          keywords: ["export", "pdf", "print", "인쇄", "내보내기"], // i18n-ignore
           icon: Printer,
           run: () => void exportPdf(page.id),
         },
@@ -331,8 +341,8 @@ function useCommands(): Command[] {
           ? [
               {
                 id: "history",
-                title: "버전 기록",
-                keywords: ["history", "version", "restore", "버전", "되돌리기", "기록"],
+                title: m.screens.palette.cmd.history,
+                keywords: ["history", "version", "restore", "버전", "되돌리기", "기록"], // i18n-ignore
                 icon: History,
                 run: () => useMainUi.getState().setHistoryPageId(page.id),
               },
@@ -340,15 +350,15 @@ function useCommands(): Command[] {
           : []),
         {
           id: "trash",
-          title: "휴지통으로 옮기기",
-          keywords: ["delete", "trash", "삭제", "지우기"],
+          title: m.screens.palette.cmd.trash,
+          keywords: ["delete", "trash", "삭제", "지우기"], // i18n-ignore
           icon: Trash2,
           run: () => moveToTrash(page.id),
         },
       );
     }
     return list;
-  }, [pages, activeId, theme, collapsed, focusMode, favorites]);
+  }, [pages, activeId, theme, collapsed, focusMode, favorites, m]);
 }
 
 /** 열고 난 뒤 본문으로 (렌더가 끝난 다음 프레임) */
@@ -368,6 +378,7 @@ function focusBody() {
  * 거르기는 cmdk가 아니라 메모리 검색 인덱스가 한다(ADR-003).
  */
 export function CommandPalette() {
+  const m = useMessages();
   const open = useMainUi((s) => s.paletteOpen);
   const setOpen = useMainUi((s) => s.setPaletteOpen);
   // 팔레트가 닫혀 있으면 본문 변경(타이핑)에 다시 그리지 않는다 (SYS-10)
@@ -436,9 +447,9 @@ export function CommandPalette() {
       onSelect={create}
       icon={<FilePlus2 {...ic} />}
       right={<Kbd keys={q ? ["⌘", "↵"] : ["⌘", "N"]} />}
-      title={q ? `“${q}” 페이지 만들기` : "새 페이지"}
+      title={q ? m.screens.palette.createPage(q) : m.screens.palette.newPage}
     >
-      {q ? `“${q}” 페이지 만들기` : "새 페이지"}
+      {q ? m.screens.palette.createPage(q) : m.screens.palette.newPage}
     </CommandItem>
   );
 
@@ -447,14 +458,14 @@ export function CommandPalette() {
       open={open}
       onOpenChange={(o) => (o ? setOpen(true) : close(true))}
       shouldFilter={false}
-      label="명령 팔레트"
+      label={m.screens.palette.label}
       value={active}
       onValueChange={setActive}
     >
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder="페이지 검색 · > 명령"
+        placeholder={m.screens.palette.placeholder}
         onKeyDown={(e) => {
           if (
             e.key === "Enter" &&
@@ -470,12 +481,12 @@ export function CommandPalette() {
       />
       <CommandList>
         {commandMode ? (
-          <CommandEmpty>맞는 명령이 없어요.</CommandEmpty>
+          <CommandEmpty>{m.screens.palette.emptyCommands}</CommandEmpty>
         ) : q ? (
-          <CommandEmpty>“{q}”에 맞는 페이지가 없어요.</CommandEmpty>
+          <CommandEmpty>{m.screens.palette.emptyQuery(q)}</CommandEmpty>
         ) : null}
         {items.length ? (
-          <CommandGroup heading={q ? "결과" : "최근"}>
+          <CommandGroup heading={q ? m.screens.palette.results : m.screens.palette.recent}>
             {items.map((it) => (
               <CommandItem
                 key={it.id}
@@ -499,10 +510,10 @@ export function CommandPalette() {
                     </>
                   ) : undefined
                 }
-                title={it.title || "제목 없음"}
+                title={it.title || m.screens.palette.untitled}
               >
                 <Marked
-                  text={it.title || "제목 없음"}
+                  text={it.title || m.screens.palette.untitled}
                   ranges={it.title ? it.titleHighlights : []}
                 />
               </CommandItem>
@@ -510,9 +521,9 @@ export function CommandPalette() {
           </CommandGroup>
         ) : null}
         {!q && !commandMode && !items.length ? (
-          <p className="px-4 py-6 text-center text-ui text-tertiary">아직 페이지가 없어요.</p>
+          <p className="px-4 py-6 text-center text-ui text-tertiary">{m.screens.palette.noPages}</p>
         ) : null}
-        <CommandGroup heading="명령" forceMount={!commandMode}>
+        <CommandGroup heading={m.screens.palette.commandsHeading} forceMount={!commandMode}>
           {/* 검색어가 있으면 맞는 명령이 먼저 — "가져오기"를 치고 Enter면 그 명령이 실행된다(만들기는 ⌘↵) */}
           {commandMode || q ? null : createItem}
           {commands.map((c) => (
@@ -532,14 +543,14 @@ export function CommandPalette() {
       </CommandList>
       <CommandFooter>
         <span>
-          <ArrowDownUp {...ic} className="size-4" aria-hidden /> 이동
+          <ArrowDownUp {...ic} className="size-4" aria-hidden /> {m.screens.palette.move}
         </span>
         <span>
           <CornerDownLeft {...ic} className="size-4" aria-hidden />{" "}
-          {active === "__create" ? "만들기" : "열기"}
+          {active === "__create" ? m.screens.palette.create : m.screens.palette.open}
         </span>
         <span>
-          <Kbd keys={["Esc"]} /> 닫기
+          <Kbd keys={["Esc"]} /> {m.screens.palette.close}
         </span>
       </CommandFooter>
     </CommandDialog>

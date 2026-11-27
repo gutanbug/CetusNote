@@ -1,4 +1,5 @@
 import type { SoftColor } from "@/components/ui/tag-chip";
+import { msg } from "@/lib/i18n";
 import {
   AtSign,
   Binary,
@@ -54,20 +55,28 @@ export type PropertyEntry = {
   card: boolean;
 };
 
-export const PROPERTY_TYPE_NAMES: Record<PropertyType, string> = {
-  text: "텍스트",
-  number: "숫자",
-  select: "선택",
-  multi: "다중 선택",
-  date: "날짜",
-  checkbox: "체크박스",
-  url: "URL",
-  email: "이메일",
-  phone: "전화번호",
-  created: "만든 날짜",
-  updated: "고친 날짜",
-};
-export const ADDABLE = Object.keys(PROPERTY_TYPE_NAMES) as PropertyType[];
+const PROPERTY_TYPE_KEYS: readonly PropertyType[] = [
+  "text",
+  "number",
+  "select",
+  "multi",
+  "date",
+  "checkbox",
+  "url",
+  "email",
+  "phone",
+  "created",
+  "updated",
+];
+/** 종류 이름 — 읽는 순간의 언어로 정해진다 (getter) */
+export const PROPERTY_TYPE_NAMES = {} as Record<PropertyType, string>;
+for (const k of PROPERTY_TYPE_KEYS) {
+  Object.defineProperty(PROPERTY_TYPE_NAMES, k, {
+    get: () => msg().collection.model.fieldType[k],
+    enumerable: true,
+  });
+}
+export const ADDABLE = [...PROPERTY_TYPE_KEYS];
 
 export const PROPERTY_ICONS: Record<BuiltinKey | PropertyType, LucideIcon> = {
   status: CircleDot,

@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
@@ -29,10 +30,12 @@ function Resizer({
   min = 200,
   max = 400,
   step = 16,
-  label = "사이드바 너비 조절",
+  label: labelProp,
   edge = "right",
   className,
 }: ResizerProps) {
+  const m = useMessages();
+  const label = labelProp ?? m.shell.resizer.label;
   const [dragging, setDragging] = React.useState(false);
   /** 패널의 고정된 쪽 x — right 핸들이면 왼쪽 끝, left 핸들이면 오른쪽 끝 */
   const anchorRef = React.useRef(0);
@@ -45,7 +48,7 @@ function Resizer({
       aria-orientation="vertical"
       aria-label={label}
       aria-valuenow={width}
-      aria-valuetext={`${width}픽셀`}
+      aria-valuetext={m.shell.resizer.valueText(width)}
       aria-valuemin={min}
       aria-valuemax={max}
       tabIndex={0}

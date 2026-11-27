@@ -6,6 +6,7 @@ import { loadEmojiTable } from "@/lib/emoji/table";
 import { pagesStore } from "@/features/pages";
 import { StorageError, type Storage } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
+import { msg } from "@/lib/i18n";
 
 /** 지역 날짜 YYYY-MM-DD (폴더 이름에 쓴다) */
 function todayKey(now = new Date()): string {
@@ -31,28 +32,34 @@ export async function exportWorkspaceMarkdown(storage: Storage = getStorage()): 
     frontMatter: frontMatterPref(),
   });
   if (plan.documents === 0) {
-    toast("내보낼 문서가 없어요");
+    toast(msg().settings.exportWorkspace.noDocs);
     return;
   }
   let report;
   try {
     report = await storage.exportWorkspaceMarkdown(plan.manifest);
   } catch (e) {
-    toast("워크스페이스를 내보내지 못했어요", {
+    toast(msg().settings.exportWorkspace.failed, {
       description: e instanceof StorageError ? e.message : undefined,
     });
     return;
   }
   if (!report) return;
   const failed = report.failed.length;
-  toast(`문서 ${plan.documents}개를 내보냈어요`, {
+  toast(msg().settings.exportWorkspace.exported(plan.documents), {
     description: failed
-      ? `${failed}개 항목은 저장하지 못했어요: ${report.failed.slice(0, 3).join(", ")}${failed > 3 ? " 외" : ""}`
+      ? msg().settings.exportWorkspace.partialFail(
+          failed,
+          report.failed.slice(0, 3).join(", "),
+          failed > 3,
+        )
       : report.folder,
     action: {
-      label: "폴더 열기",
+      label: msg().settings.exportWorkspace.openFolder,
       onClick: () =>
-        void storage.revealWorkspaceExport().catch(() => toast.error("폴더를 열지 못했어요.")),
+        void storage
+          .revealWorkspaceExport()
+          .catch(() => toast.error(msg().settings.data.openFolderFail)),
     },
   });
 }

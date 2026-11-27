@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { IconButton } from "@/components/ui/icon-button";
 import type { SoftColor } from "@/components/ui/tag-chip";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ function TagItem({
   onMenu,
   ...props
 }: TagItemProps) {
+  const m = useMessages();
   const row = (
     <button
       type={type}
@@ -56,9 +58,8 @@ function TagItem({
         {name}
       </span>
       <span className="shrink-0 text-label text-tertiary tabular-nums">
-        <span className="sr-only">페이지 </span>
-        {count}
-        <span className="sr-only">개</span>
+        <span aria-hidden>{count}</span>
+        <span className="sr-only">{m.shell.tag.pageCount(count)}</span>
       </span>
     </button>
   );
@@ -68,7 +69,7 @@ function TagItem({
       {row}
       <span className={cn("flex shrink-0 items-center pr-1", revealOnRow)}>
         <IconButton
-          label={`${name} 태그 메뉴`}
+          label={m.shell.tag.menu(name)}
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();

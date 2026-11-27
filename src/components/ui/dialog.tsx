@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -43,7 +44,7 @@ function DialogContent({
   size,
   children,
   showClose = true,
-  closeLabel = "닫기",
+  closeLabel: closeLabelProp,
   scrollable = false,
   onOpenAutoFocus,
   ...props
@@ -53,6 +54,8 @@ function DialogContent({
     closeLabel?: string;
     scrollable?: boolean;
   }) {
+  const m = useMessages();
+  const closeLabel = closeLabelProp ?? m.ui.dialog.close;
   const contentRef = React.useRef<HTMLDivElement>(null);
   return (
     <DialogPrimitive.Portal>

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { useMessages } from "@/lib/i18n";
 
 export type MathEditTarget = { kind: "inline" | "block"; pos: number; latex: string } | null;
 
@@ -21,6 +22,7 @@ export function MathPopover({
   target: MathEditTarget;
   onClose: () => void;
 }) {
+  const m = useMessages();
   const anchor = React.useMemo(
     () => ({
       getBoundingClientRect: () => {
@@ -60,7 +62,7 @@ export function MathPopover({
     <Popover open={!!target} onOpenChange={(o) => !o && finish(null)}>
       <PopoverAnchor virtualRef={{ current: anchor }} />
       <PopoverContent
-        aria-label="수식 편집"
+        aria-label={m.editor.math.edit}
         side="bottom"
         className="w-90 p-2"
         // 기준이 가상 요소라 돌아갈 곳이 없다 — 포커스는 finish가 에디터로 돌린다
@@ -88,6 +90,7 @@ function MathForm({
   onApply: (latex: string) => void;
   onCancel: () => void;
 }) {
+  const m = useMessages();
   const [value, setValue] = React.useState(initial);
   const inputId = React.useId();
   return (
@@ -106,15 +109,15 @@ function MathForm({
         autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="예: E = mc^2…"
+        placeholder={m.editor.math.placeholder}
         className="font-mono"
       />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          취소
+          {m.editor.math.cancel}
         </Button>
         <Button type="submit" size="sm">
-          적용
+          {m.editor.math.apply}
         </Button>
       </div>
     </form>

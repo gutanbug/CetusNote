@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { currentTableElement, floatingBounds } from "./floating-bounds";
 import { useEditorDom } from "./use-editor-dom";
+import { useMessages } from "@/lib/i18n";
 
 const ic = { strokeWidth: 1.5 } as const;
 
@@ -42,6 +43,7 @@ const barButtons = (bar: HTMLElement | null | undefined) => [
 
 /** ED-TableMenu — 표 안에 커서가 있을 때 표 위에 뜨는 편집 바 */
 export function TableMenu({ editor }: { editor: Editor }) {
+  const m = useMessages();
   const barRef = React.useRef<HTMLDivElement>(null);
   const editorDom = useEditorDom(editor);
   // 로빙 탭인덱스: Tab으로는 한 번만 들어가고, 안에서는 ←→ Home End로 옮긴다
@@ -105,56 +107,72 @@ export function TableMenu({ editor }: { editor: Editor }) {
   const groups: Action[][] = [
     [
       {
-        label: "위에 행 추가",
+        label: m.editor.table.addRowAbove,
         icon: <BetweenHorizontalStart {...ic} />,
         run: () => c().addRowBefore().run(),
       },
       {
-        label: "아래에 행 추가",
+        label: m.editor.table.addRowBelow,
         icon: <BetweenHorizontalEnd {...ic} />,
         run: () => c().addRowAfter().run(),
       },
       {
-        label: "왼쪽에 열 추가",
+        label: m.editor.table.addColLeft,
         icon: <BetweenVerticalStart {...ic} />,
         run: () => c().addColumnBefore().run(),
       },
       {
-        label: "오른쪽에 열 추가",
+        label: m.editor.table.addColRight,
         icon: <BetweenVerticalEnd {...ic} />,
         run: () => c().addColumnAfter().run(),
       },
     ],
     [
       {
-        label: "머리글 행 전환",
+        label: m.editor.table.toggleHeaderRow,
         icon: <PanelTop {...ic} />,
         run: () => c().toggleHeaderRow().run(),
       },
       {
-        label: "머리글 열 전환",
+        label: m.editor.table.toggleHeaderCol,
         icon: <PanelLeft {...ic} />,
         run: () => c().toggleHeaderColumn().run(),
       },
-      { label: "셀 병합", icon: <TableCellsMerge {...ic} />, run: () => c().mergeCells().run() },
-      { label: "셀 분리", icon: <TableCellsSplit {...ic} />, run: () => c().splitCell().run() },
+      {
+        label: m.editor.table.mergeCells,
+        icon: <TableCellsMerge {...ic} />,
+        run: () => c().mergeCells().run(),
+      },
+      {
+        label: m.editor.table.splitCell,
+        icon: <TableCellsSplit {...ic} />,
+        run: () => c().splitCell().run(),
+      },
     ],
     [
-      { label: "행 삭제", icon: <Rows2 {...ic} />, run: () => c().deleteRow().run(), danger: true },
       {
-        label: "열 삭제",
+        label: m.editor.table.deleteRow,
+        icon: <Rows2 {...ic} />,
+        run: () => c().deleteRow().run(),
+        danger: true,
+      },
+      {
+        label: m.editor.table.deleteCol,
         icon: <Columns2 {...ic} />,
         run: () => c().deleteColumn().run(),
         danger: true,
       },
       {
-        label: "표 삭제",
+        label: m.editor.table.deleteTable,
         icon: <Grid2x2X {...ic} />,
         run: () => {
           if (!c().deleteTable().run()) return false;
           // 표는 한 번에 많이 사라진다 — ⌘Z 말고도 바로 되돌릴 수 있게
-          toast("표를 지웠어요", {
-            action: { label: "실행 취소", onClick: () => editor.chain().focus().undo().run() },
+          toast(m.editor.table.deleted, {
+            action: {
+              label: m.editor.table.undo,
+              onClick: () => editor.chain().focus().undo().run(),
+            },
           });
           return true;
         },
@@ -176,7 +194,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
       getReferencedVirtualElement={() => currentTableElement(editor)}
       options={{ placement: "top", offset: 8, ...floatingBounds(editor) }}
       role="toolbar"
-      aria-label="표 도구"
+      aria-label={m.editor.table.toolbar}
       aria-orientation="horizontal"
       className={cn(popoverSurface, "flex items-center gap-0.5 rounded-pill px-1.5")}
     >

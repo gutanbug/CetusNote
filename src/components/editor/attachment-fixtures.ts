@@ -1,3 +1,4 @@
+/* i18n-ignore-file — 첨부 블록 스토리·테스트용 견본 데이터 */
 import { fn } from "storybook/test";
 import samplePdf from "@/debug/samples/sample-notes.pdf?url";
 import sampleClip from "@/debug/samples/sample-clip.webm?url";

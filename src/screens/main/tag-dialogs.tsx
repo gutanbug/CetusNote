@@ -19,6 +19,8 @@ import { runTagOp } from "./tag-actions";
 import { countTags, tagColor } from "./tag-colors";
 import { findTagAnchor, useTagUi } from "./tag-ui";
 
+import { useMessages } from "@/lib/i18n";
+
 /** 태그 대화상자 묶음 (SHELL-18) — 이름 바꾸기 · 합치기 · 삭제. 한 번만 마운트한다 */
 export function TagDialogs() {
   const dialog = useTagUi((s) => s.dialog);
@@ -66,6 +68,7 @@ function RenameTagDialog({
   tag: string;
   onOpenChange: (open: boolean) => void;
 }) {
+  const m = useMessages();
   const [name, setName] = React.useState(tag);
   const pages = usePagesWhile(open);
   const clean = cleanTagName(name);
@@ -82,35 +85,35 @@ function RenameTagDialog({
       <DialogContent size="sm">
         <form className="grid gap-4" onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>태그 이름 바꾸기</DialogTitle>
+            <DialogTitle>{m.screens.tags.dialogs.renameTitle}</DialogTitle>
             <DialogDescription>
               {clash
-                ? `‘${clean}’ 태그가 이미 있어요. 합칠까요?`
-                : "모든 문서에서 이 태그 이름이 바뀌어요."}
+                ? m.screens.tags.dialogs.renameClash(clean)
+                : m.screens.tags.dialogs.renameHint}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-1">
             <Input
               autoFocus
-              aria-label="태그 이름"
+              aria-label={m.screens.tags.dialogs.renameField}
               aria-describedby={clean ? undefined : hintId}
               value={name}
-              placeholder="태그 이름"
+              placeholder={m.screens.tags.dialogs.renameField}
               onChange={(e) => setName(e.target.value)}
               onFocus={(e) => e.currentTarget.select()}
             />
             {clean ? null : (
               <p id={hintId} className="text-caption text-secondary">
-                이름을 입력해 주세요
+                {m.screens.tags.dialogs.renameEmpty}
               </p>
             )}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              취소
+              {m.screens.tags.dialogs.cancel}
             </Button>
             <Button type="submit" disabled={!clean}>
-              {clash ? "태그 합치기" : "이름 바꾸기"}
+              {clash ? m.screens.tags.dialogs.renameMerge : m.screens.tags.dialogs.renameSubmit}
             </Button>
           </DialogFooter>
         </form>
@@ -128,6 +131,7 @@ function MergeTagDialog({
   tag: string;
   onOpenChange: (open: boolean) => void;
 }) {
+  const m = useMessages();
   const pages = usePagesWhile(open);
   const colors = useMeta((s) => s.meta?.tags);
   const targets = React.useMemo(
@@ -169,22 +173,20 @@ function MergeTagDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>다른 태그와 합치기</DialogTitle>
-          <DialogDescription>
-            ‘{tag}’ 태그가 붙은 문서는 고른 태그로 바뀌고, ‘{tag}’ 태그는 없어져요.
-          </DialogDescription>
+          <DialogTitle>{m.screens.tags.dialogs.mergeTitle}</DialogTitle>
+          <DialogDescription>{m.screens.tags.dialogs.mergeDesc(tag)}</DialogDescription>
         </DialogHeader>
         {targets.length ? (
           <>
             <Input
               autoFocus
               role="combobox"
-              aria-label="합칠 태그 검색"
+              aria-label={m.screens.tags.dialogs.mergeSearch}
               aria-expanded={shown.length > 0}
               aria-controls={shown.length ? listId : undefined}
               aria-autocomplete="list"
               aria-activedescendant={shown.length ? `${listId}-${cur}` : undefined}
-              placeholder="태그 검색"
+              placeholder={m.screens.tags.dialogs.mergePlaceholder}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -196,7 +198,7 @@ function MergeTagDialog({
               <ul
                 id={listId}
                 role="listbox"
-                aria-label="합칠 태그"
+                aria-label={m.screens.tags.dialogs.mergeList}
                 className="grid max-h-72 gap-0.5 overflow-y-auto"
               >
                 {shown.map(([name, count], i) => (
@@ -210,20 +212,22 @@ function MergeTagDialog({
                     className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui hover:bg-hover aria-selected:bg-hover force-hover:bg-hover"
                   >
                     <TagChip color={tagColor(colors?.[name])}>{name}</TagChip>
-                    <span className="ml-auto text-label text-tertiary tabular-nums">{count}개</span>
+                    <span className="ml-auto text-label text-tertiary tabular-nums">
+                      {m.screens.tags.dialogs.mergeCount(count)}
+                    </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-ui text-tertiary">맞는 태그가 없어요</p>
+              <p className="text-ui text-tertiary">{m.screens.tags.dialogs.mergeNoMatch}</p>
             )}
           </>
         ) : (
-          <p className="text-ui text-tertiary">합칠 다른 태그가 없어요.</p>
+          <p className="text-ui text-tertiary">{m.screens.tags.dialogs.mergeNone}</p>
         )}
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            취소
+            {m.screens.tags.dialogs.cancel}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -245,22 +249,23 @@ function DeleteTagDialog({
   tag: string;
   onOpenChange: (open: boolean) => void;
 }) {
+  const m = useMessages();
   const pages = usePagesWhile(open);
   const n = tagUsage(pages, tag);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>태그 삭제</DialogTitle>
+          <DialogTitle>{m.screens.tags.dialogs.deleteTitle}</DialogTitle>
           <DialogDescription>
             {n
-              ? `문서 ${n}개에서 ‘${tag}’ 태그를 빼요. 페이지는 지워지지 않아요.`
-              : `‘${tag}’ 태그가 붙은 문서는 없어요. 태그 색만 지워져요.`}
+              ? m.screens.tags.dialogs.deleteWithPages(tag, n)
+              : m.screens.tags.dialogs.deleteNoPages(tag)}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            취소
+            {m.screens.tags.dialogs.cancel}
           </Button>
           <Button
             type="button"
@@ -269,7 +274,7 @@ function DeleteTagDialog({
               if (runTagOp({ kind: "delete", name: tag })) onOpenChange(false);
             }}
           >
-            태그 삭제
+            {m.screens.tags.dialogs.deleteSubmit}
           </Button>
         </DialogFooter>
       </DialogContent>

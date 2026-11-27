@@ -3,6 +3,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { evaluateLines } from "@/lib/calc";
+import { msg } from "@/lib/i18n";
 
 /** 결과가 붙는 블록 하나 — `end`는 블록 내용 끝 위치(캐럿이 여기 있으면 Tab으로 넣는다) */
 export type CalcEntry = { end: number; text: string };
@@ -18,6 +19,7 @@ type CalcState = {
   stale: boolean;
 };
 
+// i18n-ignore — 한국어 합계 낱말 판정 (계산 줄 문법)
 const AGG_RE = /합계|총합|소계|평균|\b(?:sum|total|avg|average)\b/i;
 
 export const calcLineKey = new PluginKey<CalcState>("calcLine");
@@ -114,7 +116,7 @@ function resultElement(text: string, active: boolean): HTMLElement {
   // 화면 읽기 프로그램에는 「계산 결과」라고 알린다(저장되지 않는 미리보기)
   const label = document.createElement("span");
   label.className = "sr-only";
-  label.textContent = "계산 결과 ";
+  label.textContent = msg().editor.calc.result;
   el.append(label, text);
   if (active) {
     // UI-Kbd와 같은 모양의 안내. 읽기는 「Tab으로 넣기」로
@@ -124,7 +126,7 @@ function resultElement(text: string, active: boolean): HTMLElement {
     kbd.textContent = "Tab";
     const hint = document.createElement("span");
     hint.className = "sr-only";
-    hint.textContent = ", Tab으로 넣기";
+    hint.textContent = msg().editor.calc.tabHint;
     el.append(kbd, hint);
   }
   return el;

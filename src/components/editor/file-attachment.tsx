@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { attachmentIcon } from "./attachment-icon";
+import { useMessages } from "@/lib/i18n";
 
 /** 카드·미리 보기가 함께 쓰는 동작. 없는 항목은 메뉴에서 빠진다 */
 export type AttachmentActions = {
@@ -85,6 +86,7 @@ function MenuItems({
   canUse: boolean;
   editable: boolean;
 }) {
+  const m = useMessages();
   const openGroup = [actions.onOpen, actions.onReveal, actions.onDownload].some(Boolean);
   const editGroup = editable && (actions.onReplace || actions.onRemove);
   return (
@@ -95,7 +97,7 @@ function MenuItems({
           disabled={!canUse}
           onSelect={actions.onOpen}
         >
-          열기
+          {m.editor.attachment.open}
         </Item>
       )}
       {actions.onReveal && (
@@ -104,7 +106,7 @@ function MenuItems({
           disabled={!canUse}
           onSelect={actions.onReveal}
         >
-          Finder에서 보기
+          {m.editor.attachment.showInFinder}
         </Item>
       )}
       {actions.onDownload && (
@@ -113,18 +115,18 @@ function MenuItems({
           disabled={!canUse}
           onSelect={actions.onDownload}
         >
-          다른 이름으로 저장
+          {m.editor.attachment.saveAs}
         </Item>
       )}
       {openGroup && editGroup && <Separator />}
       {editable && actions.onReplace && (
         <Item icon={<Replace strokeWidth={1.5} />} onSelect={actions.onReplace}>
-          바꾸기
+          {m.editor.attachment.replace}
         </Item>
       )}
       {editable && actions.onRemove && (
         <Item icon={<Trash strokeWidth={1.5} />} variant="danger" onSelect={actions.onRemove}>
-          삭제
+          {m.editor.attachment.remove}
         </Item>
       )}
     </>
@@ -148,6 +150,7 @@ export function FileAttachment({
   className,
   ...actions
 }: FileAttachmentProps) {
+  const m = useMessages();
   const descId = React.useId();
   const kind = kindProp ?? attachmentKind(name, mime);
   const state: State =
@@ -180,7 +183,7 @@ export function FileAttachment({
 
   const meta =
     state === "missing"
-      ? "원본 파일을 찾을 수 없어요"
+      ? m.editor.attachment.missing
       : state === "oversize"
         ? oversizeMessage(kind)
         : [formatLabel(name), size === undefined ? "" : formatBytes(size)]
@@ -245,7 +248,7 @@ export function FileAttachment({
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <IconButton label="파일 메뉴" noTooltip className="shrink-0">
+              <IconButton label={m.editor.attachment.menu} noTooltip className="shrink-0">
                 <Ellipsis strokeWidth={1.5} />
               </IconButton>
             </DropdownMenuTrigger>
@@ -263,9 +266,13 @@ export function FileAttachment({
       </div>
       {state === "uploading" && (
         <div className="mt-2 flex items-center gap-2">
-          <Progress aria-label={`${name} 올리는 중`} value={progress ?? 0} className="flex-1" />
+          <Progress
+            aria-label={m.editor.attachment.uploadingAria(name)}
+            value={progress ?? 0}
+            className="flex-1"
+          />
           <span className="shrink-0 text-caption text-tertiary tabular-nums">
-            올리는 중 · {Math.round(progress ?? 0)}%
+            {m.editor.attachment.uploading(Math.round(progress ?? 0))}
           </span>
         </div>
       )}

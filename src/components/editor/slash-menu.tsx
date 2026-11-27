@@ -2,7 +2,8 @@ import * as React from "react";
 import { menuItem, menuLabel } from "@/components/ui/menu-parts";
 import { popoverSurface } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
-import { groupSlashItems, type SlashItem } from "./slash-items";
+import { useMessages } from "@/lib/i18n";
+import { groupSlashItems, slashGroupId, type SlashItem } from "./slash-items";
 
 export type SlashMenuProps = {
   /** 걸러진 항목 (filterSlashItems 결과) */
@@ -35,6 +36,7 @@ export function SlashMenu({
   className,
 }: SlashMenuProps) {
   const listRef = React.useRef<HTMLDivElement>(null);
+  const m = useMessages();
 
   // 고른 항목이 늘 보이게 스크롤한다
   React.useEffect(() => {
@@ -52,17 +54,17 @@ export function SlashMenu({
       id={id}
       // 결과가 없으면 목록이 아니라 안내문이다
       role={items.length ? "listbox" : "status"}
-      aria-label="블록 넣기"
+      aria-label={m.editor.slash.menuLabel}
       data-slot="slash-menu"
       className={cn(popoverSurface, "max-h-95 w-80 overflow-y-auto overscroll-contain", className)}
     >
       {items.length === 0 ? (
-        <p className="px-2 py-3 text-caption text-tertiary">“{query}”에 해당하는 블록이 없어요.</p>
+        <p className="px-2 py-3 text-caption text-tertiary">{m.editor.slash.empty(query)}</p>
       ) : (
         groupSlashItems(items).map(({ group, items: groupItems }) => (
           <div key={group} role="group" aria-labelledby={`${id}-${group}`}>
             <p id={`${id}-${group}`} className={menuLabel}>
-              {group}
+              {m.editor.slash.groups[slashGroupId(group)]}
             </p>
             {groupItems.map((item) => {
               const index = items.indexOf(item);

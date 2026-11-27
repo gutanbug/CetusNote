@@ -35,6 +35,7 @@ import {
 import { nextTagColor } from "./tag-colors";
 import { runPdfExport } from "./pdf-export";
 import { useMainUi } from "./ui-store";
+import { msg } from "@/lib/i18n";
 
 /**
  * 메인 화면 동작 — 페이지 스토어(저장)와 세션 스토어(화면 상태)를 함께 움직인다.
@@ -133,7 +134,7 @@ export function openRecent(id: string) {
 /** 멘션·페이지 링크 열기 (EDIT-13). 지워졌거나 휴지통에 있으면 알린다 */
 export function openPageLink(id: string) {
   if (resolveMention(pages(), id)) openPage(id);
-  else toast("지워졌거나 휴지통에 있는 페이지예요.");
+  else toast(msg().screens.actions.mentionGone);
 }
 
 /** 새 문서의 모양 기본값: 본문 글꼴(SET-04). 본문 폭은 굳히지 않고 상속한다(PAGE-05·SHELL-14) */
@@ -226,7 +227,7 @@ export function editTemplate(id: string) {
 /** 빈 템플릿을 만들어 편집한다 */
 export function createTemplate(category: string): Page {
   const page = pagesStore.getState().create({
-    title: "새 템플릿",
+    title: msg().screens.actions.newTemplate,
     template: { category, description: "", builtin: null, pageTitle: "" },
   });
   editTemplate(page.id);
@@ -257,12 +258,12 @@ export function duplicateTemplate(id: string): Page | undefined {
   const src = pages()[id];
   if (!src || !isTemplate(src)) return;
   const copy = createCopyOf(src, {
-    title: `${src.title || "제목 없음"} 사본`,
+    title: msg().screens.actions.copyOf(src.title || msg().screens.actions.untitled),
     icon: src.icon,
     props: structuredClone(src.props),
     template: { ...src.template, builtin: null },
   });
-  toast(`“${src.title || "제목 없음"}” 템플릿을 복제했어요.`);
+  toast(msg().screens.actions.templateDuplicated(src.title || msg().screens.actions.untitled));
   return copy;
 }
 
@@ -272,8 +273,8 @@ export function deleteTemplate(id: string) {
   if (!page || !isTemplate(page)) return;
   pagesStore.getState().trash(id);
   if (sessionStore.getState().activeId === id) useMainUi.getState().setView({ kind: "home" });
-  toast(`“${page.title || "제목 없음"}” 템플릿을 지웠어요.`, {
-    action: { label: "실행 취소", onClick: () => pagesStore.getState().restore(id) },
+  toast(msg().screens.actions.templateDeleted(page.title || msg().screens.actions.untitled), {
+    action: { label: msg().screens.actions.undo, onClick: () => pagesStore.getState().restore(id) },
   });
 }
 
@@ -282,13 +283,13 @@ export function saveAsTemplate(id: string): Page | undefined {
   const src = pages()[id];
   if (!src || src.kind !== "page" || src.template) return;
   const copy = createCopyOf(src, {
-    title: src.title || "제목 없음",
+    title: src.title || msg().screens.actions.untitled,
     icon: src.icon,
     props: structuredClone(src.props),
     template: { category: "work", description: "", builtin: null, pageTitle: src.title },
   });
-  toast(`“${copy.title}” 템플릿으로 저장했어요.`, {
-    action: { label: "편집", onClick: () => editTemplate(copy.id) },
+  toast(msg().screens.actions.templateSaved(copy.title), {
+    action: { label: msg().screens.actions.edit, onClick: () => editTemplate(copy.id) },
   });
   return copy;
 }
@@ -319,7 +320,9 @@ export function restoreBuiltinTemplates(): number {
 
 /** 종류 + 목적격 조사 */
 const kindObj = (p: Page) =>
-  p.kind === "folder" ? "폴더를" : p.kind === "collection" ? "컬렉션을" : "페이지를";
+  msg().screens.actions.kind[
+    p.kind === "folder" ? "folder" : p.kind === "collection" ? "collection" : "page"
+  ];
 
 /** 빈 문단 하나뿐인 문서 */
 export function isBlankDoc(doc: Page["content"]): boolean {
@@ -337,10 +340,13 @@ export function applyTemplate(templateId: string): Page | undefined {
   if (!isBodyLoaded(template)) {
     // 템플릿 본문을 아직 안 읽었다 (SYS-10). 읽히는 동안 다시 고르게 한다
     void pagesStore.getState().ensureBody(templateId);
-    toast("템플릿을 아직 읽는 중이에요. 잠시 뒤 다시 골라 주세요.");
+    toast(msg().screens.actions.templateLoading);
     return;
   }
-  return applyTemplateResult(templateResult(template, todayISO()), template.title || "제목 없음");
+  return applyTemplateResult(
+    templateResult(template, todayISO()),
+    template.title || msg().screens.actions.untitled,
+  );
 }
 
 function applyTemplateResult(made: TemplateResult, name: string): Page {
@@ -365,7 +371,7 @@ function applyTemplateResult(made: TemplateResult, name: string): Page {
     if (!meta.meta?.tags[tag]) meta.setTagColor(tag, nextTagColor(known++));
   if (reuse) useMainUi.getState().bumpContent();
   openPage(page.id);
-  toast(`“${name}” 템플릿을 적용했어요.`);
+  toast(msg().screens.actions.templateApplied(name));
   return pagesStore.getState().pages[page.id]!;
 }
 
@@ -390,8 +396,8 @@ export function moveToTrash(id: string) {
   const page = pages()[id];
   if (!page) return;
   pagesStore.getState().trash(id);
-  toast(`“${displayTitle(page)}” ${kindObj(page)} 휴지통으로 옮겼어요.`, {
-    action: { label: "실행 취소", onClick: () => restore(id) },
+  toast(msg().screens.actions.trashed(displayTitle(page), kindObj(page)), {
+    action: { label: msg().screens.actions.undo, onClick: () => restore(id) },
   });
 }
 
@@ -417,7 +423,7 @@ export function duplicatePage(id: string): Page | undefined {
   if (src.template) return duplicateTemplate(id);
   const store = pagesStore.getState();
   const copy = createCopyOf(src, {
-    title: src.title ? `${src.title} 사본` : "",
+    title: src.title ? msg().screens.actions.copyOf(src.title) : "",
     icon: src.icon,
     parentId: src.parentId,
   });
@@ -456,8 +462,10 @@ export function movePage(id: string, parentId: string | null) {
   pagesStore.getState().update(id, { parentId });
   if (parentId) sessionStore.getState().expand(parentId, ...ancestors(parentId).map((p) => p.id));
   const target = parentId ? pages()[parentId] : undefined;
-  const where = target ? `“${displayTitle(target)}” 안으로` : "맨 위로";
-  toast(`${kindObj(page)} ${where} 옮겼어요.`);
+  const where = target
+    ? msg().screens.actions.intoTitle(displayTitle(target))
+    : msg().screens.actions.toTop;
+  toast(msg().screens.actions.moved(kindObj(page), where));
 }
 
 /** 트리에서 끌어다 놓기 (SHELL-06). 부모가 바뀌면 알리고, 순서만 바뀌면 조용히 */
@@ -480,9 +488,9 @@ export function toggleFavorite(id: string) {
 export async function copyPageLink(id: string) {
   try {
     await navigator.clipboard.writeText(`cetusnote://page/${id}`);
-    toast("링크를 복사했어요.");
+    toast(msg().screens.actions.linkCopied);
   } catch {
-    toast.error("링크를 복사하지 못했어요.");
+    toast.error(msg().screens.actions.linkCopyFail);
   }
 }
 
@@ -498,12 +506,12 @@ export async function exportMarkdown(id: string) {
       const { name, skipped } = result;
       toast(
         skipped
-          ? `“${name}” 파일로 내보냈어요. 이미지 ${skipped}개는 빼고 내보냈어요.`
-          : `“${name}” 파일로 내보냈어요.`,
+          ? msg().screens.actions.exportedSkipped(name, skipped)
+          : msg().screens.actions.exported(name),
       );
     }
   } catch {
-    toast.error("내보내지 못했어요. 다른 위치를 골라 보세요.");
+    toast.error(msg().screens.actions.exportFail);
   }
 }
 
@@ -519,11 +527,11 @@ export async function exportCsv(id: string, scope: CsvScope = "all") {
     if (result)
       toast(
         scope === "view"
-          ? `“${result.name}” 파일로 내보냈어요. 지금 보기의 레코드 ${result.records}개를 담았어요.`
-          : `“${result.name}” 파일로 내보냈어요. 레코드 ${result.records}개를 모두 담았어요.`,
+          ? msg().screens.actions.csvView(result.name, result.records)
+          : msg().screens.actions.csvAll(result.name, result.records),
       );
   } catch {
-    toast.error("내보내지 못했어요. 다른 위치를 골라 보세요.");
+    toast.error(msg().screens.actions.exportFail);
   }
 }
 
@@ -583,7 +591,7 @@ export function promoteQuickNote(id: string): Page | undefined {
   metaStore.getState().removeQuickNote(id);
   useMainUi.getState().setQuickNoteOpen(false);
   openPage(page.id);
-  toast(`“${title || "제목 없음"}” 페이지를 만들었어요.`);
+  toast(msg().screens.actions.quickNoteCreated(title || msg().screens.actions.untitled));
   return page;
 }
 
@@ -591,8 +599,11 @@ export function promoteQuickNote(id: string): Page | undefined {
 export function deleteQuickNote(id: string) {
   const removed = metaStore.getState().removeQuickNote(id);
   if (!removed) return;
-  toast("메모를 지웠어요.", {
-    action: { label: "실행 취소", onClick: () => metaStore.getState().restoreQuickNote(removed) },
+  toast(msg().screens.actions.quickNoteDeleted, {
+    action: {
+      label: msg().screens.actions.undo,
+      onClick: () => metaStore.getState().restoreQuickNote(removed),
+    },
   });
 }
 

@@ -11,6 +11,7 @@ import { focusRing, press } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { Copy, Ellipsis, Pencil, Trash2 } from "lucide-react";
 import type * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 const ic = { strokeWidth: 1.5, "aria-hidden": true } as const;
 
@@ -46,6 +47,7 @@ function TemplateCard({
   className,
   style,
 }: TemplateCardProps) {
+  const m = useMessages();
   const hasMenu = !!(onEdit || onDuplicate || onDelete);
   return (
     <div data-slot="template-card" className={cn("group/card relative", className)} style={style}>
@@ -64,7 +66,7 @@ function TemplateCard({
           {emoji || "📄"}
         </span>
         <span className={cn("text-ui font-semibold text-primary", hasMenu && "pr-6")}>
-          {name || "제목 없음"}
+          {name || m.page.untitled}
         </span>
         <span className="text-caption text-secondary">{description}</span>
         {/* 줄 단위로 5줄까지만 — 아래 끝은 마스크로 흐려서 마지막 줄이 반쯤 잘리지 않게 한다 */}
@@ -78,7 +80,7 @@ function TemplateCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton
-              label={`${name || "제목 없음"} 템플릿 메뉴`}
+              label={m.page.templateCard.menu(name || m.page.untitled)}
               // 숨은 동안(opacity-0)에도 자리를 차지하므로 카드 모서리 클릭을 가리지 않게 포인터 이벤트를 끈다. 키보드 포커스는 그대로 닿는다
               className="pointer-events-none absolute top-3 right-3 opacity-0 transition-opacity duration-(--dur-fast) group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100 group-hover/card:pointer-events-auto group-hover/card:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:bg-active data-[state=open]:text-primary data-[state=open]:opacity-100 force-hover:pointer-events-auto force-hover:opacity-100"
             >
@@ -88,19 +90,19 @@ function TemplateCard({
           <DropdownMenuContent align="end" className="w-44">
             {onEdit ? (
               <DropdownMenuItem icon={<Pencil {...ic} />} onSelect={onEdit}>
-                편집
+                {m.page.templateCard.edit}
               </DropdownMenuItem>
             ) : null}
             {onDuplicate ? (
               <DropdownMenuItem icon={<Copy {...ic} />} onSelect={onDuplicate}>
-                복제
+                {m.page.templateCard.duplicate}
               </DropdownMenuItem>
             ) : null}
             {onDelete ? (
               <>
                 {onEdit || onDuplicate ? <DropdownMenuSeparator /> : null}
                 <DropdownMenuItem variant="danger" icon={<Trash2 {...ic} />} onSelect={onDelete}>
-                  삭제
+                  {m.page.templateCard.delete}
                 </DropdownMenuItem>
               </>
             ) : null}

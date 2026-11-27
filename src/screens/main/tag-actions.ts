@@ -8,8 +8,8 @@ import {
   type TagPagePatch,
   type TagUndo,
 } from "@/features/tags/manage";
+import { msg } from "@/lib/i18n";
 import { sessionStore, type Tab } from "@/features/session";
-import { roParticle } from "@/lib/josa";
 import { useMainUi, type MainView } from "./ui-store";
 import { findTagAnchor, tagNeighbours, useTagUi } from "./tag-ui";
 
@@ -22,15 +22,20 @@ type Snapshot = { tabs: Tab[]; activeTab: number; view: MainView };
 
 const SUCCESS_TOAST_MS = 6000;
 
-const MESSAGE: Record<TagOp["kind"], (op: TagOp) => string> = {
-  rename: (op) =>
-    op.kind === "rename"
-      ? `‘${op.from}’ 태그를 ‘${op.to.trim()}’${roParticle(op.to.trim())} 바꿨어요`
-      : "",
-  merge: (op) => (op.kind === "merge" ? `‘${op.from}’ 태그를 ‘${op.into}’에 합쳤어요` : ""),
-  recolor: (op) => (op.kind === "recolor" ? `‘${op.name}’ 태그 색을 바꿨어요` : ""),
-  delete: (op) => (op.kind === "delete" ? `‘${op.name}’ 태그를 지웠어요` : ""),
-};
+/** 실행 뒤 토스트 문구 — 부르는 순간의 언어 */
+function messageFor(op: TagOp): string {
+  const a = msg().screens.tags.actions;
+  switch (op.kind) {
+    case "rename":
+      return a.renamed(op.from, op.to.trim());
+    case "merge":
+      return a.merged(op.from, op.into);
+    case "recolor":
+      return a.recolored(op.name);
+    case "delete":
+      return a.deleted(op.name);
+  }
+}
 
 /** 바뀐 뒤 탭을 맞춘다: 이름이 바뀐 태그 탭은 새 이름으로, 지운 태그 탭은 홈으로 */
 function remapTabs(tabs: Tab[], op: TagOp): Tab[] {
@@ -114,12 +119,17 @@ function focusAfterDelete(n: { next: string | null; prev: string | null }) {
   setTimeout(tick, 0);
 }
 
-const FAIL: Record<string, string> = {
-  empty: "태그 이름을 입력해 주세요",
-  same: "",
-  missing: "합칠 태그를 찾을 수 없어요",
-  self: "같은 태그끼리는 합칠 수 없어요",
-};
+/** 실패 사유 → 토스트 문구 (빈 문자열이면 토스트를 띄우지 않는다) */
+function failText(reason: string): string {
+  const a = msg().screens.tags.actions;
+  const table: Record<string, string> = {
+    empty: a.failEmpty,
+    same: "",
+    missing: a.failMissing,
+    self: a.failSelf,
+  };
+  return table[reason] ?? a.failGeneric;
+}
 
 /**
  * 태그 한 번을 바꾼다. 성공하면 true. 이름이 그대로면 아무것도 하지 않고 true.
@@ -134,7 +144,7 @@ export function runTagOp(op: TagOp): boolean {
   const res = applyOp(op, now);
   if (!res.ok) {
     if (res.reason === "same") return true;
-    toast.error(FAIL[res.reason] ?? "태그를 바꾸지 못했어요");
+    toast.error(failText(res.reason));
     return false;
   }
 
@@ -151,13 +161,13 @@ export function runTagOp(op: TagOp): boolean {
 
   const message =
     res.merged && op.kind === "rename"
-      ? `‘${op.from}’ 태그를 ‘${op.to.trim()}’에 합쳤어요`
-      : MESSAGE[op.kind](op);
+      ? msg().screens.tags.actions.merged(op.from, op.to.trim())
+      : messageFor(op);
 
   toast(message, {
     duration: SUCCESS_TOAST_MS,
     action: {
-      label: "실행 취소",
+      label: msg().screens.tags.actions.undo,
       onClick: () => undoTagOp(res.undo, before, nextView),
     },
   });

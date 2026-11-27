@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ const crumbButton = cn(
 );
 
 function Label({ item }: { item: Crumb }) {
+  const m = useMessages();
   return (
     <>
       {item.emoji ? (
@@ -36,7 +38,7 @@ function Label({ item }: { item: Crumb }) {
         </span>
       ) : null}
       <span title={item.title || undefined} className="truncate">
-        {item.title || "제목 없음"}
+        {item.title || m.shell.untitled.page}
       </span>
     </>
   );
@@ -47,10 +49,15 @@ function Label({ item }: { item: Crumb }) {
  * 지금 페이지는 aria-current="page", 긴 경로는 가운데를 "…" 메뉴로 접는다.
  */
 function Breadcrumb({ items, onNavigate, maxItems = 4, className }: BreadcrumbProps) {
+  const m = useMessages();
   const { shown, hidden } = collapsePath(items, maxItems);
 
   return (
-    <nav aria-label="경로" data-slot="breadcrumb" className={cn("min-w-0 flex-1", className)}>
+    <nav
+      aria-label={m.shell.breadcrumb.label}
+      data-slot="breadcrumb"
+      className={cn("min-w-0 flex-1", className)}
+    >
       <ol className="flex min-w-0 items-center gap-0.5 text-ui text-secondary">
         {shown.map((item, i) => {
           const last = i === shown.length - 1;
@@ -67,7 +74,7 @@ function Breadcrumb({ items, onNavigate, maxItems = 4, className }: BreadcrumbPr
               {item === "more" ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    aria-label={`숨긴 경로 ${hidden.length}개`}
+                    aria-label={m.shell.breadcrumb.hidden(hidden.length)}
                     className={cn(crumbButton, "min-w-6 shrink-0 justify-center")}
                   >
                     …
@@ -79,7 +86,7 @@ function Breadcrumb({ items, onNavigate, maxItems = 4, className }: BreadcrumbPr
                         icon={h.emoji ? <span aria-hidden>{h.emoji}</span> : undefined}
                         onSelect={() => onNavigate?.(h.id)}
                       >
-                        {h.title || "제목 없음"}
+                        {h.title || m.shell.untitled.page}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>

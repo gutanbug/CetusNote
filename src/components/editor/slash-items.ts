@@ -37,8 +37,16 @@ import {
 } from "lucide-react";
 import type { AttachmentPickKind } from "./attachment";
 import { addDays, toIsoDate } from "@/lib/dates/local-date";
+import { msg } from "@/lib/i18n";
 
-export type SlashGroup = "기본 블록" | "미디어" | "고급" | "인라인";
+// prettier-ignore
+// i18n-ignore — 그룹 키 값 (정렬·식별자. 화면 이름은 slashGroupId()로 찾아 문구에서 읽는다)
+export const SLASH_GROUP = { basic: "기본 블록", media: "미디어", advanced: "고급", inline: "인라인" } as const;
+export type SlashGroup = (typeof SLASH_GROUP)[keyof typeof SLASH_GROUP];
+export type SlashGroupId = keyof typeof SLASH_GROUP;
+/** 그룹 값으로 문구 키(basic …)를 찾는다 */
+export const slashGroupId = (group: SlashGroup): SlashGroupId =>
+  (Object.keys(SLASH_GROUP) as SlashGroupId[]).find((k) => SLASH_GROUP[k] === group)!;
 
 export type SlashItem = {
   id: string;
@@ -142,69 +150,104 @@ function placeBlockAtCaret(editor: Editor, node: PMNode) {
 export const SLASH_ITEMS: SlashItem[] = [
   {
     id: "paragraph",
-    title: "텍스트",
-    description: "일반 본문 블록",
+    get title() {
+      return msg().editor.slash.items.paragraph.title;
+    },
+    get description() {
+      return msg().editor.slash.items.paragraph.description;
+    },
     icon: Type,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["text", "paragraph", "plain", "본문", "문단", "텍스트"],
     run: (e, r) => chain(e, r).setParagraph().run(),
   },
   ...([1, 2, 3] as const).map((level): SlashItem => ({
     id: `heading${level}`,
-    title: `제목 ${level}`,
-    description: ["가장 큰 섹션 제목", "중간 섹션 제목", "작은 섹션 제목"][level - 1]!,
+    get title() {
+      return msg().editor.slash.items.heading.title(level);
+    },
+    get description() {
+      return msg().editor.slash.items.heading.description[level - 1]!;
+    },
     icon: [Heading1, Heading2, Heading3][level - 1]!,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: "#".repeat(level),
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: [`h${level}`, "heading", "title", "헤딩"],
     run: (e, r) => chain(e, r).setHeading({ level }).run(),
   })),
   ...([1, 2, 3] as const).map((level): SlashItem => ({
     id: `toggleHeading${level}`,
-    title: `토글 제목 ${level}`,
-    description: "제목을 누르면 아래 내용이 접히는 토글",
+    get title() {
+      return msg().editor.slash.items.toggleHeading.title(level);
+    },
+    get description() {
+      return msg().editor.slash.items.toggleHeading.description;
+    },
     icon: ChevronsDownUp,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: [`th${level}`, "toggle heading", "toggle", "토글 제목", "토글", "접기"],
     run: (e, r) => chain(e, r).setToggleHeading({ level }).run(),
   })),
   {
     id: "bulletList",
-    title: "글머리 목록",
-    description: "순서 없는 목록",
+    get title() {
+      return msg().editor.slash.items.bulletList.title;
+    },
+    get description() {
+      return msg().editor.slash.items.bulletList.description;
+    },
     icon: List,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: "-",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["bullet", "list", "ul", "불릿"],
     run: (e, r) => chain(e, r).toggleBulletList().run(),
   },
   {
     id: "orderedList",
-    title: "번호 목록",
-    description: "순서 있는 목록",
+    get title() {
+      return msg().editor.slash.items.orderedList.title;
+    },
+    get description() {
+      return msg().editor.slash.items.orderedList.description;
+    },
     icon: ListOrdered,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: "1.",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["number", "num", "ordered", "list", "ol", "숫자", "번호"],
     run: (e, r) => chain(e, r).toggleOrderedList().run(),
   },
   {
     id: "taskList",
-    title: "체크리스트",
-    description: "완료 여부를 체크",
+    get title() {
+      return msg().editor.slash.items.taskList.title;
+    },
+    get description() {
+      return msg().editor.slash.items.taskList.description;
+    },
     icon: ListTodo,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: "[]",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["todo", "task", "checklist", "할 일", "투두", "체크"],
     run: (e, r) => chain(e, r).toggleTaskList().run(),
   },
   {
     id: "toggle",
-    title: "토글 목록",
-    description: "접었다 펼치는 목록",
+    get title() {
+      return msg().editor.slash.items.toggle.title;
+    },
+    get description() {
+      return msg().editor.slash.items.toggle.description;
+    },
     icon: ChevronRight,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: ">>",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["toggle", "details", "접기"],
     run: (e, r) =>
       insertBlock(e, r, {
@@ -218,11 +261,16 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "blockquote",
-    title: "인용",
-    description: "왼쪽 선이 있는 인용문",
+    get title() {
+      return msg().editor.slash.items.blockquote.title;
+    },
+    get description() {
+      return msg().editor.slash.items.blockquote.description;
+    },
     icon: Quote,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: ">",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["quote", "blockquote", "인용문"],
     run: (e, r) =>
       insertBlock(e, r, { type: "blockquote", content: [{ type: "paragraph" }] }, (ed) =>
@@ -231,20 +279,30 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "divider",
-    title: "구분선",
-    description: "가로 구분선",
+    get title() {
+      return msg().editor.slash.items.divider.title;
+    },
+    get description() {
+      return msg().editor.slash.items.divider.description;
+    },
     icon: Minus,
-    group: "기본 블록",
+    group: SLASH_GROUP.basic,
     hint: "---",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["divider", "div", "hr", "line", "선"],
     run: (e, r) => chain(e, r).setHorizontalRule().run(),
   },
   {
     id: "image",
-    title: "이미지",
-    description: "캡션이 있는 이미지",
+    get title() {
+      return msg().editor.slash.items.image.title;
+    },
+    get description() {
+      return msg().editor.slash.items.image.description;
+    },
     icon: Image,
-    group: "미디어",
+    group: SLASH_GROUP.media,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["image", "picture", "photo", "사진", "그림"],
     run: (e, r, ctx) => {
       chain(e, r).run();
@@ -253,10 +311,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "file",
-    title: "파일",
-    description: "파일을 골라 워크스페이스에 복사해 넣는다",
+    get title() {
+      return msg().editor.slash.items.file.title;
+    },
+    get description() {
+      return msg().editor.slash.items.file.description;
+    },
     icon: Paperclip,
-    group: "미디어",
+    group: SLASH_GROUP.media,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["file", "attach", "attachment", "첨부", "파일 첨부"],
     run: (e, r, ctx) => {
       chain(e, r).run();
@@ -265,10 +328,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "pdf",
-    title: "PDF",
-    description: "PDF를 골라 본문에서 쪽 단위로 미리 본다",
+    get title() {
+      return msg().editor.slash.items.pdf.title;
+    },
+    get description() {
+      return msg().editor.slash.items.pdf.description;
+    },
     icon: FileText,
-    group: "미디어",
+    group: SLASH_GROUP.media,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["pdf", "document", "문서"],
     run: (e, r, ctx) => {
       chain(e, r).run();
@@ -277,10 +345,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "video",
-    title: "비디오",
-    description: "영상을 골라 본문에서 재생한다",
+    get title() {
+      return msg().editor.slash.items.video.title;
+    },
+    get description() {
+      return msg().editor.slash.items.video.description;
+    },
     icon: Film,
-    group: "미디어",
+    group: SLASH_GROUP.media,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["video", "movie", "clip", "동영상", "영상"],
     run: (e, r, ctx) => {
       chain(e, r).run();
@@ -289,10 +362,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "audio",
-    title: "오디오",
-    description: "소리·음성 파일을 골라 본문에서 재생한다",
+    get title() {
+      return msg().editor.slash.items.audio.title;
+    },
+    get description() {
+      return msg().editor.slash.items.audio.description;
+    },
     icon: Music,
-    group: "미디어",
+    group: SLASH_GROUP.media,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["audio", "sound", "voice", "music", "소리", "음성"],
     run: (e, r, ctx) => {
       chain(e, r).run();
@@ -301,30 +379,45 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "codeBlock",
-    title: "코드 블록",
-    description: "언어 선택 · 문법 하이라이트",
+    get title() {
+      return msg().editor.slash.items.codeBlock.title;
+    },
+    get description() {
+      return msg().editor.slash.items.codeBlock.description;
+    },
     icon: Code,
-    group: "미디어",
+    group: SLASH_GROUP.media,
     hint: "```",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["code", "코드"],
     run: (e, r) => chain(e, r).setCodeBlock().run(),
   },
   {
     id: "table",
-    title: "표",
-    description: "간단한 표",
+    get title() {
+      return msg().editor.slash.items.table.title;
+    },
+    get description() {
+      return msg().editor.slash.items.table.description;
+    },
     icon: Table,
-    group: "미디어",
+    group: SLASH_GROUP.media,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["table", "테이블"],
     run: (e, r) => chain(e, r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
   },
   {
     id: "callout",
-    title: "콜아웃",
-    description: "이모지 + 소프트 배경 강조",
+    get title() {
+      return msg().editor.slash.items.callout.title;
+    },
+    get description() {
+      return msg().editor.slash.items.callout.description;
+    },
     icon: Lightbulb,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
     hint: ":::",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["callout", "강조", "메모"],
     run: (e, r) =>
       insertBlock(e, r, { type: "callout", content: [{ type: "paragraph" }] }, (ed) =>
@@ -333,19 +426,29 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   ...([2, 3, 4] as const).map((count): SlashItem => ({
     id: `columns${count}`,
-    title: `${count}단 나누기`,
-    description: `가로로 ${count}열, 각 열에 블록을 넣는다`,
+    get title() {
+      return msg().editor.slash.items.columns.title(count);
+    },
+    get description() {
+      return msg().editor.slash.items.columns.description(count);
+    },
     icon: [Columns2, Columns3, Columns4][count - 2]!,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["columns", "column", "단", "열", `${count}열`, `${count}단`, "나누기"],
     run: (e, r) => chain(e, r).insertColumns({ count }).run(),
   })),
   {
     id: "subpage",
-    title: "하위 페이지",
-    description: "이 페이지 아래에 새 페이지를 만들고 링크를 넣는다",
+    get title() {
+      return msg().editor.slash.items.subpage.title;
+    },
+    get description() {
+      return msg().editor.slash.items.subpage.description;
+    },
     icon: FilePlus,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["page", "subpage", "하위 페이지", "새 페이지", "child", "하위", "페이지"],
     // 새 페이지를 만들어 링크 블록을 넣고, 그 페이지를 연다 (Notion과 같은 흐름)
     run: (e, r, ctx) => {
@@ -363,19 +466,29 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "breadcrumb",
-    title: "경로 표시",
-    description: "현재 페이지까지의 상위 경로",
+    get title() {
+      return msg().editor.slash.items.breadcrumb.title;
+    },
+    get description() {
+      return msg().editor.slash.items.breadcrumb.description;
+    },
     icon: Route,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["breadcrumb", "경로", "bread", "path", "위치"],
     run: (e, r) => chain(e, r).insertContent({ type: "breadcrumb" }).run(),
   },
   {
     id: "tableOfContents",
-    title: "목차",
-    description: "문서의 제목 목록으로 이동",
+    get title() {
+      return msg().editor.slash.items.tableOfContents.title;
+    },
+    get description() {
+      return msg().editor.slash.items.tableOfContents.description;
+    },
     icon: ListTree,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["toc", "contents", "table of contents", "차례", "목차"],
     // 빈 문단이면 그 자리를, 글이 있으면 다음 자리를 목차 블록으로 채운다 (수식 블록과 같은 방식)
     run: (e, r) => {
@@ -388,11 +501,16 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "pageMention",
-    title: "페이지 멘션",
-    description: "다른 페이지를 연결",
+    get title() {
+      return msg().editor.slash.items.pageMention.title;
+    },
+    get description() {
+      return msg().editor.slash.items.pageMention.description;
+    },
     icon: AtSign,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
     hint: "@",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["mention", "link", "page", "링크", "연결"],
     // `@`를 넣어 페이지 제안을 연다
     // 문자열을 넣으면 Tiptap이 HTML로 읽는데 그때 DOM이 필요하다 — 글자 노드로 넣는다
@@ -400,11 +518,16 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "blockMath",
-    title: "수식 블록",
-    description: "KaTeX 수식 (LaTeX)",
+    get title() {
+      return msg().editor.slash.items.blockMath.title;
+    },
+    get description() {
+      return msg().editor.slash.items.blockMath.description;
+    },
     icon: Sigma,
-    group: "고급",
+    group: SLASH_GROUP.advanced,
     hint: "$$$",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["math", "latex", "equation", "katex", "수학"],
     run: (e, r, ctx) => {
       chainNoFocus(e, r).run();
@@ -422,10 +545,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "emoji",
-    title: "이모지",
-    description: "글자 사이에 이모지를 넣는다",
+    get title() {
+      return msg().editor.slash.items.emoji.title;
+    },
+    get description() {
+      return msg().editor.slash.items.emoji.description;
+    },
     icon: Smile,
-    group: "인라인",
+    group: SLASH_GROUP.inline,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["emoji", "emoticon", "smile", "이모지", "이모티콘", "감정"],
     run: (e, r, ctx) => {
       chainNoFocus(e, r).run();
@@ -434,11 +562,16 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "inlineMath",
-    title: "인라인 수식",
-    description: "문장 안에 넣는 KaTeX 수식",
+    get title() {
+      return msg().editor.slash.items.inlineMath.title;
+    },
+    get description() {
+      return msg().editor.slash.items.inlineMath.description;
+    },
     icon: Pi,
-    group: "인라인",
+    group: SLASH_GROUP.inline,
     hint: "$",
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["inline math", "math", "equation", "latex", "katex", "수식", "인라인"],
     // 커서 자리에 빈 수식을 넣고 바로 편집 팝오버를 연다
     run: (e, r, ctx) => {
@@ -452,10 +585,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "date",
-    title: "날짜",
-    description: "오늘 날짜 칩 — 누르면 날짜를 바꾼다",
+    get title() {
+      return msg().editor.slash.items.date.title;
+    },
+    get description() {
+      return msg().editor.slash.items.date.description;
+    },
     icon: CalendarDays,
-    group: "인라인",
+    group: SLASH_GROUP.inline,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["date", "today", "오늘", "날짜", "now"],
     run: (e, r) =>
       chain(e, r)
@@ -464,10 +602,15 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
   {
     id: "dateTomorrow",
-    title: "내일 날짜",
-    description: "내일 날짜 칩",
+    get title() {
+      return msg().editor.slash.items.dateTomorrow.title;
+    },
+    get description() {
+      return msg().editor.slash.items.dateTomorrow.description;
+    },
     icon: CalendarArrowUp,
-    group: "인라인",
+    group: SLASH_GROUP.inline,
+    // i18n-ignore — 한국어 검색 별칭 (영어 별칭과 함께 둔다)
     keywords: ["tomorrow", "내일", "date", "날짜"],
     run: (e, r) =>
       chain(e, r)

@@ -30,6 +30,7 @@ import {
 import { getStorage } from "@/lib/storage/default";
 import { ancestors, createDocument, openPage } from "./actions";
 import { askImportDestination } from "./import-destination";
+import { msg } from "@/lib/i18n";
 
 /**
  * 다른 앱에서 가져오기(DATA-11): 앱과 zip·폴더를 고른 뒤 목록을 만들고, DATA-08과 같은 「어디에 넣을까요?」에서
@@ -57,7 +58,7 @@ export async function importFromApp(
         try {
           text = await storage.readEnexFile(file.id);
         } catch {
-          skipped.push(`${file.name} (읽지 못했어요)`);
+          skipped.push(msg().settings.importApp.skippedRead(file.name));
           continue;
         }
         const part = convertEnexFile({ name: file.name, text }, file.id, blobs);
@@ -78,7 +79,7 @@ export async function importFromApp(
       outcome = parseAppExport(app, pick);
     }
   } catch (error) {
-    toast(error instanceof StorageError ? error.message : "가져올 파일을 읽지 못했어요");
+    toast(error instanceof StorageError ? error.message : msg().settings.importApp.readAllFail);
     return [];
   }
   if (outcome.error) {
@@ -86,7 +87,7 @@ export async function importFromApp(
     return [];
   }
   if (!outcome.nodes.length) {
-    toast("가져올 문서가 없어요");
+    toast(msg().settings.importApp.noDocs);
     return [];
   }
   const documents = outcome.nodes.filter((n) => n.kind === "page").length;
@@ -106,7 +107,7 @@ export async function writeImport(
   const paths = new Set(pick.paths);
   const failed: ImportFailure[] = outcome.skipped.map((name) => ({
     name,
-    reason: "읽지 못했어요",
+    reason: msg().settings.importApp.readFail,
   }));
   const byKey = new Map(outcome.nodes.map((n) => [n.key, n]));
   const ids = new Map<string, string>();
@@ -114,7 +115,7 @@ export async function writeImport(
 
   // 묶음(컨테이너): 컬렉션 아래가 아니면 폴더(폴더는 문서 아래에도 둔다, SHELL-14). 컬렉션 아래면 문서
   const parent = parentId ? pagesStore.getState().pages[parentId] : undefined;
-  const containerTitle = `${appLabel(app)}에서 가져옴`;
+  const containerTitle = msg().settings.importApp.containerTitle(appLabel(app));
   const container =
     parent?.kind === "collection"
       ? createDocument(parentId)
@@ -195,7 +196,7 @@ export async function writeImport(
       void pagesStore.getState().purge(page.id);
       failed.push({
         name: node.title,
-        reason: error instanceof StorageError ? error.message : "읽지 못했어요",
+        reason: error instanceof StorageError ? error.message : msg().settings.importApp.readFail,
       });
     }
   }
@@ -206,7 +207,7 @@ export async function writeImport(
     .expand(...(parentId ? [parentId, ...ancestors(parentId).map((p) => p.id)] : []), containerId);
   if (created[0]) openPage(created[0].id);
   const summary = importSummary(
-    created.map((p) => pagesStore.getState().pages[p.id]?.title || "제목 없음"),
+    created.map((p) => pagesStore.getState().pages[p.id]?.title || msg().settings.common.untitled),
     failed,
   );
   if (summary)
@@ -253,7 +254,8 @@ function imageResolver(
     const blob = blobs?.get(rel);
     if (blob) return storage.writeAsset(pageId, blob);
     const path = paths.has(rel) ? rel : `${dir}${rel}`;
-    if (!paths.has(path)) throw new StorageError("not_found", "그림 파일이 없어요");
+    if (!paths.has(path))
+      throw new StorageError("not_found", msg().settings.importApp.imageMissing);
     return storage.writeAsset(pageId, await storage.readAppImportBytes(path));
   };
 }

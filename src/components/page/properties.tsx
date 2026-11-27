@@ -16,6 +16,7 @@ import { focusRing } from "@/components/ui/styles";
 import { TagChip, type SoftColor } from "@/components/ui/tag-chip";
 import { cn } from "@/lib/utils";
 import type * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 export type PageTag = { id: string; name: string; color: SoftColor };
 
@@ -50,7 +51,6 @@ const valueButton = cn(
   "transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
   focusRing,
 );
-const empty = <span className="text-tertiary">비어 있음</span>;
 
 function Row({
   icon: Icon,
@@ -96,6 +96,8 @@ function Properties({
   className,
   statusOptions = DEFAULT_STATUS_OPTIONS,
 }: PropertiesProps) {
+  const m = useMessages();
+  const empty = <span className="text-tertiary">{m.page.properties.empty}</span>;
   const colorOf = (name: string) => statusOptions.find((o) => o.name === name)?.color;
   const tagChips = tags.length
     ? tags.map((t) => (
@@ -112,11 +114,11 @@ function Properties({
   return (
     <div
       role="table"
-      aria-label="속성"
+      aria-label={m.page.properties.label}
       data-slot="properties"
       className={cn("mt-4 grid gap-0.5", className)}
     >
-      <Row icon={Hash} name="태그">
+      <Row icon={Hash} name={m.page.properties.tags}>
         {tagEditor ? (
           // 칩의 삭제 버튼과 겹치지 않게, 편집 버튼은 칩 뒤 빈 자리를 채운다
           // 태그가 없으면 "비어 있음"까지 눌러 연다
@@ -128,7 +130,10 @@ function Properties({
               <PopoverTrigger
                 className={cn(valueButton, "min-w-8 self-stretch", !tags.length && "px-2")}
               >
-                <span className="sr-only">태그 편집{tags.length ? "" : ": "}</span>
+                <span className="sr-only">
+                  {m.page.properties.editTags}
+                  {tags.length ? "" : ": "}
+                </span>
                 {tags.length ? null : tagChips}
               </PopoverTrigger>
               <PopoverContent className="w-70 p-2">{tagEditor}</PopoverContent>
@@ -138,12 +143,12 @@ function Properties({
           <span className={valueClass}>{tagChips}</span>
         )}
       </Row>
-      <Row icon={CircleDot} name="상태">
+      <Row icon={CircleDot} name={m.page.properties.status}>
         {onStatusChange ? (
           <DropdownMenu>
             <DropdownMenuTrigger
               className={valueButton}
-              aria-label={`상태 편집, 지금은 ${status ?? "비어 있음"}`}
+              aria-label={m.page.properties.statusEdit(status ?? m.page.properties.empty)}
             >
               {status ? <StatusChip status={status} color={colorOf(status)} /> : empty}
             </DropdownMenuTrigger>
@@ -166,12 +171,12 @@ function Properties({
         )}
       </Row>
       {assignee ? (
-        <Row icon={User} name="담당">
+        <Row icon={User} name={m.page.properties.assignee}>
           {assignee}
         </Row>
       ) : null}
       {due ? (
-        <Row icon={CalendarDays} name="마감">
+        <Row icon={CalendarDays} name={m.page.properties.due}>
           {due}
         </Row>
       ) : null}
@@ -180,11 +185,11 @@ function Properties({
           {x.content}
         </Row>
       ))}
-      <Row icon={Clock} name="생성일">
+      <Row icon={Clock} name={m.page.properties.created}>
         <span className={cn(valueClass, "text-secondary")}>{created}</span>
       </Row>
       {updated ? (
-        <Row icon={Clock} name="수정일">
+        <Row icon={Clock} name={m.page.properties.updated}>
           <span className={cn(valueClass, "text-secondary")} title={updatedAgo}>
             {updated}
           </span>

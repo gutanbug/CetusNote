@@ -1,5 +1,6 @@
 import { InputRule } from "@tiptap/core";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+import { msg } from "@/lib/i18n";
 
 /** ED-Toggle — 제목 + 접히는 내용. 열림 상태를 문서에 저장한다. `>>` + 스페이스로 만든다. */
 const Toggle = Details.extend({
@@ -17,7 +18,7 @@ const Toggle = Details.extend({
   persist: true,
   HTMLAttributes: { class: "sn-toggle" },
   renderToggleButton: ({ element, isOpen }) => {
-    element.setAttribute("aria-label", "토글");
+    element.setAttribute("aria-label", msg().editor.toggle.toggleAria);
     element.setAttribute("aria-expanded", String(isOpen));
     element.className = "sn-toggle-button";
   },

@@ -11,6 +11,7 @@ import { ImageOff } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { isFetchableImage, remoteImagesPlugin } from "./remote-images";
+import { useMessages } from "@/lib/i18n";
 
 /** 위 계층이 주는 이미지 다루기 (저장·읽기는 에디터가 모른다) */
 export type ImageSource = {
@@ -77,6 +78,7 @@ const handle = cn(
 const grip = "h-12 max-h-3/5 w-1.5 rounded-pill border border-line-strong bg-elevated";
 
 function ImageView({ node, updateAttributes, editor, selected, getPos }: ReactNodeViewProps) {
+  const m = useMessages();
   const load = React.useContext(ImageContext);
   const src = node.attrs.src as string | null;
   // 붙여 넣은 웹 이미지를 아직 내려받는 중 (remote-images.ts)
@@ -219,17 +221,17 @@ function ImageView({ node, updateAttributes, editor, selected, getPos }: ReactNo
             <div
               role="img"
               aria-busy="true"
-              aria-label={fetching ? "이미지를 가져오는 중" : "이미지를 불러오는 중"}
+              aria-label={fetching ? m.editor.image.fetching : m.editor.image.loading}
               className="aspect-video w-full rounded-lg bg-subtle"
             />
           ) : (
             <div
               role="img"
-              aria-label="이미지를 불러오지 못했어요"
+              aria-label={m.editor.image.loadFailed}
               className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg border border-line bg-subtle text-caption text-tertiary"
             >
               <ImageOff className="size-5" strokeWidth={1.5} aria-hidden />
-              이미지를 불러오지 못했어요
+              {m.editor.image.loadFailed}
             </div>
           )}
           {editor.isEditable ? (
@@ -247,7 +249,7 @@ function ImageView({ node, updateAttributes, editor, selected, getPos }: ReactNo
                 data-resize=""
                 role="slider"
                 tabIndex={0}
-                aria-label="이미지 너비"
+                aria-label={m.editor.image.widthHandle}
                 aria-valuemin={IMAGE_MIN_WIDTH}
                 aria-valuemax={100}
                 aria-valuenow={shown}
@@ -282,7 +284,7 @@ function ImageView({ node, updateAttributes, editor, selected, getPos }: ReactNo
               aria-hidden
               className="pointer-events-none absolute inset-x-0 top-0 text-center text-caption text-tertiary select-none"
             >
-              캡션 추가
+              {m.editor.image.addCaption}
             </span>
           ) : null}
           {/* 캡션은 이미지 아래 가운데 */}

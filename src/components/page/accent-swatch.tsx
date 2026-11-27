@@ -3,6 +3,7 @@ import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { ACCENT_CHOICES, type AccentChoice } from "./options";
 import { rovingKey } from "./roving";
+import { useMessages } from "@/lib/i18n";
 
 type AccentSwatchGroupProps = {
   value: AccentChoice;
@@ -15,11 +16,12 @@ type AccentSwatchGroupProps = {
  * 점 색은 data-accent로 그 색의 토큰(라이트 --accent-l, 다크 --accent-d)을 쓴다. 라디오 그룹.
  */
 function AccentSwatchGroup({ value, onValueChange, className }: AccentSwatchGroupProps) {
+  const m = useMessages();
   const ids = ACCENT_CHOICES.map((a) => a.id);
   return (
     <div
       role="radiogroup"
-      aria-label="포인트 색상"
+      aria-label={m.page.accent.group}
       data-roving=""
       data-slot="accent-swatches"
       className={cn("grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2", className)}

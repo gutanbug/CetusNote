@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import type * as React from "react";
@@ -23,6 +24,7 @@ const cancelButtonClass = cn(
  * 테마는 CSS 변수로 따라가므로 sonner의 theme 기능은 쓰지 않는다.
  */
 function Toaster(props: React.ComponentProps<typeof SonnerToaster>) {
+  const m = useMessages();
   return (
     <SonnerToaster
       position="bottom-center"
@@ -32,7 +34,7 @@ function Toaster(props: React.ComponentProps<typeof SonnerToaster>) {
       // 기본은 겹쳐 접혀서 맨 앞 토스트만 보인다(뒤의 「실행 취소」가 가려짐). 펼쳐서 최대 3개를 다 보이게 한다
       expand
       // 스크린 리더가 알림 영역을 찾도록 한국어 이름을 기본으로 단다(호출하는 쪽이 바꿀 수 있다)
-      containerAriaLabel="알림"
+      containerAriaLabel={m.ui.toast.region}
       // 기본 폭(356px)에 갇히면 긴 문구가 두 줄이 된다 — 틀은 넓게 두고 토스트는 글 길이만큼(가운데).
       // spacing 160 = 4px × 160 = 640px 상한. 긴 문구도 두 줄이 되지 않게 하는 폭이며,
       // 화면이 좁으면 --fit-w에서 양옆 여백(--s8)을 뺀 값으로 줄어든다. 토큰이 없어 여기서 한 번 정한다.
@@ -90,11 +92,12 @@ function ToastCancelButton({
  * 아이콘만 있으므로 aria-label을 달고, 마우스 안내는 title로 준다(토스트 안에는 UI-Tooltip 공급자가 없다).
  */
 function ToastCloseButton({ onClick }: { onClick: () => void }) {
+  const m = useMessages();
   return (
     <button
       type="button"
-      aria-label="닫기"
-      title="닫기"
+      aria-label={m.ui.toast.close}
+      title={m.ui.toast.close}
       className={cn(
         "shrink-0 rounded-pill p-1 text-inverse-fg/70 hover:bg-inverse-fg/8 hover:text-inverse-fg force-hover:bg-inverse-fg/8 force-hover:text-inverse-fg",
         focusRing,

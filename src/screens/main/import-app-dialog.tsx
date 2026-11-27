@@ -19,12 +19,11 @@ import {
 import type { ImportAppId } from "@/features/import/apps/pipeline";
 import { importFromApp } from "./import-apps";
 import { closeImportAppPicker, useImportAppPicker } from "./import-app-picker";
+import { useMessages, type Messages } from "@/lib/i18n";
 
-const KIND_LABEL: Record<ImportKind, string> = {
-  zip: "zip 파일",
-  folder: "폴더",
-  enex: "ENEX 파일",
-};
+function kindLabel(kind: ImportKind, m: Messages): string {
+  return m.settings.importApp.kind[kind];
+}
 
 /** 「메뉴」 표시를 굵게 보여 준다 */
 function withMenus(text: string): ReactNode[] {
@@ -69,6 +68,7 @@ export function ImportAppDialog() {
 
 /** 대화상자가 닫히면 이 안의 상태(고른 앱·단계)도 함께 사라진다 */
 function ImportAppFlow() {
+  const m = useMessages();
   const [picked, setPicked] = useState<ImportAppId | null>(null);
   const [app, setApp] = useState<ImportAppId | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -103,12 +103,12 @@ function ImportAppFlow() {
         <>
           <DialogHeader>
             <DialogTitle ref={headingRef} tabIndex={-1} className="outline-none">
-              다른 앱에서 가져오기
+              {m.settings.importApp.title}
             </DialogTitle>
-            <DialogDescription>가져올 앱을 골라 주세요.</DialogDescription>
+            <DialogDescription>{m.settings.importApp.pickDesc}</DialogDescription>
           </DialogHeader>
           <ChoiceCards
-            label="가져올 앱"
+            label={m.settings.importApp.pickLabel}
             options={options}
             value={picked}
             onValueChange={setPicked}
@@ -116,10 +116,10 @@ function ImportAppFlow() {
           />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={closeImportAppPicker}>
-              취소
+              {m.settings.common.cancel}
             </Button>
             <Button disabled={!picked} onClick={() => picked && setApp(picked)}>
-              다음
+              {m.settings.common.next}
             </Button>
           </div>
         </>
@@ -139,29 +139,32 @@ function GuideStep({
   onBack: () => void;
   onPick: (kind: ImportKind) => void;
 }) {
+  const m = useMessages();
   return (
     <>
       <DialogHeader>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
-            <ChevronLeft strokeWidth={1.5} />앱 고르기
+            <ChevronLeft strokeWidth={1.5} />
+            {m.settings.importApp.pickBack}
           </Button>
         </div>
         <div className="flex items-center gap-3">
           <AppLogo app={guide.id} className="size-5 text-primary" />
           <DialogTitle ref={headingRef} tabIndex={-1} className="outline-none">
-            {guide.label}에서 내보내기
+            {m.settings.importApp.exportFrom(guide.label)}
           </DialogTitle>
         </div>
         <DialogDescription>
-          아래 순서로 내보낸 뒤 {guide.kinds.map((k) => KIND_LABEL[k]).join(" 또는 ")}을 골라
-          주세요.
+          {m.settings.importApp.chooseKinds(
+            guide.kinds.map((k) => kindLabel(k, m)).join(m.settings.importApp.or),
+          )}
         </DialogDescription>
       </DialogHeader>
 
       <section aria-labelledby="import-steps" className="grid gap-2">
         <h3 id="import-steps" className="text-label font-semibold text-secondary">
-          내보내는 방법
+          {m.settings.importApp.howTo}
         </h3>
         <ol className="grid list-decimal gap-2 pl-5 text-ui text-primary marker:text-tertiary">
           {guide.steps.map((s, i) => (
@@ -174,7 +177,7 @@ function GuideStep({
       <div className="grid grid-cols-2 gap-4">
         <section aria-labelledby="import-gets" className="grid content-start gap-2">
           <h3 id="import-gets" className="text-label font-semibold text-secondary">
-            가져와요
+            {m.settings.importApp.gets}
           </h3>
           <ul className="grid list-disc gap-1 pl-4 text-caption text-primary marker:text-tertiary">
             {guide.gets.map((g) => (
@@ -184,7 +187,7 @@ function GuideStep({
         </section>
         <section aria-labelledby="import-misses" className="grid content-start gap-2">
           <h3 id="import-misses" className="text-label font-semibold text-secondary">
-            가져오지 않아요
+            {m.settings.importApp.misses}
           </h3>
           <ul className="grid list-disc gap-1 pl-4 text-caption text-secondary marker:text-tertiary">
             {guide.misses.map((m) => (
@@ -196,7 +199,7 @@ function GuideStep({
 
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="ghost" onClick={closeImportAppPicker}>
-          취소
+          {m.settings.common.cancel}
         </Button>
         {/* 기본(주 버튼)은 그 앱의 권장 내보내기 형식이다 = guide.kinds[0] (features/import/apps/guides.ts). 나머지는 보조 버튼 */}
         {guide.kinds.map((kind, i) => (
@@ -205,7 +208,7 @@ function GuideStep({
             variant={i === 0 ? "primary" : "secondary"}
             onClick={() => onPick(kind)}
           >
-            {KIND_LABEL[kind]} 고르기
+            {m.settings.importApp.pickKind(kindLabel(kind, m))}
           </Button>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type * as React from "react";
@@ -39,9 +40,10 @@ function Sidebar({
   style,
   ...props
 }: SidebarProps) {
+  const m = useMessages();
   return (
     <aside
-      aria-label="사이드바"
+      aria-label={m.shell.sidebar.label}
       data-slot="sidebar"
       data-collapsed={collapsed || undefined}
       inert={collapsed}

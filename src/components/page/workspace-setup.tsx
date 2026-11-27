@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import * as React from "react";
 import { BRAND_MARK_LAYOUT_ID } from "./splash";
+import { useMessages } from "@/lib/i18n";
 
 type WorkspaceSetupProps = {
   /** "기본 위치에 만들기"가 쓸 폴더(표시용). 예: "~/Documents/CetusNote" */
@@ -39,6 +40,7 @@ function WorkspaceSetup({
   enter = false,
   className,
 }: WorkspaceSetupProps) {
+  const m = useMessages();
   const titleId = React.useId();
   const reduced = useReducedMotion();
   const t = motionTokens();
@@ -70,11 +72,9 @@ function WorkspaceSetup({
         </motion.div>
         <motion.div variants={item} className="grid gap-2">
           <h1 id={titleId} className="text-h2 font-semibold text-primary">
-            노트를 저장할 폴더를 골라 주세요
+            {m.page.workspaceSetup.title}
           </h1>
-          <p className="text-ui text-secondary">
-            페이지는 이 폴더에 파일로 저장돼요. 나중에 설정에서 바꿀 수 있어요.
-          </p>
+          <p className="text-ui text-secondary">{m.page.workspaceSetup.subtitle}</p>
         </motion.div>
 
         {missingPath ? (
@@ -86,13 +86,13 @@ function WorkspaceSetup({
             <p className="flex items-start gap-2 text-left">
               <FolderX strokeWidth={1.5} aria-hidden className="mt-0.5 size-4 shrink-0" />
               <span className="min-w-0">
-                지난번에 쓰던 폴더를 찾을 수 없어요.{" "}
+                {m.page.workspaceSetup.missing}{" "}
                 <span className="font-mono break-all text-tertiary">{missingPath}</span>
               </span>
             </p>
             <Button variant="ghost" size="sm" disabled={!!busy} onClick={onPick}>
               <FolderSearch strokeWidth={1.5} aria-hidden />
-              폴더 다시 찾기
+              {m.page.workspaceSetup.reFind}
             </Button>
           </motion.div>
         ) : null}
@@ -106,7 +106,7 @@ function WorkspaceSetup({
             className="w-full"
           >
             <FolderPlus strokeWidth={1.5} aria-hidden />
-            기본 위치에 만들기
+            {m.page.workspaceSetup.useDefault}
           </Button>
           {defaultLabel ? (
             <p className="font-mono text-label break-all text-tertiary">{defaultLabel}</p>
@@ -119,7 +119,7 @@ function WorkspaceSetup({
             className="mt-2 w-full"
           >
             <FolderOpen strokeWidth={1.5} aria-hidden />
-            다른 폴더 선택…
+            {m.page.workspaceSetup.pickOther}
           </Button>
         </motion.div>
 

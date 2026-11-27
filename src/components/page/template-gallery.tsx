@@ -13,6 +13,7 @@ import * as React from "react";
 import { rovingKey } from "./roving";
 import type { PreviewNode } from "./doc-preview";
 import { TemplateCard } from "./template-card";
+import { useMessages } from "@/lib/i18n";
 
 export type TemplateGalleryItem = {
   id: string;
@@ -60,6 +61,7 @@ function TemplateGallery({
   onDelete,
   onCreate,
 }: TemplateGalleryProps) {
+  const m = useMessages();
   const ids = categories.map((c) => c.id);
   const current = categories.find((c) => c.id === category);
   return (
@@ -79,11 +81,11 @@ function TemplateGallery({
             aria-hidden
             className="px-2 pb-1 text-label font-semibold tracking-(--tracking-label) text-tertiary"
           >
-            분류
+            {m.page.category}
           </p>
           <div
             role="tablist"
-            aria-label="템플릿 분류"
+            aria-label={m.page.gallery.list}
             aria-orientation="vertical"
             data-roving=""
             className="grid gap-0.5"
@@ -118,16 +120,15 @@ function TemplateGallery({
         <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
           <DialogHeaderRow className="border-b border-line">
             <DialogTitle className="flex-1">
-              템플릿{current ? ` · ${current.name}` : ""}
+              {current ? m.page.gallery.titleWith(current.name) : m.page.gallery.title}
             </DialogTitle>
             {onCreate ? (
               <Button variant="ghost" size="sm" onClick={onCreate}>
-                <Plus strokeWidth={1.5} aria-hidden />새 템플릿
+                <Plus strokeWidth={1.5} aria-hidden />
+                {m.page.newTemplate}
               </Button>
             ) : null}
-            <DialogDescription className="sr-only">
-              템플릿을 고르면 그 모양으로 페이지를 만들어요.
-            </DialogDescription>
+            <DialogDescription className="sr-only">{m.page.gallery.description}</DialogDescription>
           </DialogHeaderRow>
           <div
             role="tabpanel"
@@ -160,10 +161,11 @@ function TemplateGallery({
               // 빈 분류: 가운데 정렬한 안내(20px 아이콘 · 글 · 새 템플릿 버튼)
               <div className="grid justify-items-center gap-3 py-12 text-center">
                 <LayoutTemplate strokeWidth={1.5} aria-hidden className="size-5 text-tertiary" />
-                <p className="text-caption text-tertiary">이 분류에는 템플릿이 없어요.</p>
+                <p className="text-caption text-tertiary">{m.page.gallery.empty}</p>
                 {onCreate ? (
                   <Button variant="secondary" size="sm" onClick={onCreate}>
-                    <Plus strokeWidth={1.5} aria-hidden />새 템플릿
+                    <Plus strokeWidth={1.5} aria-hidden />
+                    {m.page.newTemplate}
                   </Button>
                 ) : null}
               </div>

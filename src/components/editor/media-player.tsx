@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import * as React from "react";
 import { FileAttachment, type AttachmentActions } from "./file-attachment";
+import { useMessages } from "@/lib/i18n";
 
 /** 재생 속도 단계 */
 const RATES = [1, 1.25, 1.5, 2];
@@ -37,6 +38,7 @@ type PlayerProps = Omit<MediaPlayerProps, "missing" | "resolveSrc" | "src"> & {
 
 /** 재생 본체. url이 바뀌면 key로 새로 만든다 */
 function Player({ kind, name, url, caption, selected, className, onFail }: PlayerProps) {
+  const m = useMessages();
   const mediaRef = React.useRef<HTMLMediaElement>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = React.useState(false);
@@ -152,7 +154,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
     <div
       ref={rootRef}
       role="group"
-      aria-label={`${name} 재생기`}
+      aria-label={m.editor.media.player(name)}
       tabIndex={0}
       data-slot="media-player"
       data-kind={kind}
@@ -188,12 +190,16 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
         />
       )}
       <div className="flex items-center gap-1 px-2 py-1.5">
-        <IconButton label={playing ? "일시 정지" : "재생"} shortcut="Space" onClick={toggle}>
+        <IconButton
+          label={playing ? m.editor.media.pause : m.editor.media.play}
+          shortcut="Space"
+          onClick={toggle}
+        >
           {playing ? <Pause strokeWidth={1.5} /> : <Play strokeWidth={1.5} />}
         </IconButton>
         <input
           type="range"
-          aria-label="재생 위치"
+          aria-label={m.editor.media.position}
           aria-valuetext={shownTime}
           min={0}
           max={duration || 0}
@@ -208,7 +214,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label={`재생 속도 ${rate}×`}
+              aria-label={m.editor.media.speedItem(rate)}
               data-press=""
               onClick={() => setRateIndex((i) => (i + 1) % RATES.length)}
               className={cn(
@@ -221,25 +227,29 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
               {rate}×
             </button>
           </TooltipTrigger>
-          <TooltipContent>재생 속도</TooltipContent>
+          <TooltipContent>{m.editor.media.speed}</TooltipContent>
         </Tooltip>
-        <IconButton label={muted ? "소리 켜기" : "음소거"} shortcut="M" onClick={toggleMute}>
+        <IconButton
+          label={muted ? m.editor.media.unmute : m.editor.media.mute}
+          shortcut="M"
+          onClick={toggleMute}
+        >
           {muted || volume === 0 ? <VolumeX strokeWidth={1.5} /> : <Volume2 strokeWidth={1.5} />}
         </IconButton>
         <input
           type="range"
-          aria-label="음량"
+          aria-label={m.editor.media.volume}
           min={0}
           max={1}
           step={0.05}
-          aria-valuetext={`음량 ${Math.round((muted ? 0 : volume) * 100)}%`}
+          aria-valuetext={m.editor.media.volumeText(Math.round((muted ? 0 : volume) * 100))}
           value={muted ? 0 : volume}
           onChange={(e) => changeVolume(Number(e.target.value))}
           className={cn("w-20 shrink-0 accent-accent", focusRing)}
         />
         {isVideo && (
           <IconButton
-            label={fullscreen ? "전체 화면 끝내기" : "전체 화면"}
+            label={fullscreen ? m.editor.media.exitFullscreen : m.editor.media.fullscreen}
             shortcut="F"
             onClick={toggleFullscreen}
           >
@@ -257,6 +267,7 @@ function Player({ kind, name, url, caption, selected, className, onFail }: Playe
  * 키: Space·K 재생/정지, ← → 5초, M 음소거, F 전체 화면(영상). 재생 못 하면 파일 카드로 대체.
  */
 export function MediaPlayer({ src, resolveSrc, missing = false, ...props }: MediaPlayerProps) {
+  const m = useMessages();
   const url = resolveSrc ? resolveSrc(src) : src;
   // 실패한 주소를 기억해 두면 다른 파일로 바꿨을 때 자동으로 다시 시도한다
   const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
@@ -273,7 +284,7 @@ export function MediaPlayer({ src, resolveSrc, missing = false, ...props }: Medi
         selected={props.selected}
         editable={props.editable}
         className={props.className}
-        notice={missing ? undefined : "재생할 수 없어요 · 형식을 지원하지 않거나 파일이 없어요"}
+        notice={missing ? undefined : m.editor.media.unsupported}
         onOpen={props.onOpen}
         onReveal={props.onReveal}
         onDownload={props.onDownload}

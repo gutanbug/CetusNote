@@ -1,4 +1,5 @@
 import type { SoftColor } from "@/components/ui/tag-chip";
+import { msg } from "@/lib/i18n";
 
 /** MCP 연결 상태 (DATA-12) — 화면이 저장소에서 읽어 넘긴다 */
 type McpStatusValue = {
@@ -16,7 +17,7 @@ function clientLabel(name: string): string {
   const n = name.toLowerCase();
   if (n === "claude-code" || n === "claude code") return "Claude Code";
   if (n === "claude-ai" || n.includes("desktop")) return "Claude Desktop";
-  return name || "알 수 없는 도구";
+  return name || msg().page.mcp.unknownClient;
 }
 
 function mcpState(status: McpStatusValue | null): McpState {
@@ -27,10 +28,18 @@ function mcpState(status: McpStatusValue | null): McpState {
 }
 
 const LABEL: Record<McpState, string> = {
-  loading: "확인 중",
-  connected: "연결됨",
-  configured: "설정됨",
-  none: "연결 안 됨",
+  get loading() {
+    return msg().page.mcp.state.loading;
+  },
+  get connected() {
+    return msg().page.mcp.state.connected;
+  },
+  get configured() {
+    return msg().page.mcp.state.configured;
+  },
+  get none() {
+    return msg().page.mcp.state.none;
+  },
 };
 
 const COLOR: Record<McpState, SoftColor> = {
@@ -43,18 +52,18 @@ const COLOR: Record<McpState, SoftColor> = {
 /** 뱃지 옆에 붙이는 한 줄 설명 */
 function mcpDetail(status: McpStatusValue | null): string {
   const state = mcpState(status);
-  if (!status || state === "loading") return "연결 상태를 확인하고 있어요.";
+  if (!status || state === "loading") return msg().page.mcp.checking;
   if (state === "connected") {
     const names = [...new Set(status.clients.map(clientLabel))];
-    return `${names.join(" · ")}에서 이 워크스페이스에 연결돼 있어요.`;
+    return msg().page.mcp.connectedFrom(names.join(" · "));
   }
   if (state === "configured") {
     const where = [status.claudeCode && "Claude Code", status.claudeDesktop && "Claude Desktop"]
       .filter(Boolean)
       .join(" · ");
-    return `${where}에 등록돼 있어요. 그 도구에서 대화를 시작하면 연결돼요.`;
+    return msg().page.mcp.configuredIn(where);
   }
-  return "아래 명령이나 설정을 복사해 AI 도구에 등록해 주세요.";
+  return msg().page.mcp.setupHint;
 }
 
 export { clientLabel, COLOR, LABEL, mcpDetail, mcpState, type McpState, type McpStatusValue };

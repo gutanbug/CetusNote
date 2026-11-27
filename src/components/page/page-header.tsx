@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 type IconUpload = {
   /** 파일 고르기 대화상자. 취소하면 null */
@@ -50,7 +51,7 @@ type PageHeaderProps = {
  */
 function PageHeader({
   title,
-  placeholder = "제목 없음",
+  placeholder,
   onTitleChange,
   onTitleExit,
   icon,
@@ -67,6 +68,7 @@ function PageHeader({
   children,
   className,
 }: PageHeaderProps) {
+  const m = useMessages();
   const titleRef = React.useRef<HTMLSpanElement>(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [pickerFrom, setPickerFrom] = React.useState<"icon" | "action">("icon");
@@ -97,7 +99,7 @@ function PageHeader({
         if (id !== job.current) return;
         setUpload({
           busy: false,
-          error: e instanceof Error ? e.message : "이미지를 올리지 못했어요. 다시 시도해 주세요.",
+          error: e instanceof Error ? e.message : m.page.pageHeader.uploadFailed,
         });
       },
     );
@@ -105,7 +107,7 @@ function PageHeader({
 
   const picker = (
     <PopoverContent
-      aria-label="아이콘 고르기"
+      aria-label={m.page.pageHeader.pickIcon}
       className="w-auto max-w-none p-0"
       align="start"
       onCloseAutoFocus={() => {
@@ -153,7 +155,7 @@ function PageHeader({
                 className="shadow-popover"
                 onClick={onChangeCover}
               >
-                커버 변경
+                {m.page.pageHeader.changeCover}
               </Button>
             ) : null}
             {onRemoveCover ? (
@@ -163,7 +165,7 @@ function PageHeader({
                 className="shadow-popover"
                 onClick={onRemoveCover}
               >
-                커버 제거
+                {m.page.pageHeader.removeCover}
               </Button>
             ) : null}
           </div>
@@ -188,7 +190,7 @@ function PageHeader({
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
           {icon ? (
             <PopoverTrigger
-              aria-label="페이지 아이콘 바꾸기"
+              aria-label={m.page.pageHeader.changeIcon}
               onClick={() => setPickerFrom("icon")}
               className={cn(
                 "inline-block rounded-lg p-1 text-page-icon transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
@@ -207,10 +209,10 @@ function PageHeader({
               contentEditable="plaintext-only"
               suppressContentEditableWarning
               role="textbox"
-              aria-label="페이지 제목"
+              aria-label={m.page.pageHeader.titleLabel}
               aria-multiline={false}
               spellCheck={false}
-              data-placeholder={placeholder}
+              data-placeholder={placeholder ?? m.page.untitled}
               data-empty={!title || undefined}
               onInput={(e) => onTitleChange(e.currentTarget.textContent ?? "")}
               onKeyDown={(e) => {
@@ -238,21 +240,21 @@ function PageHeader({
             {!cover && onAddCover ? (
               <Button variant="ghost" size="sm" onClick={onAddCover}>
                 <ImagePlus strokeWidth={1.5} aria-hidden />
-                커버 추가
+                {m.page.pageHeader.addCover}
               </Button>
             ) : null}
             {!icon ? (
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" onClick={() => setPickerFrom("action")}>
                   <SmilePlus strokeWidth={1.5} aria-hidden />
-                  아이콘 추가
+                  {m.page.pageHeader.addIcon}
                 </Button>
               </PopoverTrigger>
             ) : null}
             {onOpenTemplates ? (
               <Button variant="ghost" size="sm" onClick={onOpenTemplates}>
                 <LayoutTemplate strokeWidth={1.5} aria-hidden />
-                템플릿
+                {m.page.pageHeader.templates}
               </Button>
             ) : null}
           </div>

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 export type VersionRowView = {
   id: string;
@@ -55,6 +56,7 @@ export function VersionHistory({
   restoring = false,
   onRestore,
 }: VersionHistoryProps) {
+  const m = useMessages();
   const listRef = React.useRef<HTMLDivElement>(null);
   const ids = groups.flatMap((g) => g.rows.map((r) => r.id));
   const focusRow = (id: string) =>
@@ -100,7 +102,7 @@ export function VersionHistory({
             <div
               ref={listRef}
               role="listbox"
-              aria-label="버전 목록"
+              aria-label={m.page.versionHistory.list}
               onKeyDown={onKeyDown}
               className="grid content-start gap-3 overflow-y-auto px-2 py-4"
             >
@@ -142,43 +144,43 @@ export function VersionHistory({
               className="px-5 py-6 text-caption leading-relaxed text-pretty text-tertiary"
             >
               {status === "loading"
-                ? "버전을 불러오는 중이에요."
+                ? m.page.versionHistory.loading
                 : status === "error"
-                  ? "버전 목록을 읽지 못했어요."
-                  : "아직 저장된 버전이 없어요. 글을 고치면 10분마다 자동으로 남아요."}
+                  ? m.page.versionHistory.loadError
+                  : m.page.versionHistory.empty}
             </p>
           )}
         </div>
 
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]">
           <DialogHeaderRow className="border-b border-line">
-            <DialogTitle>버전 기록</DialogTitle>
+            <DialogTitle>{m.page.versionHistory.title}</DialogTitle>
             <DialogDescription className="sr-only">
-              왼쪽에서 버전을 고르면 오른쪽에 미리 보여요. 되돌리면 지금 내용도 버전으로 남아요.
+              {m.page.versionHistory.description}
             </DialogDescription>
           </DialogHeaderRow>
           <section
-            aria-label="미리보기"
+            aria-label={m.page.versionHistory.preview}
             tabIndex={0}
             className={cn("min-h-0 overflow-y-auto px-8 py-6", insetFocus)}
           >
             {selectedId ? (
               <>
                 <h3 className="mb-4 text-title font-bold tracking-(--tracking-display) break-words">
-                  {previewTitle || "제목 없음"}
+                  {previewTitle || m.page.untitled}
                 </h3>
                 {preview}
               </>
             ) : (
-              <p className="text-ui text-tertiary">왼쪽에서 버전을 고르면 여기에 미리 보여요.</p>
+              <p className="text-ui text-tertiary">{m.page.versionHistory.pickHint}</p>
             )}
           </section>
           <div className="flex justify-end gap-2 border-t border-line px-6 py-3">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              닫기
+              {m.page.close}
             </Button>
             <Button onClick={onRestore} disabled={!selectedId || restoring}>
-              {restoring ? "되돌리는 중이에요" : "이 버전으로 되돌리기"}
+              {restoring ? m.page.versionHistory.restoring : m.page.versionHistory.restore}
             </Button>
           </div>
         </div>

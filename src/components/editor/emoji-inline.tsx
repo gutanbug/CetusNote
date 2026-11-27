@@ -3,6 +3,7 @@ import type { ShortcodeItem } from "@/lib/emoji/shortcodes";
 import * as React from "react";
 import { EmojiPicker, type PickedEmoji } from "@/components/ui/emoji-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMessages } from "@/lib/i18n";
 
 export type EmojiInlinePopoverProps = {
   /** 트리거 (보통 버튼). asChild로 감싼다 */
@@ -30,11 +31,12 @@ function EmojiInlinePopover({
   recent,
   onCloseAutoFocus,
 }: EmojiInlinePopoverProps) {
+  const m = useMessages();
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        aria-label="이모지 넣기"
+        aria-label={m.editor.emoji.insert}
         align="start"
         className="w-auto max-w-none p-0"
         onCloseAutoFocus={onCloseAutoFocus}
@@ -76,12 +78,13 @@ function EmojiShortcodeMenu({
   id,
   className,
 }: EmojiShortcodeMenuProps) {
+  const m = useMessages();
   if (items.length === 0) return null;
   return (
     <div
       id={id}
       role="listbox"
-      aria-label="이모지 제안"
+      aria-label={m.editor.emoji.suggestions}
       data-slot="emoji-shortcode-menu"
       className={cn(
         "z-50 grid w-60 gap-0.5 rounded-lg bg-elevated p-1 text-body text-primary shadow-popover",

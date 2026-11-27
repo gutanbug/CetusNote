@@ -11,6 +11,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n";
 
 export type PdfPreviewStatus = "loading" | "ready" | "saving" | "error";
 
@@ -44,6 +45,7 @@ export function PdfPreview({
   onSave,
   onRetry,
 }: PdfPreviewProps) {
+  const m = useMessages();
   const [zoom, setZoom] = useState(100);
   const showPages = status !== "error" && pages.length > 0;
   const zoomIndex = ZOOM_STEPS.indexOf(zoom);
@@ -57,19 +59,19 @@ export function PdfPreview({
         className="grid h-[calc(var(--fit-h)*0.88)] grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-3"
       >
         <DialogHeader>
-          <DialogTitle>PDF로 내보내기</DialogTitle>
+          <DialogTitle>{m.page.pdf.title}</DialogTitle>
           <DialogDescription className="text-caption text-tertiary">
-            미리보기를 확인하고 PDF로 저장해요.
+            {m.page.pdf.description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex h-8 items-center justify-between gap-2">
           <span className="text-caption text-tertiary tabular-nums">
-            {showPages ? `${pages.length}쪽` : ""}
+            {showPages ? m.page.pdf.pageCount(pages.length) : ""}
           </span>
           <div className="flex items-center gap-1">
             <IconButton
-              label="축소"
+              label={m.page.pdf.zoomOut}
               disabled={!showPages || !canZoomOut}
               onClick={() => setZoom(ZOOM_STEPS[zoomIndex - 1] ?? zoom)}
             >
@@ -82,14 +84,14 @@ export function PdfPreview({
               {zoom}%
             </span>
             <IconButton
-              label="확대"
+              label={m.page.pdf.zoomIn}
               disabled={!showPages || !canZoomIn}
               onClick={() => setZoom(ZOOM_STEPS[zoomIndex + 1] ?? zoom)}
             >
               <ZoomIn strokeWidth={1.5} />
             </IconButton>
             <IconButton
-              label="너비에 맞추기"
+              label={m.page.pdf.fitWidth}
               disabled={!showPages || zoom === 100}
               onClick={() => setZoom(100)}
             >
@@ -100,7 +102,7 @@ export function PdfPreview({
 
         <div
           tabIndex={0}
-          aria-label="PDF 미리보기 영역"
+          aria-label={m.page.pdf.previewArea}
           className={cn(
             "relative min-h-0 overflow-auto rounded-md border border-line bg-app",
             focusRing,
@@ -108,7 +110,7 @@ export function PdfPreview({
         >
           {showPages ? (
             <ol
-              aria-label="PDF 쪽 미리보기"
+              aria-label={m.page.pdf.pageList}
               className="mx-auto grid gap-4 p-4"
               style={{ width: `${zoom}%` }}
             >
@@ -116,7 +118,7 @@ export function PdfPreview({
                 <li key={src}>
                   <img
                     src={src}
-                    alt={`${index + 1}쪽`}
+                    alt={m.page.pdf.pageNo(index + 1)}
                     draggable={false}
                     className="block w-full rounded-xs bg-paper shadow-popover"
                   />
@@ -128,18 +130,20 @@ export function PdfPreview({
               role="status"
               className="grid h-full min-h-40 place-items-center px-6 text-center text-ui text-tertiary"
             >
-              {status === "error" ? (message ?? "PDF를 만들지 못했어요.") : "PDF를 만들고 있어요."}
+              {status === "error" ? (message ?? m.page.pdf.errorDefault) : m.page.pdf.building}
             </p>
           )}
         </div>
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            닫기
+            {m.page.close}
           </Button>
-          {status === "error" && onRetry ? <Button onClick={onRetry}>다시 만들기</Button> : null}
+          {status === "error" && onRetry ? (
+            <Button onClick={onRetry}>{m.page.pdf.retry}</Button>
+          ) : null}
           <Button onClick={onSave} disabled={status !== "ready"}>
-            {status === "saving" ? "저장하는 중이에요" : "PDF로 저장"}
+            {status === "saving" ? m.page.pdf.saving : m.page.pdf.save}
           </Button>
         </div>
       </DialogContent>

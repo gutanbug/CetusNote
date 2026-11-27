@@ -9,6 +9,7 @@ import { focusRing } from "@/components/ui/styles";
 import { tocDepths } from "@/lib/toc";
 import { cn } from "@/lib/utils";
 import { getHeadings, goToHeading, type Heading } from "./outline";
+import { useMessages } from "@/lib/i18n";
 
 /** 입력이 멈춘 뒤 목차를 다시 계산한다(글자마다 문서를 훑지 않는다) */
 const DEBOUNCE_MS = 150;
@@ -58,6 +59,7 @@ function jumpTo(editor: Editor, index: number, text: string, smooth: boolean) {
 }
 
 function TableOfContentsView({ editor }: ReactNodeViewProps) {
+  const m = useMessages();
   const headings = useLiveHeadings(editor);
   const reduceMotion = useReducedMotion();
   const depths = tocDepths(headings.map((h) => h.level));
@@ -67,7 +69,7 @@ function TableOfContentsView({ editor }: ReactNodeViewProps) {
       <NodeViewWrapper data-type="table-of-contents" contentEditable={false} className="my-4">
         <div className="flex items-center gap-2 px-3 py-1 text-tertiary">
           <ListTree className="size-5 shrink-0" strokeWidth={1.5} aria-hidden />
-          <span className="text-body">제목을 추가하면 목차가 만들어져요</span>
+          <span className="text-body">{m.editor.toc.empty}</span>
         </div>
       </NodeViewWrapper>
     );
@@ -75,10 +77,10 @@ function TableOfContentsView({ editor }: ReactNodeViewProps) {
 
   return (
     <NodeViewWrapper data-type="table-of-contents" contentEditable={false} className="my-4">
-      <nav aria-label="목차" className="flex flex-col gap-1">
+      <nav aria-label={m.editor.toc.label} className="flex flex-col gap-1">
         <div className="flex items-center gap-2 px-3 text-caption text-tertiary">
           <ListTree className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
-          <span>목차</span>
+          <span>{m.editor.toc.label}</span>
         </div>
         {/* 본문 CSS가 ul의 점 표시를 주므로 목록 역할만 주고 div로 그린다 */}
         <div role="list" className="flex flex-col border-l border-line">

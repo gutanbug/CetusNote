@@ -2,6 +2,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { PageIcon } from "@/components/ui/page-icon";
+import { useMessages } from "@/lib/i18n";
 
 export type TodayTodo = {
   id: string;
@@ -25,13 +26,8 @@ type TodayTodosProps = {
  * PG-TodayTodos — 여러 문서의 체크리스트를 한 판에 모은다 (프로토타입 `.panel` + `.todo-line`).
  * 체크하면 그 문서의 항목이 바뀐다. 오른쪽 문서 이름을 누르면 그 문서로 간다.
  */
-function TodayTodos({
-  items,
-  onCheckedChange,
-  onOpenPage,
-  emptyText = "열린 할 일이 없어요.",
-  className,
-}: TodayTodosProps) {
+function TodayTodos({ items, onCheckedChange, onOpenPage, emptyText, className }: TodayTodosProps) {
+  const m = useMessages();
   return (
     <div
       data-slot="today-todos"
@@ -50,7 +46,7 @@ function TodayTodos({
                 <Checkbox
                   checked={t.checked}
                   onCheckedChange={(c) => onCheckedChange(t.id, c === true)}
-                  aria-label={`${t.text} 완료 표시`}
+                  aria-label={m.page.todayTodos.doneLabel(t.text)}
                   className="before:absolute before:-inset-1 before:content-['']"
                 />
               </span>
@@ -70,13 +66,15 @@ function TodayTodos({
                     <PageIcon icon={t.pageEmoji} />{" "}
                   </>
                 ) : null}
-                {t.pageTitle || "제목 없음"}
+                {t.pageTitle || m.page.untitled}
               </button>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="py-4 text-center text-ui text-tertiary">{emptyText}</p>
+        <p className="py-4 text-center text-ui text-tertiary">
+          {emptyText ?? m.page.todayTodos.empty}
+        </p>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { fieldFocus } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Trash2, X } from "lucide-react";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 export type QuickNoteItem = {
   id: string;
@@ -30,6 +31,7 @@ type QuickNoteProps = {
  * 머리 · 입력(⌘↵ 저장) · 메모 목록(페이지로 · 삭제). 감싸는 팝오버는 부르는 쪽이 둔다.
  */
 function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: QuickNoteProps) {
+  const m = useMessages();
   const [draft, setDraft] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -61,10 +63,10 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
     >
       <div className="flex items-center gap-2 border-b border-line py-2 pr-2 pl-3">
         <h2 id={titleId} className="flex-1 text-caption font-semibold text-primary">
-          빠른 메모
+          {m.page.quickNote.title}
         </h2>
         {onClose ? (
-          <IconButton label="빠른 메모 닫기" noTooltip onClick={onClose}>
+          <IconButton label={m.page.quickNote.close} noTooltip onClick={onClose}>
             <X strokeWidth={1.5} />
           </IconButton>
         ) : null}
@@ -80,8 +82,8 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
               void save();
             }
           }}
-          aria-label="새 메모"
-          placeholder="떠오른 것을 바로 적어 두세요"
+          aria-label={m.page.quickNote.newNote}
+          placeholder={m.page.quickNote.placeholder}
           className={cn(
             "min-h-16 w-full resize-none rounded-md border border-line bg-app p-2 text-ui leading-relaxed text-primary placeholder:text-tertiary",
             "transition-[border-color,box-shadow]",
@@ -90,16 +92,17 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
         />
         <div className="flex items-center gap-2">
           <span className="flex flex-1 items-center gap-1 text-label text-tertiary">
-            <Kbd keys={["⌘", "↵"]} />로 저장
+            <Kbd keys={["⌘", "↵"]} />
+            {m.page.quickNote.saveHint}
           </span>
           <Button size="sm" loading={saving} onClick={() => void save()}>
-            저장
+            {m.page.quickNote.save}
           </Button>
         </div>
       </div>
       <div className="overflow-y-auto px-1 pb-1">
         {notes.length ? (
-          <ul aria-label="메모 목록" className="grid">
+          <ul aria-label={m.page.quickNote.list} className="grid">
             {notes.map((n) => (
               <li
                 key={n.id}
@@ -113,9 +116,9 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
                   <div className="flex items-center gap-1 opacity-0 transition-opacity duration-(--dur-fast) group-focus-within/qn:opacity-100 group-hover/qn:opacity-100 force-hover:opacity-100">
                     <Button variant="ghost" size="sm" onClick={() => onPromote(n.id)}>
                       <ArrowRight strokeWidth={1.5} aria-hidden />
-                      페이지로
+                      {m.page.quickNote.promote}
                     </Button>
-                    <IconButton label="메모 삭제" onClick={() => onDelete(n.id)}>
+                    <IconButton label={m.page.quickNote.deleteNote} onClick={() => onDelete(n.id)}>
                       <Trash2 strokeWidth={1.5} />
                     </IconButton>
                   </div>
@@ -125,9 +128,9 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
           </ul>
         ) : (
           <p className="px-4 py-6 text-center text-caption text-tertiary">
-            아직 메모가 없어요.
+            {m.page.quickNote.empty}
             <br />
-            페이지를 만들지 않고 떠오른 생각을 던져 두는 곳이에요.
+            {m.page.quickNote.emptyHint}
           </p>
         )}
       </div>

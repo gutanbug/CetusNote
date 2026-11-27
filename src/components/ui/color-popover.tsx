@@ -1,19 +1,8 @@
+import { msg, useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { SOFT_COLORS, type SoftColor } from "./tag-chip";
 import { focusRing } from "./styles";
-
-const COLOR_NAMES: Record<SoftColor, string> = {
-  gray: "회색",
-  brown: "갈색",
-  orange: "주황",
-  yellow: "노랑",
-  green: "초록",
-  blue: "파랑",
-  purple: "보라",
-  pink: "분홍",
-  red: "빨강",
-};
 
 const TEXT_CLASS: Record<SoftColor, string> = {
   gray: "text-gray-fg",
@@ -52,11 +41,18 @@ const swatch = cn(
   focusRing,
 );
 
+/** 색 이름 — 다른 화면이 `COLOR_NAMES[c]`로 읽는다. 읽는 순간의 언어로 돌려준다 */
+const COLOR_NAMES = {} as Record<SoftColor, string>;
+for (const c of SOFT_COLORS) {
+  Object.defineProperty(COLOR_NAMES, c, { enumerable: true, get: () => msg().ui.color[c] });
+}
+
 /**
  * OV-ColorPopover의 내용 — 글자색 줄 + 하이라이트 줄 (소프트 컬러 9종).
  * 이미 선택한 색을 다시 누르면 해제된다. OV-Popover 안에 넣어 쓴다.
  */
 function ColorPicker({ value, onChange, className }: ColorPickerProps) {
+  const m = useMessages();
   const row = (kind: keyof ColorValue, title: string) => (
     <div role="group" aria-label={title} className="grid gap-1">
       <div className="px-1 text-label font-semibold tracking-(--tracking-label) text-tertiary">
@@ -70,13 +66,13 @@ function ColorPicker({ value, onChange, className }: ColorPickerProps) {
               key={c}
               type="button"
               aria-pressed={selected}
-              aria-label={`${title} ${COLOR_NAMES[c]}`}
-              title={COLOR_NAMES[c]}
+              aria-label={`${title} ${m.ui.color[c]}`}
+              title={m.ui.color[c]}
               onClick={() => onChange({ ...value, [kind]: selected ? null : c })}
               className={cn(swatch, kind === "text" ? TEXT_CLASS[c] : BG_CLASS[c])}
             >
               {kind === "text" ? (
-                <span aria-hidden>가</span>
+                <span aria-hidden>{m.ui.colorPopover.sample}</span>
               ) : selected ? (
                 <Check strokeWidth={1.5} className="size-4 text-primary" aria-hidden />
               ) : null}
@@ -88,8 +84,8 @@ function ColorPicker({ value, onChange, className }: ColorPickerProps) {
   );
   return (
     <div data-slot="color-picker" className={cn("grid gap-2 p-1", className)}>
-      {row("text", "글자색")}
-      {row("highlight", "배경색")}
+      {row("text", m.ui.colorPopover.text)}
+      {row("highlight", m.ui.colorPopover.highlight)}
     </div>
   );
 }

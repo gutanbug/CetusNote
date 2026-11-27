@@ -3,6 +3,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from 
 import * as React from "react";
 import { Breadcrumb, type Crumb } from "@/components/shell/breadcrumb";
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n";
 
 // ── 표시 (순수 UI: props만 받는다) ─────────────────────
 
@@ -18,6 +19,7 @@ type BreadcrumbBlockProps = {
  * 최상위 페이지면 현재 페이지 이름 하나만 보인다. 마지막 항목(현재 페이지)은 누를 수 없다.
  */
 function BreadcrumbBlock({ items, onNavigate, selected }: BreadcrumbBlockProps) {
+  const m = useMessages();
   if (items === undefined) {
     return (
       <div
@@ -27,7 +29,7 @@ function BreadcrumbBlock({ items, onNavigate, selected }: BreadcrumbBlockProps) 
         className="flex items-center gap-2 rounded-md px-1 py-1 text-caption text-tertiary"
       >
         <span aria-hidden className="h-3 w-24 rounded-xs bg-subtle" />
-        <span className="sr-only">경로를 불러오는 중</span>
+        <span className="sr-only">{m.editor.breadcrumb.loading}</span>
       </div>
     );
   }
@@ -38,7 +40,7 @@ function BreadcrumbBlock({ items, onNavigate, selected }: BreadcrumbBlockProps) 
         data-state="missing"
         className="rounded-md px-1 py-1 text-caption text-tertiary"
       >
-        이 페이지의 경로를 찾을 수 없어요
+        {m.editor.breadcrumb.notFound}
       </div>
     );
   }

@@ -34,7 +34,7 @@ import { useWorkspace, workspaceStore } from "@/features/workspace";
 import type { PageFont, RecordOpenMode } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
 import { UpdateSection } from "./update-section";
-import { LOCALE_NAMES, useMessages, type LanguagePref } from "@/lib/i18n";
+import { LOCALE_NAMES, useMessages, type LanguagePref, type Messages } from "@/lib/i18n";
 import { restoreBuiltinTemplates } from "./actions";
 import { importDocuments } from "./import-document";
 import { openImportAppPicker } from "./import-app-picker";
@@ -45,7 +45,7 @@ import { currentPlatform, revealLabel } from "@/lib/platform-labels";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import * as React from "react";
 import { ZOOM_STEPS } from "@/lib/zoom";
-import { SHORTCUT_GROUPS } from "./shortcuts";
+import { shortcutGroups } from "./shortcuts";
 import { useRestoreFocus } from "./use-restore-focus";
 import { useMainUi } from "./ui-store";
 import { TagItem } from "@/components/shell/tag-item";
@@ -56,6 +56,7 @@ const ID = "settings";
 
 /** 설정 (SET-01–03) — 왼쪽 탭(PG-SettingsNav) + 오른쪽 행(PG-SettingsRow). 프로토타입 `.settings` 860×560 */
 export function SettingsDialog() {
+  const m = useMessages();
   const open = useMainUi((s) => s.settingsOpen);
   const setOpen = useMainUi((s) => s.setSettingsOpen);
   const askedTab = useMainUi((s) => s.settingsTab);
@@ -80,7 +81,9 @@ export function SettingsDialog() {
         <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)]">
           <DialogHeaderRow className="border-b border-line">
             <DialogTitle>{current.name}</DialogTitle>
-            <DialogDescription className="sr-only">Cetus Note 설정</DialogDescription>
+            <DialogDescription className="sr-only">
+              {m.settings.dialog.srDescription}
+            </DialogDescription>
           </DialogHeaderRow>
           {/* 내용이 넘치면 스크롤 막대를 늘 보인다(목록이 아래로 이어진다는 표시) · 내려가면 위에 구분선 */}
           <ScrollArea type="auto" className="min-h-0">
@@ -103,7 +106,7 @@ export function SettingsDialog() {
               ) : tab === "agent" ? (
                 <AgentSettings />
               ) : (
-                <p className="text-ui text-tertiary">준비 중이에요.</p>
+                <p className="text-ui text-tertiary">{m.settings.dialog.comingSoon}</p>
               )}
             </div>
           </ScrollArea>
@@ -115,18 +118,16 @@ export function SettingsDialog() {
 
 /** 컬렉션 레코드 여는 기본 방식 (COLL-07) — 컬렉션마다 툴바에서 바꿀 수 있다 */
 function RecordOpenRow() {
+  const m = useMessages();
   const mode = useSession((s) => s.recordOpen);
   return (
-    <SettingsRow
-      name="레코드 열기"
-      description="컬렉션에서 레코드를 누르면 여는 방식이에요. 컬렉션마다 툴바에서 바꿀 수 있어요."
-    >
+    <SettingsRow name={m.settings.recordOpen.name} description={m.settings.recordOpen.description}>
       <Segmented
-        label="레코드 열기"
+        label={m.settings.recordOpen.label}
         options={[
-          { value: "modal", label: "모달" },
-          { value: "side", label: "사이드 패널" },
-          { value: "tab", label: "새 탭" },
+          { value: "modal", label: m.settings.recordOpen.modal },
+          { value: "side", label: m.settings.recordOpen.side },
+          { value: "tab", label: m.settings.recordOpen.tab },
         ]}
         value={mode}
         onValueChange={(v) => sessionStore.getState().setRecordOpen(v as RecordOpenMode)}
@@ -137,29 +138,30 @@ function RecordOpenRow() {
 
 /** 에디터 (SET-04) — 새 페이지 글꼴 · 맞춤법 검사 · 완료 항목 흐리게 + 늘 켜진 입력 도구 안내 (프로토타입 에디터 탭) */
 function Editor() {
+  const m = useMessages();
   const e = useSession((s) => s.editor);
   const set = sessionStore.getState().setEditor;
-  const always = <TagChip color="green">항상 켜짐</TagChip>;
+  const always = <TagChip color="green">{m.settings.editor.alwaysOn}</TagChip>;
   return (
     <div>
       <SettingsRow
-        name="새 페이지 글꼴"
-        description="새로 만드는 페이지의 본문 글꼴이에요. 페이지마다 ··· 메뉴에서 바꿀 수 있어요."
+        name={m.settings.editor.newPageFontName}
+        description={m.settings.editor.newPageFontDesc}
       >
         <Segmented
-          label="새 페이지 글꼴"
+          label={m.settings.editor.newPageFontLabel}
           options={[
-            { value: "default", label: "기본" },
-            { value: "serif", label: "세리프" },
-            { value: "mono", label: "모노" },
+            { value: "default", label: m.settings.editor.fontDefault },
+            { value: "serif", label: m.settings.editor.fontSerif },
+            { value: "mono", label: m.settings.editor.fontMono },
           ]}
           value={e.newPageFont}
           onValueChange={(v) => set({ newPageFont: v as PageFont })}
         />
       </SettingsRow>
       <SettingsRow
-        name="맞춤법 검사"
-        description="본문에서 틀린 낱말 아래에 밑줄을 그어요. 시스템 맞춤법 검사기를 써요."
+        name={m.settings.editor.spellcheckName}
+        description={m.settings.editor.spellcheckDesc}
         controlId="spellcheck"
       >
         <Switch
@@ -170,8 +172,8 @@ function Editor() {
         />
       </SettingsRow>
       <SettingsRow
-        name="완료한 체크 항목 흐리게"
-        description="체크한 할 일을 회색과 취소선으로 보여요."
+        name={m.settings.editor.dimCheckedName}
+        description={m.settings.editor.dimCheckedDesc}
         controlId="dim-checked"
       >
         <Switch
@@ -182,11 +184,13 @@ function Editor() {
         />
       </SettingsRow>
       <SettingsRow
-        name="계산 줄"
+        name={m.settings.editor.calcName}
         description={
           <>
-            줄 끝에 <code className="font-mono">=</code>를 쓰면 결과를 보여 줘요. Tab을 누르면
-            본문에 넣어요. 예: <code className="font-mono">점심 12,000원 + 커피 4,500원 =</code>
+            {m.settings.editor.calcBefore}
+            <code className="font-mono">=</code>
+            {m.settings.editor.calcAfter}
+            <code className="font-mono">{m.settings.editor.calcExample}</code>
           </>
         }
         controlId="calc-lines"
@@ -199,8 +203,8 @@ function Editor() {
         />
       </SettingsRow>
       <SettingsRow
-        name="계산 결과 오른쪽에 맞추기"
-        description="결과를 줄 오른쪽 끝에 모아 계산서처럼 보여 줘요. 끄면 = 바로 뒤에 보여요."
+        name={m.settings.editor.calcRightName}
+        description={m.settings.editor.calcRightDesc}
         controlId="calc-right"
       >
         <Switch
@@ -213,10 +217,10 @@ function Editor() {
       </SettingsRow>
       <RecordOpenRow />
       <SettingsRow
-        name="마크다운 단축 입력"
+        name={m.settings.editor.markdownName}
         description={
           <>
-            줄 맨 앞에 쓰면 블록으로 바뀌어요: <code className="font-mono">#</code>{" "}
+            {m.settings.editor.markdownDesc} <code className="font-mono">#</code>{" "}
             <code className="font-mono">-</code> <code className="font-mono">[]</code>{" "}
             <code className="font-mono">&gt;</code> <code className="font-mono">```</code>
           </>
@@ -225,10 +229,12 @@ function Editor() {
         {always}
       </SettingsRow>
       <SettingsRow
-        name="슬래시 명령"
+        name={m.settings.editor.slashName}
         description={
           <>
-            본문에서 <code className="font-mono">/</code> 키를 누르면 블록 메뉴가 열려요.
+            {m.settings.editor.slashBefore}
+            <code className="font-mono">/</code>
+            {m.settings.editor.slashAfter}
           </>
         }
       >
@@ -240,6 +246,7 @@ function Editor() {
 
 /** 데이터 / 백업 (SET-06, DATA-05) — 내보내기 · 자동 백업 · 불러오기(새 폴더로) */
 function Data({ onRestored }: { onRestored: () => void }) {
+  const m = useMessages();
   const folderName = useWorkspace((s) => s.workspace?.name ?? "");
   const metaName = useMeta((s) => s.meta?.name ?? "");
   const auto = useSession((s) => s.autoBackup);
@@ -276,7 +283,7 @@ function Data({ onRestored }: { onRestored: () => void }) {
         backupFileName(metaName || folderName, now),
         now.toISOString(),
       );
-      if (saved) toast(`“${saved}” 파일로 백업했어요.`);
+      if (saved) toast(m.settings.data.backedUp(saved));
     } catch (e) {
       toast.error(backupErrorMessage(e));
     } finally {
@@ -289,7 +296,7 @@ function Data({ onRestored }: { onRestored: () => void }) {
       await flush();
       if (await workspaceStore.getState().restore()) {
         onRestored();
-        toast("백업을 새 폴더에 풀어 열었어요.");
+        toast(m.settings.data.restored);
       }
     } catch (e) {
       toast.error(backupErrorMessage(e));
@@ -298,36 +305,30 @@ function Data({ onRestored }: { onRestored: () => void }) {
 
   return (
     <div className="grid gap-6">
-      <DataSection id="data-backup" title="백업">
-        <SettingsRow
-          name="백업 내보내기"
-          description="페이지, 이미지, 워크스페이스 설정을 zip 파일 하나로 저장해요."
-        >
+      <DataSection id="data-backup" title={m.settings.data.sectionBackup}>
+        <SettingsRow name={m.settings.data.exportName} description={m.settings.data.exportDesc}>
           <Button
             variant="secondary"
             size="sm"
             loading={exporting}
             onClick={() => void exportNow()}
           >
-            내보내기…
+            {m.settings.data.exportButton}
           </Button>
         </SettingsRow>
-        <SettingsRow
-          name="백업 불러오기"
-          description="백업 파일을 새 폴더에 풀고 그 폴더를 열어요. 지금 워크스페이스는 그대로 남아요."
-        >
+        <SettingsRow name={m.settings.data.restoreName} description={m.settings.data.restoreDesc}>
           <Button variant="secondary" size="sm" loading={restoring} onClick={() => void restore()}>
-            불러오기…
+            {m.settings.data.restoreButton}
           </Button>
         </SettingsRow>
         <SettingsRow
-          name="자동 백업"
+          name={m.settings.data.autoName}
           description={
             <>
-              앱을 켤 때 하루 한 번 워크스페이스의 .backups 폴더에 저장하고, 최근 7개만 남겨요.
+              {m.settings.data.autoDesc}
               {last !== undefined ? (
                 <span className="block">
-                  {last ? `마지막 자동 백업: ${last}` : "아직 자동 백업이 없어요."}
+                  {last ? m.settings.data.autoLast(last) : m.settings.data.autoNone}
                 </span>
               ) : null}
             </>
@@ -342,14 +343,17 @@ function Data({ onRestored }: { onRestored: () => void }) {
           />
         </SettingsRow>
         {canReveal() ? (
-          <SettingsRow name="자동 백업 폴더" description="백업 zip이 쌓이는 폴더를 열어요.">
+          <SettingsRow
+            name={m.settings.data.autoFolderName}
+            description={m.settings.data.autoFolderDesc}
+          >
             <Button
               variant="secondary"
               size="sm"
               onClick={() =>
                 void getStorage()
                   .revealBackups()
-                  .catch(() => toast.error("폴더를 열지 못했어요."))
+                  .catch(() => toast.error(m.settings.data.openFolderFail))
               }
             >
               {revealLabel(currentPlatform())}
@@ -357,34 +361,31 @@ function Data({ onRestored }: { onRestored: () => void }) {
           </SettingsRow>
         ) : null}
       </DataSection>
-      <DataSection id="data-transfer" title="가져오기·내보내기">
+      <DataSection id="data-transfer" title={m.settings.data.sectionTransfer}>
         <SettingsRow
-          name="문서 가져오기"
-          description="md, txt, html, docx, pdf 파일을 고르면 파일마다 새 문서로 만들어요. PDF는 글자만 가져와요. 같은 폴더 안의 이미지도 함께 가져와요."
+          name={m.settings.data.docImportName}
+          description={m.settings.data.docImportDesc}
         >
           <Button variant="secondary" size="sm" onClick={() => void importDocuments()}>
-            가져오기…
+            {m.settings.data.importButton}
           </Button>
         </SettingsRow>
         <SettingsRow
-          name="다른 앱에서 가져오기"
-          description="Notion, Obsidian, AppFlowy, AFFiNE에서 내보낸 zip 파일이나 폴더, Evernote의 ENEX 파일을 가져와요. 문서 구조와 링크를 살려요."
+          name={m.settings.data.appImportName}
+          description={m.settings.data.appImportDesc}
         >
           <Button variant="secondary" size="sm" onClick={() => openImportAppPicker()}>
-            가져오기…
+            {m.settings.data.importButton}
           </Button>
         </SettingsRow>
-        <SettingsRow
-          name="Markdown으로 모두 내보내기"
-          description="모든 문서를 폴더 구조대로 .md 파일로 만들어요. 본문 이미지는 assets 폴더에 함께 넣어요."
-        >
+        <SettingsRow name={m.settings.data.mdExportName} description={m.settings.data.mdExportDesc}>
           <Button variant="secondary" size="sm" onClick={() => void exportWorkspaceMarkdown()}>
-            내보내기…
+            {m.settings.data.exportButton}
           </Button>
         </SettingsRow>
         <SettingsRow
-          name="Markdown에 front matter 넣기"
-          description="파일 맨 위에 id·태그·만든 날짜·고친 날짜·아이콘을 적어요. 다시 가져오면 페이지 링크와 태그를 되살려요."
+          name={m.settings.data.frontMatterName}
+          description={m.settings.data.frontMatterDesc}
           controlId="front-matter"
         >
           <Switch
@@ -398,20 +399,20 @@ function Data({ onRestored }: { onRestored: () => void }) {
           />
         </SettingsRow>
       </DataSection>
-      <DataSection id="data-templates" title="템플릿">
+      <DataSection id="data-templates" title={m.settings.data.sectionTemplates}>
         <SettingsRow
-          name="기본 템플릿 되살리기"
-          description="지운 기본 템플릿(회의록 · 일일 노트 …)을 템플릿 갤러리에 다시 넣어요. 고친 템플릿은 그대로예요."
+          name={m.settings.data.templatesRestoreName}
+          description={m.settings.data.templatesRestoreDesc}
         >
           <Button
             variant="secondary"
             size="sm"
             onClick={() => {
               const n = restoreBuiltinTemplates();
-              toast(n ? `기본 템플릿 ${n}개를 되살렸어요.` : "기본 템플릿이 모두 있어요.");
+              toast(n ? m.settings.data.restoredTemplates(n) : m.settings.data.allTemplatesPresent);
             }}
           >
-            되살리기
+            {m.settings.data.templatesButton}
           </Button>
         </SettingsRow>
       </DataSection>
@@ -444,9 +445,10 @@ function DataSection({
 
 /** 단축키 (SET-05) — 읽기 전용 목록. 바꾸기는 지원하지 않는다 */
 function Shortcuts() {
+  const m = useMessages();
   return (
     <div className="grid gap-6">
-      {SHORTCUT_GROUPS.map((g) => (
+      {shortcutGroups(m.screens.shortcuts).map((g) => (
         <section key={g.title} aria-labelledby={`sc-${g.title}`}>
           <h3
             id={`sc-${g.title}`}
@@ -472,6 +474,7 @@ function Shortcuts() {
 }
 
 function General() {
+  const m = useMessages();
   const folderName = useWorkspace((s) => s.workspace?.name ?? "");
   const path = useWorkspace((s) => s.workspace?.path ?? "");
   const metaName = useMeta((s) => s.meta?.name ?? "");
@@ -487,8 +490,8 @@ function General() {
   return (
     <div>
       <SettingsRow
-        name="워크스페이스 이름"
-        description="사이드바 위에 보여요. 비우면 폴더 이름을 써요."
+        name={m.settings.general.workspaceName}
+        description={m.settings.general.workspaceNameDesc}
         controlId="ws-name"
       >
         <Input
@@ -504,21 +507,21 @@ function General() {
       </SettingsRow>
       <LanguageRow />
       <SettingsRow
-        name="시작 화면"
-        description="앱을 켜거나 다른 폴더를 열었을 때 처음 보이는 화면이에요."
+        name={m.settings.general.startScreen}
+        description={m.settings.general.startScreenDesc}
       >
         <Segmented
-          label="시작 화면"
+          label={m.settings.general.startScreen}
           options={[
-            { value: "home", label: "홈" },
-            { value: "last", label: "마지막 페이지" },
+            { value: "home", label: m.settings.general.startHome },
+            { value: "last", label: m.settings.general.startLast },
           ]}
           value={startScreen}
           onValueChange={(v) => sessionStore.getState().setStartScreen(v as StartScreen)}
         />
       </SettingsRow>
       <SettingsRow
-        name="저장 위치"
+        name={m.settings.general.storageLocation}
         description={<span className="font-mono break-all">{path}</span>}
       >
         {canReveal() ? (
@@ -573,30 +576,26 @@ function useMcpStatus(): McpStatusValue | null {
  * 에이전트 연결(검색·내용 분석)은 아직 없다 — 준비 중이라고만 알린다.
  */
 function AgentSettings() {
+  const m = useMessages();
   const status = useMcpStatus();
   return (
     <div className="grid gap-6">
       <section aria-labelledby="settings-mcp-title">
         <h3 id="settings-mcp-title" className="text-ui font-medium">
-          MCP 서버
+          {m.settings.agent.mcpTitle}
         </h3>
-        <p className="mt-1 text-caption text-tertiary">
-          Claude Code나 Claude Desktop 같은 AI 도구가 이 워크스페이스의 노트를 읽고 쓸 수 있어요.
-        </p>
-        <SettingsRow name="연결 상태" description={mcpDetail(status)}>
+        <p className="mt-1 text-caption text-tertiary">{m.settings.agent.mcpDesc}</p>
+        <SettingsRow name={m.settings.agent.statusName} description={mcpDetail(status)}>
           <McpStatus status={status} />
         </SettingsRow>
         <McpRow />
       </section>
       <section aria-labelledby="settings-agent-title" className="border-t border-line pt-4">
         <h3 id="settings-agent-title" className="text-ui font-medium">
-          AI 에이전트
+          {m.settings.agent.aiTitle}
         </h3>
-        <SettingsRow
-          name="개인 AI 에이전트 · API 키"
-          description="준비 중이에요. 나중에 여기서 API 키나 에이전트를 연결해 노트 검색과 내용 분석에 쓸 수 있어요."
-        >
-          <StatusChip status="준비 중" color="gray" />
+        <SettingsRow name={m.settings.agent.keyName} description={m.settings.agent.keyDesc}>
+          <StatusChip status={m.settings.agent.preparing} color="gray" />
         </SettingsRow>
       </section>
     </div>
@@ -605,6 +604,7 @@ function AgentSettings() {
 
 /** AI 연결(MCP, DATA-12): 앱 실행 파일을 `--mcp`로 실행하는 명령을 복사한다. 워크스페이스는 앱이 마지막으로 연 곳 */
 function McpRow() {
+  const m = useMessages();
   const [path, setPath] = React.useState<string | null>(null);
   React.useEffect(() => {
     let alive = true;
@@ -628,13 +628,13 @@ function McpRow() {
       await navigator.clipboard.writeText(text);
       toast(done);
     } catch {
-      toast("복사하지 못했어요. 글을 직접 선택해 복사해 주세요.");
+      toast(m.settings.agent.copyFail);
     }
   };
   return (
     <SettingsRow
-      name="등록하기"
-      description="명령이나 설정을 복사해 AI 도구에 붙여 넣으면 연결돼요."
+      name={m.settings.agent.registerName}
+      description={m.settings.agent.registerDesc}
       stacked
     >
       <div className="grid gap-2">
@@ -646,9 +646,9 @@ function McpRow() {
             aria-disabled={!ready}
             className="aria-disabled:opacity-40"
             aria-describedby={ready ? undefined : "mcp-hint"}
-            onClick={() => ready && void copy(command, "Claude Code 명령을 복사했어요.")}
+            onClick={() => ready && void copy(command, m.settings.agent.copiedCommand)}
           >
-            Claude Code 명령 복사
+            {m.settings.agent.copyCommand}
           </Button>
           <Button
             variant="secondary"
@@ -657,16 +657,14 @@ function McpRow() {
             aria-disabled={!ready}
             className="aria-disabled:opacity-40"
             aria-describedby={ready ? undefined : "mcp-hint"}
-            onClick={() => ready && void copy(desktop, "Claude Desktop 설정을 복사했어요.")}
+            onClick={() => ready && void copy(desktop, m.settings.agent.copiedDesktop)}
           >
-            Claude Desktop 설정 복사
+            {m.settings.agent.copyDesktop}
           </Button>
         </div>
         {ready ? null : (
           <p id="mcp-hint" className="text-caption text-secondary">
-            {path === null
-              ? "앱 실행 파일 경로를 확인하고 있어요."
-              : "앱 실행 파일 경로를 찾지 못해 명령을 만들 수 없어요."}
+            {path === null ? m.settings.agent.pathChecking : m.settings.agent.pathMissing}
           </p>
         )}
         {ready ? (
@@ -679,6 +677,7 @@ function McpRow() {
 
 /** 태그 관리 (SHELL-18) — 모든 태그를 개수·색과 함께 보여 주고, 행을 누르거나 우클릭하면 같은 메뉴가 열린다 */
 function TagSettings() {
+  const m = useMessages();
   const pages = usePages((s) => s.pages);
   const colors = useMeta((s) => s.meta?.tags);
   const tags = React.useMemo(
@@ -688,13 +687,11 @@ function TagSettings() {
   return (
     <section aria-labelledby="settings-tags-title" className="border-t border-line pt-4">
       <h3 id="settings-tags-title" tabIndex={-1} className="text-ui font-medium">
-        태그
+        {m.settings.tags.title}
       </h3>
-      <p className="mt-1 text-caption text-tertiary">
-        이름 바꾸기 · 색 · 합치기 · 삭제는 모든 문서에 한 번에 적용돼요.
-      </p>
+      <p className="mt-1 text-caption text-tertiary">{m.settings.tags.desc}</p>
       {tags.length ? (
-        <ul className="mt-3 grid gap-0.5" aria-label="태그 목록">
+        <ul className="mt-3 grid gap-0.5" aria-label={m.settings.tags.list}>
           {tags.map(([tag, count]) => (
             <li key={tag}>
               <TagItem
@@ -714,82 +711,100 @@ function TagSettings() {
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-ui text-tertiary">태그가 아직 없어요.</p>
+        <p className="mt-3 text-ui text-tertiary">{m.settings.tags.empty}</p>
       )}
     </section>
   );
 }
 
-const APP_ICONS: { value: AppIconPref; label: string }[] = [
-  { value: "auto", label: "자동(테마 따라)" },
-  { value: "light", label: "화이트" },
-  { value: "dark", label: "블랙" },
-];
+function appIconOptions(m: Messages): { value: AppIconPref; label: string }[] {
+  return [
+    { value: "auto", label: m.settings.appearance.iconAuto },
+    { value: "light", label: m.settings.appearance.iconLight },
+    { value: "dark", label: m.settings.appearance.iconDark },
+  ];
+}
 
-const SCALES: { value: string; label: string }[] = [
-  { value: "0.9", label: "작게" },
-  { value: "1", label: "기본" },
-  { value: "1.1", label: "크게" },
-];
+function scaleOptions(m: Messages): { value: string; label: string }[] {
+  return [
+    { value: "0.9", label: m.settings.appearance.scaleSmall },
+    { value: "1", label: m.settings.appearance.scaleDefault },
+    { value: "1.1", label: m.settings.appearance.scaleLarge },
+  ];
+}
 
 function Appearance() {
+  const m = useMessages();
   const a = useSession((s) => s.appearance);
   const set = sessionStore.getState().setAppearance;
   return (
     <div>
-      <SettingsRow stacked name="테마" description="시스템을 고르면 OS 설정을 따라요.">
+      <SettingsRow
+        stacked
+        name={m.settings.appearance.theme}
+        description={m.settings.appearance.themeDesc}
+      >
         <ThemeCardGroup value={a.theme} onValueChange={(theme) => set({ theme })} />
       </SettingsRow>
-      <SettingsRow stacked name="포인트 색" description="링크, 선택, 포커스 표시에 쓰여요.">
+      <SettingsRow
+        stacked
+        name={m.settings.appearance.accent}
+        description={m.settings.appearance.accentDesc}
+      >
         <AccentSwatchGroup value={a.accent} onValueChange={(accent) => set({ accent })} />
       </SettingsRow>
       <SettingsRow
-        name="앱 아이콘"
-        description="Dock·작업 표시줄·창에 보이는 아이콘이에요. 자동이면 테마를 따라요."
+        name={m.settings.appearance.appIcon}
+        description={m.settings.appearance.appIconDesc}
       >
         <Segmented
-          label="앱 아이콘"
-          options={APP_ICONS}
+          label={m.settings.appearance.appIcon}
+          options={appIconOptions(m)}
           value={a.appIcon}
           onValueChange={(v) => set({ appIcon: v as AppIconPref })}
         />
       </SettingsRow>
-      <SettingsRow name="글꼴 크기" description="본문과 제목에 적용돼요.">
+      <SettingsRow
+        name={m.settings.appearance.fontScale}
+        description={m.settings.appearance.fontScaleDesc}
+      >
         <Segmented
-          label="글꼴 크기"
-          options={SCALES}
+          label={m.settings.appearance.fontScale}
+          options={scaleOptions(m)}
           value={String(a.fontScale)}
           onValueChange={(v) => set({ fontScale: Number(v) as FontScale })}
         />
       </SettingsRow>
       <SettingsRow
-        name="화면 크기"
-        description={`앱 전체를 키우거나 줄여요. ${currentPlatform() === "mac" ? "⌘+ ⌘− ⌘0" : "Ctrl+ Ctrl− Ctrl+0"}으로도 바꿀 수 있어요.`}
+        name={m.settings.appearance.zoom}
+        description={m.settings.appearance.zoomDesc(
+          currentPlatform() === "mac" ? "⌘+ ⌘− ⌘0" : "Ctrl+ Ctrl− Ctrl+0",
+        )}
       >
         <Segmented
-          label="화면 크기"
+          label={m.settings.appearance.zoom}
           options={ZOOM_STEPS.map((z) => ({ value: String(z), label: `${Math.round(z * 100)}%` }))}
           value={String(a.zoom)}
           onValueChange={(v) => set({ zoom: Number(v) })}
         />
       </SettingsRow>
       <SettingsRow
-        name="페이지 본문 폭 기본값"
-        description="폴더나 페이지에서 따로 정하지 않으면 이 폭을 써요. 폴더와 페이지마다 바꿀 수 있어요."
+        name={m.settings.appearance.defaultWidth}
+        description={m.settings.appearance.defaultWidthDesc}
       >
         <Segmented
-          label="페이지 본문 폭 기본값"
+          label={m.settings.appearance.defaultWidth}
           options={[
-            { value: "default", label: "기본" },
-            { value: "wide", label: "전체 폭" },
+            { value: "default", label: m.settings.appearance.widthDefault },
+            { value: "wide", label: m.settings.appearance.widthWide },
           ]}
           value={a.defaultWide ? "wide" : "default"}
           onValueChange={(v) => set({ defaultWide: v === "wide" })}
         />
       </SettingsRow>
       <SettingsRow
-        name="고래자리 보여주기"
-        description="홈, 페이지, 템플릿, 빈 화면에 고래자리를 그려요. 끄면 어디에도 나오지 않아요."
+        name={m.settings.appearance.sky}
+        description={m.settings.appearance.skyDesc}
         controlId="sky"
       >
         <Switch

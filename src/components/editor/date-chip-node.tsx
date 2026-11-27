@@ -7,6 +7,7 @@ import { formatDateTimeLabel } from "@/lib/dates/date-label";
 import { isIsoDate, isTimeOfDay } from "@/lib/dates/local-date";
 import { normalizeReminder, NO_REMINDER } from "@/lib/dates/reminder";
 import { DateChip, DateChipEditor, type DateChipPatch } from "./date-chip";
+import { useMessages } from "@/lib/i18n";
 
 /**
  * ED-DateChip의 Tiptap 인라인 노드 (이름 `dateChip`). 원자 노드라 글자처럼 한 칸을 차지한다.
@@ -52,6 +53,7 @@ function parseReminderAttr(raw: string | null): unknown {
 }
 
 function DateChipNodeView({ node, updateAttributes, deleteNode, selected }: ReactNodeViewProps) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(false);
   const value = attrsToValue(node.attrs);
   const patch = (p: DateChipPatch) => updateAttributes(p);
@@ -62,7 +64,11 @@ function DateChipNodeView({ node, updateAttributes, deleteNode, selected }: Reac
         <PopoverTrigger asChild>
           <DateChip value={value} selected={selected} open={open} />
         </PopoverTrigger>
-        <PopoverContent aria-label="날짜 편집" className="w-auto max-w-none p-2" align="start">
+        <PopoverContent
+          aria-label={m.editor.dateChip.edit}
+          className="w-auto max-w-none p-2"
+          align="start"
+        >
           <DateChipEditor value={value} onChange={patch} onRemove={() => deleteNode()} />
         </PopoverContent>
       </Popover>

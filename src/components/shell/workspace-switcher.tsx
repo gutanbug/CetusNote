@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { Check, ChevronsUpDown, FolderOpen, Plus, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -77,6 +78,7 @@ function WorkspaceSwitcher({
   onOpenChange,
   className,
 }: WorkspaceSwitcherProps) {
+  const m = useMessages();
   const ic = { strokeWidth: 1.5, "aria-hidden": true, className: "size-4" } as const;
   return (
     <div className={cn("px-2 pt-2", className)}>
@@ -91,7 +93,7 @@ function WorkspaceSwitcher({
         >
           <Avatar name={name} aria-hidden />
           <span title={name} className="min-w-0 flex-1 truncate text-ui font-medium">
-            <span className="sr-only">워크스페이스: </span>
+            <span className="sr-only">{m.shell.workspace.current}</span>
             {name}
           </span>
           <ChevronsUpDown
@@ -110,7 +112,7 @@ function WorkspaceSwitcher({
           {workspaces ? (
             <>
               {/* AppFlowy 워크스페이스 메뉴처럼 — 계정 줄 대신 "워크스페이스", 행마다 이니셜 타일 */}
-              <DropdownMenuLabel>워크스페이스</DropdownMenuLabel>
+              <DropdownMenuLabel>{m.shell.workspace.title}</DropdownMenuLabel>
               {workspaces.map((w) => (
                 <DropdownMenuItem
                   key={w.id}
@@ -146,7 +148,7 @@ function WorkspaceSwitcher({
                         <span
                           aria-hidden
                           data-slot="workspace-remove"
-                          title="목록에서 빼기"
+                          title={m.shell.workspace.remove}
                           onClick={(e) => {
                             // 항목 선택(전환)으로 번지지 않게
                             e.preventDefault();
@@ -166,7 +168,7 @@ function WorkspaceSwitcher({
                   }
                 >
                   <RowText name={w.name} detail={w.detail} />
-                  {w.current ? <span className="sr-only">, 지금 열림</span> : null}
+                  {w.current ? <span className="sr-only">{m.shell.workspace.openNow}</span> : null}
                 </DropdownMenuItem>
               ))}
               {onCreate ? (
@@ -179,7 +181,7 @@ function WorkspaceSwitcher({
                     </span>
                   }
                 >
-                  <RowText name="새 워크스페이스…" />
+                  <RowText name={m.shell.workspace.newWorkspace} />
                 </DropdownMenuItem>
               ) : null}
               {onOpenFolder ? (
@@ -192,7 +194,10 @@ function WorkspaceSwitcher({
                     </span>
                   }
                 >
-                  <RowText name="다른 폴더 열기…" detail="이미 있는 노트 폴더를 워크스페이스로" />
+                  <RowText
+                    name={m.shell.workspace.openFolder}
+                    detail={m.shell.workspace.openFolderDetail}
+                  />
                 </DropdownMenuItem>
               ) : null}
             </>

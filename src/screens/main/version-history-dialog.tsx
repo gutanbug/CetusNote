@@ -13,13 +13,11 @@ import * as React from "react";
 import { resolveMention } from "./mention-model";
 import { useMainUi } from "./ui-store";
 import { useRestoreFocus } from "./use-restore-focus";
+import { msg, useMessages } from "@/lib/i18n";
 
-const REASON = {
-  missing: "이 페이지는 지금 고칠 수 없어서 되돌리지 않았어요.",
-  snapshot: "지금 내용을 먼저 남기지 못해서 되돌리지 않았어요.",
-  read: "그 버전을 읽지 못했어요.",
-  save: "되돌린 내용을 저장하지 못했어요. 다시 해 보세요.",
-} as const;
+function reasonText(reason: "missing" | "snapshot" | "read" | "save"): string {
+  return msg().settings.version[reason];
+}
 
 /**
  * 버전 기록 (DATA-09) — 사이드 메뉴 `버전 기록…`과 ⌘K "버전 기록"으로 연다.
@@ -32,6 +30,7 @@ export function VersionHistoryDialog() {
 }
 
 function VersionHistoryPanel({ pageId }: { pageId: string | null }) {
+  const m = useMessages();
   const setPageId = useMainUi((s) => s.setHistoryPageId);
   const open = pageId !== null;
   const all = usePagesWhile(open);
@@ -80,7 +79,7 @@ function VersionHistoryPanel({ pageId }: { pageId: string | null }) {
   const images = React.useMemo<ImageSource>(
     () => ({
       load: (src) => assetUrl(src),
-      upload: () => Promise.reject(new Error("읽기 전용")),
+      upload: () => Promise.reject(new Error(msg().settings.version.readOnly)),
       pick: async () => null,
     }),
     [],
@@ -95,14 +94,14 @@ function VersionHistoryPanel({ pageId }: { pageId: string | null }) {
       key={current.id}
       content={current.page.content as JSONContent}
       editable={false}
-      label={`${current.page.title || "제목 없음"} 버전 본문`}
+      label={m.settings.version.bodyLabel(current.page.title || m.settings.common.untitled)}
       mentions={mentions}
       images={images}
       spellCheck={false}
     />
   ) : (
     <p role="status" className="text-ui text-tertiary">
-      {current?.failed ? "이 버전을 읽지 못했어요." : "버전을 불러오는 중이에요."}
+      {current?.failed ? m.settings.version.readFail : m.settings.version.loading}
     </p>
   );
 
@@ -121,16 +120,16 @@ function VersionHistoryPanel({ pageId }: { pageId: string | null }) {
     );
     setRestoring(false);
     if (!outcome.ok) {
-      toast.error(REASON[outcome.reason]);
+      toast.error(reasonText(outcome.reason));
       return;
     }
     setPageId(null);
-    toast(`“${outcome.title || "제목 없음"}” 버전으로 되돌렸어요.`, {
+    toast(m.settings.version.restored(outcome.title || m.settings.common.untitled), {
       action: {
-        label: "실행 취소",
+        label: m.settings.version.undo,
         onClick: () =>
           void outcome.undo().then((ok) => {
-            if (!ok) toast.error("되돌리기를 취소하지 못했어요. 다시 해 보세요.");
+            if (!ok) toast.error(m.settings.version.undoFail);
           }),
       },
     });

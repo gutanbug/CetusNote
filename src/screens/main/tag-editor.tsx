@@ -6,6 +6,8 @@ import { Plus } from "lucide-react";
 import * as React from "react";
 import { tagColor } from "./tag-colors";
 
+import { useMessages } from "@/lib/i18n";
+
 /**
  * 태그 편집 팝오버 안 (PG-Properties의 tagEditor) — 검색, 기존 태그 붙이기, 새 태그 만들기.
  * Enter는 첫 결과(없으면 새로 만들기)를 고른다.
@@ -20,6 +22,7 @@ export function TagEditor({
   assigned: string[];
   onAdd: (name: string) => void;
 }) {
+  const m = useMessages();
   const [query, setQuery] = React.useState("");
   const q = query.trim();
   const qn = q.normalize("NFC").toLowerCase();
@@ -36,8 +39,8 @@ export function TagEditor({
     <div className="grid gap-1">
       <Input
         autoFocus
-        aria-label="태그 검색 또는 만들기"
-        placeholder="태그 검색 또는 만들기"
+        aria-label={m.screens.tags.editor.searchLabel}
+        placeholder={m.screens.tags.editor.searchLabel}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
@@ -47,7 +50,7 @@ export function TagEditor({
           if (pick) add(pick);
         }}
       />
-      <ul aria-label="태그" className="grid max-h-60 overflow-y-auto">
+      <ul aria-label={m.screens.tags.editor.listLabel} className="grid max-h-60 overflow-y-auto">
         {options.map((name) => (
           <li key={name}>
             <button type="button" className={menuItem} onClick={() => add(name)}>
@@ -58,13 +61,16 @@ export function TagEditor({
         {q && !exact ? (
           <li>
             <button type="button" className={cn(menuItem)} onClick={() => add(q)}>
-              <Plus strokeWidth={1.5} aria-hidden />“{q}” 태그 만들기
+              <Plus strokeWidth={1.5} aria-hidden />
+              {m.screens.tags.editor.create(q)}
             </button>
           </li>
         ) : null}
         {!options.length && !q ? (
           <li className="px-2 py-1 text-caption text-tertiary">
-            {Object.keys(all).length ? "모든 태그를 붙였어요." : "태그 이름을 입력해 만들어요."}
+            {Object.keys(all).length
+              ? m.screens.tags.editor.allAttached
+              : m.screens.tags.editor.typeToCreate}
           </li>
         ) : null}
       </ul>

@@ -19,6 +19,8 @@ import { runTagOp } from "./tag-actions";
 import { useTagUi } from "./tag-ui";
 import { tagColor } from "./tag-colors";
 
+import { useMessages } from "@/lib/i18n";
+
 const ic = { strokeWidth: 1.5 } as const;
 
 /**
@@ -26,6 +28,7 @@ const ic = { strokeWidth: 1.5 } as const;
  * 한 번만 그리고, 여는 자리는 useTagUi.openMenu 좌표로 정한다(고정 위치의 빈 기준점에 붙인다).
  */
 export function TagMenu() {
+  const m = useMessages();
   const menu = useTagUi((s) => s.menu);
   const menuOpen = useTagUi((s) => s.menuOpen);
   const closeMenu = useTagUi((s) => s.closeMenu);
@@ -64,10 +67,12 @@ export function TagMenu() {
             openDialog("rename", tag);
           }}
         >
-          이름 바꾸기…
+          {m.screens.tags.menu.rename}
         </DropdownMenuItem>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger icon={<Palette {...ic} />}>색</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger icon={<Palette {...ic} />}>
+            {m.screens.tags.menu.color}
+          </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-44">
             {SOFT_COLORS.map((c: SoftColor) => (
               <DropdownMenuCheckboxItem
@@ -91,7 +96,7 @@ export function TagMenu() {
             openDialog("merge", tag);
           }}
         >
-          다른 태그와 합치기…
+          {m.screens.tags.menu.merge}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -102,7 +107,7 @@ export function TagMenu() {
             openDialog("delete", tag);
           }}
         >
-          태그 삭제…
+          {m.screens.tags.menu.delete}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

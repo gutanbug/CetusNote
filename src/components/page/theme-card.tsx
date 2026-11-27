@@ -2,14 +2,26 @@ import { Check, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { rovingKey } from "./roving";
+import { msg, useMessages } from "@/lib/i18n";
 
 export type ThemeChoice = "light" | "dark" | "system";
 
 const THEMES: { id: ThemeChoice; name: string; icon: LucideIcon }[] = [
-  { id: "light", name: "라이트", icon: Sun },
-  { id: "dark", name: "다크", icon: Moon },
-  { id: "system", name: "시스템", icon: Monitor },
+  themeChoice("light", Sun),
+  themeChoice("dark", Moon),
+  themeChoice("system", Monitor),
 ];
+
+/** 이름은 getter로 읽는다 — 부르는 순간의 언어 */
+function themeChoice(id: ThemeChoice, icon: LucideIcon) {
+  return {
+    id,
+    icon,
+    get name() {
+      return msg().page.theme[id];
+    },
+  };
+}
 
 /** 미리보기 칸 — data-theme으로 그 테마의 실제 토큰 색을 쓴다 */
 function Preview({ theme }: { theme: ThemeChoice }) {
@@ -42,11 +54,12 @@ type ThemeCardGroupProps = {
  * 라디오 그룹: 방향키로 옮기면 바로 고른다. 고른 카드는 accent 테두리 + 3px 소프트 링.
  */
 function ThemeCardGroup({ value, onValueChange, className }: ThemeCardGroupProps) {
+  const m = useMessages();
   const ids = THEMES.map((t) => t.id);
   return (
     <div
       role="radiogroup"
-      aria-label="테마"
+      aria-label={m.page.theme.group}
       data-roving=""
       data-slot="theme-cards"
       className={cn("grid max-w-full grid-cols-[repeat(3,minmax(0,1fr))] gap-3", className)}

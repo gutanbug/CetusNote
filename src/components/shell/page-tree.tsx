@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { ChevronRight, Ellipsis, FileText, Folder, FolderOpen, Plus, Table2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -101,9 +102,11 @@ const PageTree = React.memo(function PageTree({
   onDrop,
   canDrop = () => true,
   dropTarget: dropProp,
-  label = "페이지 목록",
+  label: labelProp,
   className,
 }: PageTreeProps) {
+  const m = useMessages();
+  const label = labelProp ?? m.shell.tree.label;
   const open = React.useMemo(() => new Set(expanded), [expanded]);
   const rows = React.useMemo(() => flattenRows(pages, open), [pages, open]);
   const baseId = React.useId();
@@ -307,7 +310,7 @@ const PageTree = React.memo(function PageTree({
     const start = repeat || text.length === 1 ? from + 1 : from;
     for (let i = 0; i < rows.length; i++) {
       const v = rows[(start + i) % rows.length]!;
-      if (matchHangul(foldText(v.node.title || "제목 없음"), query, { prefix: true }))
+      if (matchHangul(foldText(untitledRowName(v.node)), query, { prefix: true }))
         return focusRow(v.node.id);
     }
   };
@@ -403,7 +406,7 @@ const PageTree = React.memo(function PageTree({
                 e.stopPropagation();
                 e.dataTransfer.effectAllowed = "move";
                 // WebKit은 데이터가 없으면 끌기를 시작하지 않는다
-                e.dataTransfer.setData("text/plain", node.title || "제목 없음");
+                e.dataTransfer.setData("text/plain", untitledRowName(node));
                 setMenuId(undefined);
                 setAddId(undefined);
                 dragRef.current = node.id;
@@ -528,7 +531,7 @@ const PageTree = React.memo(function PageTree({
               >
                 <DropdownMenuTrigger asChild>
                   <IconButton
-                    label={`${untitledRowName(node)} 더보기`}
+                    label={m.shell.tree.more(untitledRowName(node))}
                     noTooltip
                     tabIndex={-1}
                     onClick={(e) => e.stopPropagation()}
@@ -563,7 +566,9 @@ const PageTree = React.memo(function PageTree({
               >
                 <DropdownMenuTrigger asChild>
                   <IconButton
-                    label={`${node.title || (folder ? "이름 없는 폴더" : "제목 없음")}에 추가`}
+                    label={m.shell.tree.addTo(
+                      node.title || (folder ? m.shell.untitled.folder : m.shell.untitled.page),
+                    )}
                     tabIndex={-1}
                     onClick={(e) => e.stopPropagation()}
                     className="[&_svg]:size-3.5"
@@ -583,8 +588,8 @@ const PageTree = React.memo(function PageTree({
               <IconButton
                 label={
                   folder
-                    ? `${node.title || "이름 없는 폴더"}에 페이지 추가`
-                    : `${node.title || "제목 없음"} 하위 페이지 추가`
+                    ? m.shell.tree.addPageTo(node.title || m.shell.untitled.folder)
+                    : m.shell.tree.addSubpage(node.title || m.shell.untitled.page)
                 }
                 tabIndex={-1}
                 onClick={(e) => {

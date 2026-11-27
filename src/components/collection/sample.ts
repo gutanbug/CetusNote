@@ -1,3 +1,4 @@
+/* i18n-ignore-file — 스토리·Debug용 샘플 데이터 */
 import type { CustomProperty, PropertyEntry } from "./property-types";
 import type { RecordItem } from "./fields";
 

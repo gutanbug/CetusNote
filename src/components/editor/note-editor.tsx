@@ -25,6 +25,7 @@ import { SlashLayer } from "./slash-layer";
 import { SubpageProvider, type SubpageSource } from "./subpage-block";
 import type { SlashItem } from "./slash-items";
 import { TableMenu } from "./table-menu";
+import { msg } from "@/lib/i18n";
 
 export type NoteEditorProps = {
   /** Tiptap JSON(저장 형식) 또는 HTML(견본·붙여넣기용) */
@@ -94,7 +95,7 @@ export function NoteEditor({
   editable = true,
   placeholder,
   autoFocus = false,
-  label = "본문",
+  label = msg().editor.noteEditor.body,
   onOpenLink,
   mentions,
   images,
@@ -209,7 +210,8 @@ export function NoteEditor({
         },
         upload: images
           ? (file) =>
-              liveImages.get()?.upload(file) ?? Promise.reject(new Error("이미지 저장소 없음"))
+              liveImages.get()?.upload(file) ??
+              Promise.reject(new Error(msg().editor.noteEditor.noImageStore))
           : undefined,
         copyAsText: copyAsText ? (doc) => liveCopy.get()?.(doc) ?? "" : undefined,
         attachments: {
@@ -218,7 +220,8 @@ export function NoteEditor({
         emojiShortcode: emojiMenu.callbacks,
         fetchImage: images?.fetch
           ? (url) =>
-              liveImages.get()?.fetch?.(url) ?? Promise.reject(new Error("이미지 저장소 없음"))
+              liveImages.get()?.fetch?.(url) ??
+              Promise.reject(new Error(msg().editor.noteEditor.noImageStore))
           : undefined,
       }),
     ],

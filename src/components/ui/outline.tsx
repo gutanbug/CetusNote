@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { DropdownMenuItem, DropdownMenuLabel } from "./dropdown-menu";
@@ -19,6 +20,7 @@ const INDENT = ["pl-2", "pl-6", "pl-10"] as const;
  * 제목 수준만큼 들여 쓰고, 지금 보고 있는 제목은 포인트 색 글자로 표시한다.
  */
 function OutlineItems({ headings, current = -1, onSelect }: OutlineItemsProps) {
+  const m = useMessages();
   // 열면 지금 보고 있는 제목에서 시작한다(↑↓가 그 자리부터). 메뉴가 첫 항목을 잡은 뒤에 옮긴다
   const currentRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -29,13 +31,13 @@ function OutlineItems({ headings, current = -1, onSelect }: OutlineItemsProps) {
   if (!headings.length)
     return (
       <DropdownMenuItem disabled className="text-caption text-tertiary data-disabled:opacity-100">
-        본문에 제목을 넣으면 여기에 보여요
+        {m.ui.outline.empty}
       </DropdownMenuItem>
     );
   const top = Math.min(...headings.map((h) => h.level));
   return (
     <>
-      <DropdownMenuLabel>목차</DropdownMenuLabel>
+      <DropdownMenuLabel>{m.ui.outline.title}</DropdownMenuLabel>
       {headings.map((h, i) => (
         <DropdownMenuItem
           key={i}

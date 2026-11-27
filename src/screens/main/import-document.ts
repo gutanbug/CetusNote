@@ -21,6 +21,7 @@ import { ancestors, createDocument, openPage } from "./actions";
 import { askImportDestination } from "./import-destination";
 import { nextTagColor } from "./tag-colors";
 import type { JSONContent } from "@tiptap/core";
+import { msg } from "@/lib/i18n";
 
 /**
  * 문서 가져오기 (DATA-08) — md·txt·html·docx·pdf 파일을 고르고, 어디에 넣을지 정한 뒤 파일마다 새 문서를 만든다.
@@ -32,7 +33,7 @@ export async function importDocuments(storage: Storage = getStorage()): Promise<
   try {
     pick = await storage.pickDocuments();
   } catch {
-    toast("문서를 읽지 못했어요");
+    toast(msg().settings.importFile.readDocFail);
     return [];
   }
   if (!pick) return [];
@@ -90,7 +91,7 @@ export async function convertDocument(
       return fromHtml(pdfPagesToHtml(pdf.pages), pdf.title ?? file.name, resolve);
     }
     default:
-      throw new StorageError("unsupported", "지원하지 않는 형식이에요");
+      throw new StorageError("unsupported", msg().settings.importFile.unsupported);
   }
 }
 
@@ -108,7 +109,7 @@ async function fromHtml(
 function imageResolver(file: DocumentFile, pageId: string, storage: Storage): ImageResolver {
   return (src) => {
     if (src.startsWith("data:")) return storage.writeAsset(pageId, dataUrlBytes(src));
-    if (!file.dir) throw new StorageError("not_found", "폴더를 알 수 없어요");
+    if (!file.dir) throw new StorageError("not_found", msg().settings.importFile.folderUnknown);
     return storage.importDocumentImage(pageId, file.dir, src);
   };
 }
@@ -120,7 +121,10 @@ export async function importPicked(
   storage: Storage,
 ): Promise<Page[]> {
   const made: Page[] = [];
-  const failed: ImportFailure[] = pick.skipped.map((name) => ({ name, reason: "읽지 못했어요" }));
+  const failed: ImportFailure[] = pick.skipped.map((name) => ({
+    name,
+    reason: msg().settings.importFile.readFail,
+  }));
   const meta = metaStore.getState();
   let known = Object.keys(meta.meta?.tags ?? {}).length;
   for (const file of pick.files) {
@@ -144,7 +148,7 @@ export async function importPicked(
       void pagesStore.getState().purge(page.id);
       failed.push({
         name: file.name,
-        reason: error instanceof StorageError ? error.message : "읽지 못했어요",
+        reason: error instanceof StorageError ? error.message : msg().settings.importFile.readFail,
       });
     }
   }
@@ -153,7 +157,7 @@ export async function importPicked(
     sessionStore.getState().expand(parentId, ...ancestors(parentId).map((p) => p.id));
   if (made[0]) openPage(made[0].id);
   const summary = importSummary(
-    made.map((p) => pagesStore.getState().pages[p.id]?.title || "제목 없음"),
+    made.map((p) => pagesStore.getState().pages[p.id]?.title || msg().settings.common.untitled),
     failed,
   );
   if (summary)

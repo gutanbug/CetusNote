@@ -8,6 +8,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils";
 import { BlockMenu } from "./block-menu";
 import { BLOCK_MENU_EVENT } from "./block-keys";
+import { useMessages } from "@/lib/i18n";
 
 // DragHandle은 이 객체가 바뀌면 플러그인을 다시 등록한다(그때 다른 플러그인 뷰도 다시 만들어져
 // 열린 슬래시 메뉴가 닫힌다). 그래서 모듈 상수로 둔다.
@@ -44,6 +45,7 @@ type Target = { node: PMNode; pos: number };
  * 키보드: ⌘/ 로 캐럿이 있는 블록에 같은 두 동작을 목록으로 연다(BlockMenu).
  */
 export function BlockHandle({ editor }: { editor: Editor }) {
+  const m = useMessages();
   const target = React.useRef<Target | null>(null);
   const [dragging, setDragging] = React.useState(false);
   const [menu, setMenu] = React.useState<Target | null>(null);
@@ -126,7 +128,7 @@ export function BlockHandle({ editor }: { editor: Editor }) {
           className={cn("flex items-center pr-1", dragging && "opacity-0")}
         >
           <IconButton
-            label="아래에 블록 추가"
+            label={m.editor.blockHandle.addBelow}
             noTooltip={dragging}
             className="h-6 w-5.5 text-tertiary"
             onMouseDown={(e) => e.preventDefault()}
@@ -135,7 +137,7 @@ export function BlockHandle({ editor }: { editor: Editor }) {
             <Plus strokeWidth={1.5} />
           </IconButton>
           <IconButton
-            label="끌어서 옮기기 · 눌러서 고르기"
+            label={m.editor.blockHandle.dragOrSelect}
             shortcut={<Kbd keys={["⌘", "/"]} />}
             noTooltip={dragging}
             className="h-6 w-5.5 cursor-grab text-tertiary active:cursor-grabbing"
@@ -147,13 +149,13 @@ export function BlockHandle({ editor }: { editor: Editor }) {
       </DragHandle>
       {menu ? (
         <BlockMenu
-          label="블록 메뉴"
+          label={m.editor.blockHandle.menu}
           anchor={menuAnchor}
           items={[
-            { id: "add", label: "아래에 블록 추가", icon: <Plus strokeWidth={1.5} /> },
+            { id: "add", label: m.editor.blockHandle.addBelow, icon: <Plus strokeWidth={1.5} /> },
             {
               id: "select",
-              label: "끌어서 옮기기 · 블록 선택",
+              label: m.editor.blockHandle.dragOrSelectItem,
               icon: <GripVertical strokeWidth={1.5} />,
             },
           ]}

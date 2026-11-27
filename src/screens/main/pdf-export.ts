@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { PRINT_ROOT_ID, printViewReady } from "./print-ready";
 import { A4, PAGE_MARGIN, measureBlocks, planPages, printBlocks } from "./pdf-layout";
 import { useMainUi } from "./ui-store";
+import { msg } from "@/lib/i18n";
 
 /** PDF 내보내기 미리보기 대화상자의 상태 (DATA-06). 저장하지 않는다 */
 type PdfExportState = {
@@ -29,7 +30,7 @@ export const usePdfExport = create<PdfExportState>(() => ({
   pageId: null,
   pages: [],
   message: null,
-  fileName: "제목 없음.pdf",
+  fileName: "제목 없음.pdf", // i18n-ignore — 초기값: 내보내기를 시작할 때 페이지 이름으로 바뀐다
 }));
 
 /** 내보내기 한 번을 구분한다(run 번호로도 쓴다). 닫힌 뒤 늦게 끝난 작업의 결과는 버린다 */
@@ -58,8 +59,6 @@ function errorText(e: unknown, fallback: string) {
   return e instanceof Error && e.message ? e.message : fallback;
 }
 
-const TIMEOUT_TEXT = "PDF를 제때 만들지 못했어요. 다시 시도해 주세요.";
-
 /** 다음 화면 갱신까지 기다린다. 창이 가려져 rAF가 멈춰도 timeout으로 넘어간다 */
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => {
@@ -74,7 +73,7 @@ function nextFrame(): Promise<void> {
 /** 제한 시간 안에 끝나지 않으면 실패로 돌린다 */
 function within<T>(work: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(TIMEOUT_TEXT)), Math.max(1, ms));
+    const t = setTimeout(() => reject(new Error(msg().settings.pdf.timeout)), Math.max(1, ms));
     work.then(
       (value) => {
         clearTimeout(t);
@@ -114,7 +113,7 @@ function beginCapture(root: HTMLElement): () => void {
 /** 찍는 동안 쪽 나누기를 하고 쪽마다 PDF 조각을 만든 뒤 한 파일로 합친다. 쪽 수를 돌려준다 */
 async function capturePages(ticket: number, deadline: number): Promise<number> {
   const root = document.getElementById(PRINT_ROOT_ID);
-  if (!root) throw new Error("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
+  if (!root) throw new Error(msg().settings.pdf.prepFail);
   const storage = getStorage();
   const restore = beginCapture(root);
   activeCapture = { ticket, restore };
@@ -125,14 +124,14 @@ async function capturePages(ticket: number, deadline: number): Promise<number> {
     await nextFrame();
     await document.fonts?.ready;
     await nextFrame();
-    if (remaining() <= 0) throw new Error(TIMEOUT_TEXT);
+    if (remaining() <= 0) throw new Error(msg().settings.pdf.timeout);
 
     const blocks = printBlocks(root);
     const pages = planPages(measureBlocks(blocks));
-    if (pages.length === 0) throw new Error("찍을 내용이 없어요.");
+    if (pages.length === 0) throw new Error(msg().settings.pdf.empty);
 
     for (let index = 0; index < pages.length; index++) {
-      if (ticket !== seq) throw new Error("PDF 만들기를 멈췄어요.");
+      if (ticket !== seq) throw new Error(msg().settings.pdf.stopped);
       const page = pages[index];
       const shownSet = new Set(page.blocks);
       blocks.forEach((el, i) => {
@@ -147,7 +146,7 @@ async function capturePages(ticket: number, deadline: number): Promise<number> {
       };
       await within(storage.renderPdfPage(ticket, index, rect), remaining());
     }
-    if (ticket !== seq) throw new Error("PDF 만들기를 멈췄어요.");
+    if (ticket !== seq) throw new Error(msg().settings.pdf.stopped);
     return await within(storage.finishPdf(ticket, pages.length), remaining());
   } finally {
     if (activeCapture?.ticket === ticket) {
@@ -163,7 +162,7 @@ async function capturePages(ticket: number, deadline: number): Promise<number> {
  */
 async function printDocument(ticket: number): Promise<void> {
   const root = document.getElementById(PRINT_ROOT_ID);
-  if (!root) throw new Error("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
+  if (!root) throw new Error(msg().settings.pdf.prepFail);
   const storage = getStorage();
   const html = document.documentElement;
   const prevTheme = html.dataset.theme;
@@ -188,7 +187,7 @@ async function printDocument(ticket: number): Promise<void> {
     await nextFrame();
     await document.fonts?.ready;
     await nextFrame();
-    if (ticket !== seq) throw new Error("PDF 만들기를 멈췄어요.");
+    if (ticket !== seq) throw new Error(msg().settings.pdf.stopped);
     await within(storage.printPdfDocument(ticket), PRINT_DOCUMENT_TIMEOUT_MS);
   } finally {
     if (activeCapture?.ticket === ticket) {
@@ -225,7 +224,7 @@ export async function runPdfExport(id: string) {
     usePdfExport.setState({ status: "error", message });
   };
   if (!(await printViewReady(id))) {
-    return fail("인쇄할 화면을 준비하지 못했어요. 다시 시도해 주세요.");
+    return fail(msg().settings.pdf.prepFail);
   }
   const addPage = (png: ArrayBuffer) => {
     const url = URL.createObjectURL(new Blob([png], { type: "image/png" }));
@@ -257,7 +256,7 @@ export async function runPdfExport(id: string) {
     if (ticket !== seq) return;
     usePdfExport.setState({ status: "ready" });
   } catch (e) {
-    fail(errorText(e, "PDF를 만들지 못했어요."));
+    fail(errorText(e, msg().settings.pdf.failed));
   }
 }
 
@@ -275,13 +274,13 @@ export async function savePdfExport() {
   try {
     const saved = await getStorage().savePdf(fileName);
     if (saved) {
-      toast(`“${saved}” 파일로 저장했어요.`);
+      toast(msg().settings.pdf.saved(saved));
       closePdfExport();
     } else {
       usePdfExport.setState({ status: "ready" });
     }
   } catch (e) {
-    toast.error(errorText(e, "PDF를 저장하지 못했어요. 다른 위치를 골라 보세요."));
+    toast.error(errorText(e, msg().settings.pdf.saveFailed));
     usePdfExport.setState({ status: "ready" });
   }
 }

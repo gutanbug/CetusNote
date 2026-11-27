@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
   EmojiPicker as Picker,
@@ -144,6 +145,7 @@ function EmojiPicker({
   onRemove,
   className,
 }: EmojiPickerProps) {
+  const m = useMessages();
   const [query, setQuery] = useState("");
   const recent = useEmojiNames(given);
   const showRecent = !query && recent && recent.length > 0;
@@ -159,14 +161,14 @@ function EmojiPicker({
     >
       <div className="flex items-center gap-2 p-2">
         <Picker.Search
-          aria-label="이모지 검색"
-          placeholder="이모지 검색…"
+          aria-label={m.ui.emojiPicker.search}
+          placeholder={m.ui.emojiPicker.searchPlaceholder}
           // 아이콘 탭과 같은 폭(w-56)으로 맞춘다
           className={cn(inputClass, "min-h-8 w-56 shrink-0")}
           onChange={(e) => setQuery(e.target.value)}
         />
         <IconButton
-          label="무작위 이모지"
+          label={m.ui.emojiPicker.random}
           size="md"
           onClick={() =>
             void randomEmoji().then(
@@ -180,7 +182,7 @@ function EmojiPicker({
         <Tooltip>
           <TooltipTrigger asChild>
             <Picker.SkinToneSelector
-              aria-label="피부색 바꾸기"
+              aria-label={m.ui.emojiPicker.skinTone}
               emoji="👋"
               className={cn(
                 "grid size-8 shrink-0 place-items-center rounded-pill text-body leading-none hover:bg-hover force-hover:bg-hover",
@@ -188,19 +190,21 @@ function EmojiPicker({
               )}
             />
           </TooltipTrigger>
-          <TooltipContent>피부색 바꾸기</TooltipContent>
+          <TooltipContent>{m.ui.emojiPicker.skinTone}</TooltipContent>
         </Tooltip>
         {onRemove ? (
           <Button size="sm" variant="ghost" onClick={onRemove}>
-            제거
+            {m.ui.emojiPicker.remove}
           </Button>
         ) : null}
       </div>
 
       {showRecent ? (
         <div className="px-2">
-          <div className="px-1 pb-1 text-label font-medium text-tertiary">최근</div>
-          <div role="group" aria-label="최근 쓴 이모지" className="flex flex-wrap">
+          <div className="px-1 pb-1 text-label font-medium text-tertiary">
+            {m.ui.emojiPicker.recent}
+          </div>
+          <div role="group" aria-label={m.ui.emojiPicker.recentGroup} className="flex flex-wrap">
             {recent.slice(0, COLUMNS).map((r) => (
               <button
                 key={r.emoji}
@@ -222,10 +226,10 @@ function EmojiPicker({
       {/* 목록에 Tab으로 들어오면 아직 고른 이모지가 없다 — 목록 자체에 안쪽 링 */}
       <Picker.Viewport className="relative min-h-0 flex-1 rounded-md outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent focus-visible:outline-solid">
         <Picker.Loading className="absolute inset-0 grid place-items-center text-caption text-tertiary">
-          이모지를 불러오는 중…
+          {m.ui.emojiPicker.loading}
         </Picker.Loading>
         <Picker.Empty className="absolute inset-0 grid place-items-center px-6 text-center text-caption text-tertiary">
-          {({ search }) => `“${search}”에 맞는 이모지가 없어요.`}
+          {({ search }) => m.ui.emojiPicker.noResults(search)}
         </Picker.Empty>
         <Picker.List
           className="pb-2 select-none"
@@ -242,7 +246,7 @@ function EmojiPicker({
                 <span className="truncate text-caption text-secondary">{emoji.label}</span>
               </>
             ) : (
-              <span className="text-caption text-tertiary">이모지를 골라 주세요</span>
+              <span className="text-caption text-tertiary">{m.ui.emojiPicker.pickHint}</span>
             )
           }
         </Picker.ActiveEmoji>

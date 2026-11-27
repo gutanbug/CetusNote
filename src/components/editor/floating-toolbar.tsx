@@ -22,6 +22,7 @@ import type { SoftColor } from "@/components/ui/tag-chip";
 import { floatingBounds } from "./floating-bounds";
 import { useEditorDom } from "./use-editor-dom";
 import { cn } from "@/lib/utils";
+import { msg, useMessages } from "@/lib/i18n";
 
 type BlockType = {
   id: string;
@@ -36,43 +37,57 @@ const base = (e: Editor) => e.chain().focus().clearNodes();
 const BLOCK_TYPES: BlockType[] = [
   {
     id: "taskList",
-    label: "체크리스트",
+    get label() {
+      return msg().editor.floatingToolbar.blocks.taskList;
+    },
     isActive: (e) => e.isActive("taskList"),
     convert: (e) => base(e).toggleTaskList().run(),
   },
   {
     id: "bulletList",
-    label: "글머리 목록",
+    get label() {
+      return msg().editor.floatingToolbar.blocks.bulletList;
+    },
     isActive: (e) => e.isActive("bulletList"),
     convert: (e) => base(e).toggleBulletList().run(),
   },
   {
     id: "orderedList",
-    label: "번호 목록",
+    get label() {
+      return msg().editor.floatingToolbar.blocks.orderedList;
+    },
     isActive: (e) => e.isActive("orderedList"),
     convert: (e) => base(e).toggleOrderedList().run(),
   },
   {
     id: "blockquote",
-    label: "인용",
+    get label() {
+      return msg().editor.floatingToolbar.blocks.blockquote;
+    },
     isActive: (e) => e.isActive("blockquote"),
     convert: (e) => base(e).toggleBlockquote().run(),
   },
   {
     id: "callout",
-    label: "콜아웃",
+    get label() {
+      return msg().editor.floatingToolbar.blocks.callout;
+    },
     isActive: (e) => e.isActive("callout"),
     convert: (e) => base(e).setCallout().run(),
   },
   ...([1, 2, 3] as const).map((level): BlockType => ({
     id: `heading${level}`,
-    label: `제목 ${level}`,
+    get label() {
+      return msg().editor.floatingToolbar.blocks.heading(level);
+    },
     isActive: (e) => e.isActive("heading", { level }),
     convert: (e) => base(e).setHeading({ level }).run(),
   })),
   {
     id: "paragraph",
-    label: "텍스트",
+    get label() {
+      return msg().editor.floatingToolbar.blocks.paragraph;
+    },
     isActive: () => true,
     convert: (e) => base(e).setParagraph().run(),
   },
@@ -109,6 +124,7 @@ export type FloatingToolbarProps = {
  * 키보드: ⌥F10으로 바에 들어가고, ←→로 옮기고, Esc로 본문에 돌아간다.
  */
 export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
+  const m = useMessages();
   const [pop, setPop] = React.useState<Pop>(null);
   const [typeOpen, setTypeOpen] = React.useState(false);
   const barRef = React.useRef<HTMLDivElement>(null);
@@ -189,35 +205,35 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
   const marks = [
     {
       id: "bold",
-      label: "굵게",
+      label: m.editor.floatingToolbar.marks.bold,
       keys: ["⌘", "B"],
       glyph: <span className="font-bold">B</span>,
       run: () => c().toggleBold().run(),
     },
     {
       id: "italic",
-      label: "기울임",
+      label: m.editor.floatingToolbar.marks.italic,
       keys: ["⌘", "I"],
       glyph: <span className="font-serif italic">I</span>,
       run: () => c().toggleItalic().run(),
     },
     {
       id: "underline",
-      label: "밑줄",
+      label: m.editor.floatingToolbar.marks.underline,
       keys: ["⌘", "U"],
       glyph: <span className="underline">U</span>,
       run: () => c().toggleUnderline().run(),
     },
     {
       id: "strike",
-      label: "취소선",
+      label: m.editor.floatingToolbar.marks.strike,
       keys: ["⌘", "⇧", "S"],
       glyph: <span className="line-through">S</span>,
       run: () => c().toggleStrike().run(),
     },
     {
       id: "code",
-      label: "인라인 코드",
+      label: m.editor.floatingToolbar.marks.code,
       keys: ["⌘", "E"],
       glyph: <Code strokeWidth={1.5} />,
       run: () => c().toggleCode().run(),
@@ -245,7 +261,7 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
       <div
         ref={barRef}
         role="toolbar"
-        aria-label="텍스트 서식"
+        aria-label={m.editor.floatingToolbar.textStyle}
         aria-orientation="horizontal"
         data-slot="floating-toolbar"
         onKeyDown={onBarKeyDown}
@@ -257,13 +273,13 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
               "flex h-7 items-center gap-1 rounded-pill px-2 text-caption text-primary hover:bg-hover data-[state=open]:bg-hover force-hover:bg-hover",
               focusRing,
             )}
-            aria-label={`블록 변환, 지금은 ${typeLabel}`}
+            aria-label={m.editor.floatingToolbar.convertAria(typeLabel)}
           >
             {typeLabel}
             <ChevronDown strokeWidth={1.5} className="size-4 text-tertiary" aria-hidden />
           </DropdownMenuTrigger>
           <DropdownMenuContent onCloseAutoFocus={keepEditorFocus}>
-            <DropdownMenuLabel>블록 변환</DropdownMenuLabel>
+            <DropdownMenuLabel>{m.editor.floatingToolbar.convertLabel}</DropdownMenuLabel>
             {MENU_ORDER.map((id) => {
               const t = BLOCK_TYPES.find((x) => x.id === id)!;
               return (
@@ -300,7 +316,7 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
             <IconButton
               size="md"
               className="size-7"
-              label="링크"
+              label={m.editor.floatingToolbar.link}
               shortcut={<Kbd keys={["⌘", "⇧", "K"]} />}
               aria-pressed={s.link}
               aria-haspopup="dialog"
@@ -311,7 +327,7 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
             </IconButton>
           </PopoverAnchor>
           <PopoverContent
-            aria-label="링크"
+            aria-label={m.editor.floatingToolbar.link}
             className="w-auto max-w-none p-0"
             onCloseAutoFocus={keepEditorFocus}
           >
@@ -337,7 +353,7 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
             <IconButton
               size="md"
               className="size-7"
-              label="글자 색"
+              label={m.editor.floatingToolbar.textColor}
               aria-haspopup="dialog"
               aria-expanded={pop === "color"}
               on={!!(s.color.text || s.color.highlight)}
@@ -346,7 +362,11 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
               <Palette strokeWidth={1.5} />
             </IconButton>
           </PopoverAnchor>
-          <PopoverContent aria-label="색" className="w-auto p-1" onCloseAutoFocus={keepEditorFocus}>
+          <PopoverContent
+            aria-label={m.editor.floatingToolbar.color}
+            className="w-auto p-1"
+            onCloseAutoFocus={keepEditorFocus}
+          >
             <ColorPicker
               value={s.color}
               onChange={(v) => {
@@ -367,7 +387,7 @@ export function FloatingToolbar({ editor, onOpenLink }: FloatingToolbarProps) {
         <IconButton
           size="md"
           className="size-7"
-          label="하이라이트"
+          label={m.editor.floatingToolbar.highlight}
           shortcut={<Kbd keys={["⌘", "⇧", "H"]} />}
           aria-pressed={s.highlight}
           onClick={() => c().toggleHighlight().run()}

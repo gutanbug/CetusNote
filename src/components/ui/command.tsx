@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { Command as CommandPrimitive } from "cmdk";
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
@@ -22,7 +23,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 function CommandDialog({
   open,
   onOpenChange,
-  title = "명령 팔레트",
+  title: titleProp,
   children,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive> & {
@@ -30,6 +31,8 @@ function CommandDialog({
   onOpenChange: (open: boolean) => void;
   title?: string;
 }) {
+  const m = useMessages();
+  const title = titleProp ?? m.ui.command.title;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -52,12 +55,13 @@ function CommandInput({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
+  const m = useMessages();
   return (
     <div className="flex items-center gap-3 border-b border-line px-4 py-3">
       <Search strokeWidth={1.5} className="size-4 shrink-0 text-tertiary" aria-hidden />
       <CommandPrimitive.Input
         data-slot="command-input"
-        aria-label="페이지와 명령 검색"
+        aria-label={m.ui.command.search}
         className={cn(
           "min-w-0 flex-1 border-0 bg-transparent text-body text-primary outline-none placeholder:text-tertiary",
           className,

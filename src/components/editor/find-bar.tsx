@@ -16,6 +16,7 @@ import {
   replaceCurrent,
   setFindQuery,
 } from "./find-replace";
+import { useMessages } from "@/lib/i18n";
 
 export type FindBarProps = {
   editor: Editor;
@@ -55,6 +56,7 @@ export function FindBar({
   onReplacedAll,
   className,
 }: FindBarProps) {
+  const m = useMessages();
   const [query, setQuery] = React.useState(initialQuery);
   // 바꾸기 칸: 막대를 연 방식(⌘F · ⌥⌘F)을 따르고, 펼침 버튼을 누르면 그 열기 동안만 덮어쓴다
   const [toggled, setToggled] = React.useState<{ signal?: number; open: boolean } | null>(null);
@@ -117,14 +119,14 @@ export function FindBar({
   const status = !query
     ? ""
     : count === 0
-      ? "결과 없음"
+      ? m.editor.find.noResults
       : `${index + 1}/${count}${count >= MAX_MATCHES ? "+" : ""}`;
 
   return (
     // 찾기·바꾸기 두 줄을 한 격자에 올려 입력 칸 폭과 줄 맞춤을 같게 한다 (입력 칸 = 가운데 열)
     <div
       role="search"
-      aria-label="페이지에서 찾기"
+      aria-label={m.editor.find.label}
       data-slot="find-bar"
       onKeyDown={onKeyDown}
       className={cn(
@@ -135,7 +137,7 @@ export function FindBar({
     >
       {editable ? (
         <IconButton
-          label={replacing ? "바꾸기 닫기" : "바꾸기 열기"}
+          label={replacing ? m.editor.find.replaceClose : m.editor.find.replaceOpen}
           shortcut={replacing ? undefined : "⌥⌘F"}
           aria-expanded={replacing}
           onClick={() => setToggled({ signal: focusSignal, open: !replacing })}
@@ -146,8 +148,8 @@ export function FindBar({
       ) : null}
       <input
         ref={findRef}
-        aria-label="찾을 글자"
-        placeholder="찾기"
+        aria-label={m.editor.find.findField}
+        placeholder={m.editor.find.findPlaceholder}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
@@ -165,7 +167,7 @@ export function FindBar({
           {status}
         </span>
         <IconButton
-          label="이전 결과"
+          label={m.editor.find.prev}
           shortcut="⇧Enter"
           disabled={count === 0}
           onClick={() => moveFind(editor, -1)}
@@ -174,7 +176,7 @@ export function FindBar({
           <ChevronUp strokeWidth={1.5} />
         </IconButton>
         <IconButton
-          label="다음 결과"
+          label={m.editor.find.next}
           shortcut="Enter"
           disabled={count === 0}
           onClick={() => moveFind(editor, 1)}
@@ -183,7 +185,7 @@ export function FindBar({
           <ChevronDown strokeWidth={1.5} />
         </IconButton>
         <IconButton
-          label="찾기 닫기"
+          label={m.editor.find.close}
           shortcut="Esc"
           onClick={() => close(false)}
           className="size-7"
@@ -195,8 +197,8 @@ export function FindBar({
         <>
           <input
             ref={replaceRef}
-            aria-label="바꿀 글자"
-            placeholder="바꿀 내용"
+            aria-label={m.editor.find.replaceField}
+            placeholder={m.editor.find.replacePlaceholder}
             value={replacement}
             onChange={(e) => setReplacement(e.target.value)}
             onKeyDown={(e) => {
@@ -214,7 +216,7 @@ export function FindBar({
               disabled={count === 0}
               onClick={() => replaceCurrent(editor, replacement)}
             >
-              바꾸기
+              {m.editor.find.replace}
             </Button>
             <Button
               size="sm"
@@ -222,7 +224,7 @@ export function FindBar({
               disabled={count === 0}
               onClick={() => onReplacedAll?.(replaceAll(editor, replacement))}
             >
-              모두 바꾸기
+              {m.editor.find.replaceAll}
             </Button>
           </div>
         </>

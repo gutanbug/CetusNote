@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { Ellipsis, Focus, PanelLeft, Star, TableOfContents } from "lucide-react";
 import {
   DropdownMenu,
@@ -62,6 +63,7 @@ function TopBar({
   titleBar,
   className,
 }: TopBarProps) {
+  const m = useMessages();
   return (
     <header
       data-slot="top-bar"
@@ -75,7 +77,7 @@ function TopBar({
     >
       {onToggleSidebar ? (
         <IconButton
-          label="사이드바"
+          label={m.shell.topBar.sidebar}
           shortcut={<Kbd keys={["⌘", "\\"]} />}
           aria-expanded={sidebarOpen}
           onClick={onToggleSidebar}
@@ -91,7 +93,7 @@ function TopBar({
         {outline ? (
           <DropdownMenu open={outlineOpen} onOpenChange={onOutlineOpenChange}>
             <DropdownMenuTrigger asChild>
-              <IconButton label="목차" shortcut={<Kbd keys={["⌥", "⌘", "O"]} />}>
+              <IconButton label={m.shell.topBar.outline} shortcut={<Kbd keys={["⌥", "⌘", "O"]} />}>
                 <TableOfContents strokeWidth={1.5} />
               </IconButton>
             </DropdownMenuTrigger>
@@ -105,13 +107,17 @@ function TopBar({
           </DropdownMenu>
         ) : null}
         {onToggleFavorite ? (
-          <IconButton label="즐겨찾기" aria-pressed={!!favorite} onClick={onToggleFavorite}>
+          <IconButton
+            label={m.shell.topBar.favorite}
+            aria-pressed={!!favorite}
+            onClick={onToggleFavorite}
+          >
             <Star strokeWidth={1.5} className={cn(favorite && "fill-current")} />
           </IconButton>
         ) : null}
         {onFocusMode ? (
           <IconButton
-            label="집중 모드"
+            label={m.shell.topBar.focus}
             shortcut={<Kbd keys={["⌘", "."]} />}
             aria-pressed={!!focusMode}
             onClick={onFocusMode}
@@ -122,7 +128,7 @@ function TopBar({
         {pageMenu ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <IconButton label="페이지 메뉴">
+              <IconButton label={m.shell.topBar.pageMenu}>
                 <Ellipsis strokeWidth={1.5} />
               </IconButton>
             </DropdownMenuTrigger>

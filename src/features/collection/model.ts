@@ -19,6 +19,7 @@ import {
   type PropertySlot,
   type StatusOption,
 } from "@/lib/storage";
+import { intlLocale, msg } from "@/lib/i18n";
 
 /**
  * 컬렉션 (COLL-01~06, 2026-11-20 사용자 결정): 컬렉션은 kind "collection"인 페이지, 레코드는 그 아래 문서.
@@ -47,26 +48,45 @@ export function collectionRecords(
 
 /* ---------- 속성 (COLL-08) ---------- */
 
-export const BUILTIN_NAMES: Record<BuiltinProperty, string> = {
-  status: "상태",
-  assignee: "담당",
-  due: "마감",
-  tags: "태그",
-};
+/** 이름 표를 만든다. 값은 읽는 순간의 언어로 정해진다 (getter) */
+function lazyNames<K extends string>(
+  keys: readonly K[],
+  read: (k: K) => string,
+): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const k of keys) Object.defineProperty(out, k, { get: () => read(k), enumerable: true });
+  return out;
+}
 
-export const FIELD_TYPE_NAMES: Record<FieldType, string> = {
-  text: "텍스트",
-  number: "숫자",
-  select: "선택",
-  multi: "다중 선택",
-  date: "날짜",
-  checkbox: "체크박스",
-  url: "URL",
-  email: "이메일",
-  phone: "전화번호",
-  created: "만든 날짜",
-  updated: "고친 날짜",
-};
+const BUILTIN_KEYS: readonly BuiltinProperty[] = ["status", "assignee", "due", "tags"];
+const FIELD_TYPE_KEYS: readonly FieldType[] = [
+  "text",
+  "number",
+  "select",
+  "multi",
+  "date",
+  "checkbox",
+  "url",
+  "email",
+  "phone",
+  "created",
+  "updated",
+];
+const SORT_KEYS: readonly Exclude<CollectionSort["field"], FieldId>[] = [
+  "title",
+  "status",
+  "assignee",
+  "due",
+  "tags",
+  "updated",
+];
+const NONE_KEYS: readonly BoardGroupBy[] = ["status", "assignee", "tags"];
+
+export const BUILTIN_NAMES = lazyNames(BUILTIN_KEYS, (k) => msg().collection.model.builtin[k]);
+export const FIELD_TYPE_NAMES = lazyNames(
+  FIELD_TYPE_KEYS,
+  (k) => msg().collection.model.fieldType[k],
+);
 
 /** 필터 칩으로 거를 수 있는 사용자 속성 종류 */
 export const FILTERABLE: readonly FieldType[] = ["select", "multi", "checkbox"];
@@ -91,7 +111,13 @@ export function formatStamp(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return msg().collection.model.stamp({
+    y: d.getFullYear(),
+    m: d.getMonth() + 1,
+    d: d.getDate(),
+    hh: pad(d.getHours()),
+    mm: pad(d.getMinutes()),
+  });
 }
 
 /** 값을 글로 — 보드 카드·검색·접근성 이름에 쓴다. 비면 "" */
@@ -99,9 +125,9 @@ export function fieldText(field: FieldDef, value: FieldValue | null, today?: str
   if (value === null || value === "") return "";
   switch (field.type) {
     case "number":
-      return typeof value === "number" ? value.toLocaleString("ko-KR") : "";
+      return typeof value === "number" ? value.toLocaleString(intlLocale()) : "";
     case "checkbox":
-      return value === true ? "체크됨" : "";
+      return value === true ? msg().collection.model.checked : "";
     case "multi":
       return Array.isArray(value) ? value.join(", ") : "";
     case "date":
@@ -248,27 +274,16 @@ export function withValue(
   return { ...props, values };
 }
 
-const FIELD_NAMES: Record<"status" | "assignee" | "tags", string> = {
-  status: "상태",
-  assignee: "담당",
-  tags: "태그",
-};
 /** 필터 칩 이름 — 사용자 속성은 정의의 이름, 체크박스는 "체크됨/체크 안 됨" */
 export const filterLabel = (f: CollectionFilter, fields: FieldDef[] = []) => {
-  if (!isFieldId(f.field)) return `${FIELD_NAMES[f.field as keyof typeof FIELD_NAMES]}: ${f.value}`;
+  const m = msg().collection.model;
+  if (!isFieldId(f.field)) return `${BUILTIN_NAMES[f.field as BuiltinProperty]}: ${f.value}`;
   const def = fieldOf(fields, f.field);
-  const value = def?.type === "checkbox" ? (f.value === "true" ? "체크됨" : "체크 안 됨") : f.value;
-  return `${def?.name ?? "속성"}: ${value}`;
+  const value = def?.type === "checkbox" ? (f.value === "true" ? m.checked : m.unchecked) : f.value;
+  return `${def?.name ?? m.unnamedField}: ${value}`;
 };
 
-export const SORT_NAMES: Record<CollectionSort["field"], string> = {
-  title: "제목",
-  status: "상태",
-  assignee: "담당",
-  due: "마감",
-  tags: "태그",
-  updated: "수정일",
-};
+export const SORT_NAMES = lazyNames(SORT_KEYS, (k) => msg().collection.model.sort[k]);
 
 function matches(p: Page, filters: CollectionFilter[], fields: FieldDef[]): boolean {
   const by = new Map<CollectionFilter["field"], string[]>();
@@ -404,8 +419,8 @@ export function fieldFilterChoices(
       values:
         f.type === "checkbox"
           ? [
-              { value: "true", label: "체크됨" },
-              { value: "false", label: "체크 안 됨" },
+              { value: "true", label: msg().collection.model.checked },
+              { value: "false", label: msg().collection.model.unchecked },
             ]
           : f.options.map((o) => ({ value: o.name, label: o.name })),
     }));
@@ -415,11 +430,7 @@ export function fieldFilterChoices(
 
 /** 칸 키: "<기준>:<값>". 값이 없으면 "없음" 칸 */
 export const groupKey = (by: BoardGroupBy, value: string | null) => `${by}:${value ?? ""}`;
-export const NONE_LABEL: Record<BoardGroupBy, string> = {
-  status: "상태 없음",
-  assignee: "담당 없음",
-  tags: "태그 없음",
-};
+export const NONE_LABEL = lazyNames(NONE_KEYS, (k) => msg().collection.model.noneLabel[k]);
 
 export type BoardGroup = {
   key: string;
@@ -535,11 +546,13 @@ export function reorder(
 export function groupCalc(records: Page[], calc: BoardCalc, today = isoDate(new Date())) {
   switch (calc) {
     case "count":
-      return `${records.length}개`;
+      return msg().collection.model.count(records.length);
     case "due":
-      return `마감 ${records.filter((p) => p.props.due).length}개`;
+      return msg().collection.model.dueCount(records.filter((p) => p.props.due).length);
     case "late":
-      return `지남 ${records.filter((p) => p.props.due && p.props.due < today).length}개`;
+      return msg().collection.model.lateCount(
+        records.filter((p) => p.props.due && p.props.due < today).length,
+      );
     case "none":
       return null;
   }
@@ -548,10 +561,11 @@ export function groupCalc(records: Page[], calc: BoardCalc, today = isoDate(new 
 /** 새 상태 이름 — "새 상태", "새 상태 2" … */
 export function newStatusName(statuses: StatusOption[]): string {
   const names = new Set(statuses.map((o) => o.name));
-  if (!names.has("새 상태")) return "새 상태";
+  const newStatus = msg().collection.model.newStatus;
+  if (!names.has(newStatus())) return newStatus();
   let n = 2;
-  while (names.has(`새 상태 ${n}`)) n++;
-  return `새 상태 ${n}`;
+  while (names.has(newStatus(n))) n++;
+  return newStatus(n);
 }
 
 /** 아직 안 쓴 색 (다 썼으면 회색) */
@@ -587,7 +601,7 @@ export function formatDue(
   const [y, m, d] = due.split("-").map(Number);
   const thisYear = today.slice(0, 4) === String(y);
   return {
-    text: `${thisYear ? "" : `${y}년 `}${m}월 ${d}일`,
+    text: msg().collection.model.due({ y: thisYear ? null : y, m, d }),
     late: due < today,
   };
 }

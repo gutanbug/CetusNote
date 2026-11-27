@@ -2,6 +2,7 @@ import { insetFocus, rowActive, rowBase } from "@/components/shell/parts";
 import { cn } from "@/lib/utils";
 import { SETTINGS_TABS, settingsPanelId, settingsTabId, type SettingsTab } from "./options";
 import { rovingKey } from "./roving";
+import { useMessages } from "@/lib/i18n";
 
 type SettingsNavProps = {
   value: SettingsTab;
@@ -16,6 +17,7 @@ type SettingsNavProps = {
  * 세로 탭 목록: ↑↓ Home End로 옮기면 바로 그 탭이 열린다.
  */
 function SettingsNav({ value, onValueChange, idPrefix, className }: SettingsNavProps) {
+  const m = useMessages();
   const ids = SETTINGS_TABS.map((t) => t.id);
   return (
     <div
@@ -29,11 +31,11 @@ function SettingsNav({ value, onValueChange, idPrefix, className }: SettingsNavP
         aria-hidden
         className="px-2 pb-1 text-label font-semibold tracking-(--tracking-label) text-tertiary uppercase"
       >
-        설정
+        {m.page.settingsNav.heading}
       </p>
       <div
         role="tablist"
-        aria-label="설정"
+        aria-label={m.page.settingsNav.tablist}
         aria-orientation="vertical"
         data-roving=""
         className="grid gap-0.5"

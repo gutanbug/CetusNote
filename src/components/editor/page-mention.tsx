@@ -12,6 +12,7 @@ import Suggestion from "@tiptap/suggestion";
 import { FileText, FileX } from "lucide-react";
 import * as React from "react";
 import { PageIcon } from "@/components/ui/page-icon";
+import { useMessages, msg } from "@/lib/i18n";
 
 /** 멘션할 수 있는 페이지 (제안 목록 · 칩) */
 export type MentionTarget = { id: string; title: string; icon?: string | null };
@@ -53,15 +54,16 @@ export function MentionChip({
   onOpen?: (opts: { newTab: boolean }) => void;
   selected?: boolean;
 }) {
+  const m = useMessages();
   const broken = !target;
-  const title = target ? target.title || "제목 없음" : label || "제목 없음";
+  const title = target ? target.title || m.editor.untitled : label || m.editor.untitled;
   return (
     <span
       role={broken ? undefined : "link"}
       data-broken={broken || undefined}
       data-selected={selected || undefined}
-      title={broken ? "지워진 페이지예요" : `${title} 열기`}
-      aria-label={broken ? `${title} (지워진 페이지)` : undefined}
+      title={broken ? m.editor.mention.broken : m.editor.mention.open(title)}
+      aria-label={broken ? m.editor.mention.brokenLabel(title) : undefined}
       className="sn-mention"
       onClick={(e) => {
         if (broken) return;
@@ -137,12 +139,12 @@ export const PageMention = Node.create<{
         href: `${PAGE_LINK_PREFIX}${node.attrs.id}`,
         class: "sn-mention",
       }),
-      String(node.attrs.label || "제목 없음"),
+      String(node.attrs.label || msg().editor.untitled),
     ];
   },
 
   renderText({ node }) {
-    return `@${node.attrs.label || "제목 없음"}`;
+    return `@${node.attrs.label || msg().editor.untitled}`;
   },
 
   addNodeView() {

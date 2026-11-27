@@ -7,6 +7,7 @@ import {
   type EditorState,
   type Transaction,
 } from "@tiptap/pm/state";
+import { msg } from "@/lib/i18n";
 
 const TAB = "\t";
 
@@ -19,9 +20,9 @@ export function resetTabIndentHint() {
 function hintOnce() {
   if (hinted) return;
   hinted = true;
-  toast("Tab으로 들여썼어요", {
+  toast(msg().editor.tabIndent.toast, {
     id: "tab-indent-hint",
-    description: "본문에서 나가려면 Esc를 누른 다음 Tab을 누르세요.",
+    description: msg().editor.tabIndent.hint,
     duration: 6000,
   });
 }

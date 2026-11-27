@@ -20,6 +20,7 @@ import {
   type Inline,
 } from "@/features/release-notes";
 import { openLink } from "@/lib/storage/open-link";
+import { useMessages } from "@/lib/i18n";
 
 function InlineText({ parts }: { parts: Inline[] }) {
   return (
@@ -84,6 +85,7 @@ function BlockView({ block }: { block: Block }) {
 
 /** 업데이트 뒤 또는 「릴리스 노트 보기」로 여는 대화상자. 내용은 빌드에 묶인 CHANGELOG.md다 (SYS-12) */
 export function WhatsNewDialog() {
+  const m = useMessages();
   const version = useWhatsNew((s) => s.version);
   const blocks = useMemo(() => {
     if (!version) return [];
@@ -96,8 +98,8 @@ export function WhatsNewDialog() {
     <Dialog open={version !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Cetus Note {version} 업데이트 내용</DialogTitle>
-          <DialogDescription>이번 버전에서 바뀐 내용이에요.</DialogDescription>
+          <DialogTitle>{m.settings.whatsNew.title(version ?? "")}</DialogTitle>
+          <DialogDescription>{m.settings.whatsNew.desc}</DialogDescription>
         </DialogHeader>
         <div className="grid min-h-0 content-start gap-3 overflow-y-auto pr-1">
           {blocks.map((block, i) => (
@@ -111,11 +113,11 @@ export function WhatsNewDialog() {
               className="mr-auto"
               onClick={() => void openLink(releaseUrl(version))}
             >
-              GitHub에서 보기
+              {m.settings.whatsNew.github}
             </Button>
           ) : null}
           <Button variant="primary" onClick={close}>
-            닫기
+            {m.settings.common.close}
           </Button>
         </DialogFooter>
       </DialogContent>

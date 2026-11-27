@@ -13,10 +13,13 @@ import { useBottomTail } from "./use-bottom-tail";
 import { IconButton } from "@/components/ui/icon-button";
 import { Ellipsis } from "lucide-react";
 
+import { useMessages } from "@/lib/i18n";
+
 const ic = { strokeWidth: 1.5 } as const;
 
 /** 태그별 문서 (홈의 태그 바로가기 → SHELL-07 태그 보기의 첫 모습). 최근에 고친 순 */
 export function TagView({ tag }: { tag: string }) {
+  const m = useMessages();
   const pages = usePages((s) => s.pages);
   const color = useMeta((s) => s.meta?.tags[tag]);
   const items = React.useMemo(() => {
@@ -32,7 +35,7 @@ export function TagView({ tag }: { tag: string }) {
     <div className="grid h-full grid-rows-[auto_minmax(0,1fr)]">
       <HomeTopBar
         crumbs={[
-          { id: "home", title: "홈" },
+          { id: "home", title: m.screens.tags.view.home },
           { id: "tag", title: `#${tag}` },
         ]}
       />
@@ -43,10 +46,10 @@ export function TagView({ tag }: { tag: string }) {
               <TagChip color={tagColor(color)} className="h-7 px-3 text-ui">
                 {tag}
               </TagChip>
-              <span className="sr-only">태그</span>
+              <span className="sr-only">{m.screens.tags.view.tagLabel}</span>
             </h1>
             <IconButton
-              label="태그 메뉴"
+              label={m.screens.tags.view.menuLabel}
               aria-haspopup="menu"
               data-tag-anchor={tag}
               className="ml-1"
@@ -55,13 +58,15 @@ export function TagView({ tag }: { tag: string }) {
               <Ellipsis {...ic} />
             </IconButton>
           </div>
-          <p className="mt-2 text-ui text-secondary">페이지 {items.length}개</p>
+          <p className="mt-2 text-ui text-secondary">
+            {m.screens.tags.view.pageCount(items.length)}
+          </p>
           {items.length ? (
             <ul className="mt-6 flex flex-wrap gap-3">
               {items.map((p) => (
                 <li key={p.id}>
                   <RecentCard
-                    title={p.title || "제목 없음"}
+                    title={p.title || m.screens.tags.view.untitled}
                     emoji={p.icon}
                     meta={formatAgo(p.updatedAt)}
                     onClick={(e) => openPageFrom(p.id, e)}
@@ -70,7 +75,7 @@ export function TagView({ tag }: { tag: string }) {
               ))}
             </ul>
           ) : (
-            <p className="mt-6 text-ui text-tertiary">이 태그가 붙은 페이지가 없어요.</p>
+            <p className="mt-6 text-ui text-tertiary">{m.screens.tags.view.empty}</p>
           )}
           {/* 넘칠 때만 펼치는 아래 여백(SHELL-13). 토큰 --s16 */}
           <div ref={tailRef} aria-hidden className={tailOpen ? "h-16" : "hidden"} />

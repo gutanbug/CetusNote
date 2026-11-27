@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
   addDays,
@@ -12,8 +13,6 @@ import * as React from "react";
 import { IconButton } from "./icon-button";
 import { focusRing } from "./styles";
 
-const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
-const WEEKDAY_NAMES = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
 /** 월 격자는 항상 6주(42칸)라 달이 바뀌어도 높이가 흔들리지 않는다 */
 const CELLS = 42;
 
@@ -66,9 +65,11 @@ function Calendar({
   today,
   defaultMonth,
   onEscape,
-  label = "달력",
+  label: labelProp,
   className,
 }: CalendarProps) {
+  const m = useMessages();
+  const label = labelProp ?? m.ui.calendar.label;
   const now = today ?? new Date();
   const minDate = min ? parseIsoDate(min) : null;
   const maxDate = max ? parseIsoDate(max) : null;
@@ -169,13 +170,21 @@ function Calendar({
   return (
     <div data-slot="calendar" className={cn("grid w-70 gap-2 text-body text-primary", className)}>
       <div className="flex items-center justify-between gap-2">
-        <IconButton label="이전 달" size="sm" onClick={() => move(addMonths(focus, -1))}>
+        <IconButton
+          label={m.ui.calendar.prevMonth}
+          size="sm"
+          onClick={() => move(addMonths(focus, -1))}
+        >
           <ChevronLeft strokeWidth={1.5} />
         </IconButton>
         <div id={captionId} aria-live="polite" className="text-ui font-medium">
-          {viewYear}년 {viewMonth + 1}월
+          {m.ui.calendar.monthTitle(viewYear, viewMonth + 1)}
         </div>
-        <IconButton label="다음 달" size="sm" onClick={() => move(addMonths(focus, 1))}>
+        <IconButton
+          label={m.ui.calendar.nextMonth}
+          size="sm"
+          onClick={() => move(addMonths(focus, 1))}
+        >
           <ChevronRight strokeWidth={1.5} />
         </IconButton>
       </div>
@@ -192,10 +201,10 @@ function Calendar({
             <div
               key={w}
               role="columnheader"
-              aria-label={WEEKDAY_NAMES[w]}
+              aria-label={m.ui.calendar.weekdayLong[w]}
               className="grid h-7 place-items-center text-label font-medium text-tertiary"
             >
-              {WEEKDAY_LABELS[w]}
+              {m.ui.calendar.weekdayShort[w]}
             </div>
           ))}
         </div>
@@ -221,7 +230,12 @@ function Calendar({
                     data-iso={iso}
                     tabIndex={iso === focusKey ? 0 : -1}
                     // 이름은 화면의 날짜 숫자 그대로 둔다(aria-label이 숫자와 어긋나면 WCAG 2.5.3에 걸린다). 전체 날짜는 title로.
-                    title={`${day.getFullYear()}년 ${day.getMonth() + 1}월 ${day.getDate()}일 ${WEEKDAY_NAMES[day.getDay()]}`}
+                    title={m.ui.calendar.dayTitle(
+                      day.getFullYear(),
+                      day.getMonth() + 1,
+                      day.getDate(),
+                      m.ui.calendar.weekdayLong[day.getDay()],
+                    )}
                     aria-current={isToday ? "date" : undefined}
                     aria-disabled={disabled || undefined}
                     onClick={() => pick(day)}

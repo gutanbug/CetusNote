@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import { TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { msg } from "@/lib/i18n";
 
 export type Heading = {
   /** 제목 블록의 문서 위치 */
@@ -39,7 +40,7 @@ export function getHeadings(editor: Editor): Heading[] {
       const level = Number(node.attrs.level) || 1;
       const { text, hasInline } = headingText(node);
       if (level <= MAX_LEVEL && (text || hasInline))
-        out.push({ pos, level, text: text || "제목 없음" });
+        out.push({ pos, level, text: text || msg().editor.untitled });
       return false;
     }
     // 코드 블록·표 안에는 제목이 없다

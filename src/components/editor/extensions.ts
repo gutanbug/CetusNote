@@ -39,6 +39,7 @@ import { BreadcrumbBlockNode } from "./breadcrumb-block";
 import { DateChipNode } from "./date-chip-node";
 import { AttachmentBlock, type AttachmentPick } from "./attachment";
 import { emojiShortcodeSuggestion, type EmojiShortcodeCallbacks } from "./emoji-shortcode";
+import { msg } from "@/lib/i18n";
 
 export type EditorExtensionOptions = {
   /** 빈 문단에 보일 안내 (EDIT-11) */
@@ -91,7 +92,7 @@ export type EditorExtensionOptions = {
  * | 계산 줄               | CalcLine (커스텀, 장식)          | 줄 끝 `=` → 결과, Tab으로 넣기 |
  */
 export function createExtensions({
-  placeholder = "'/'를 입력해 명령어 사용",
+  placeholder = msg().editor.placeholder,
   onMathClick = () => {},
   slash,
   mention,
@@ -126,8 +127,8 @@ export function createExtensions({
     Placeholder.configure({
       includeChildren: true,
       placeholder: ({ node }) => {
-        if (node.type.name === "heading") return `제목 ${node.attrs.level}`;
-        if (node.type.name === "detailsSummary") return "토글 제목";
+        if (node.type.name === "heading") return msg().editor.headingLevel(node.attrs.level);
+        if (node.type.name === "detailsSummary") return msg().editor.detailsSummary;
         if (node.type.name === "image") return ""; // 캡션 안내는 노드 뷰가 그린다
         // 코드 블록에서는 / 메뉴가 열리지 않고, 안내가 언어 고르기 줄과 겹친다
         if (node.type.name === "codeBlock") return "";
@@ -139,7 +140,7 @@ export function createExtensions({
       nested: true,
       a11y: {
         checkboxLabel: (node, checked) =>
-          `${node.textContent || "빈 할 일"} ${checked ? "완료됨" : "완료 표시"}`,
+          `${node.textContent || msg().editor.taskItem.empty} ${checked ? msg().editor.taskItem.done : msg().editor.taskItem.markDone}`,
       },
     }),
     ListItemShortcuts,

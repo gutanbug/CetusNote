@@ -6,6 +6,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { PageIcon } from "@/components/ui/page-icon";
+import { useMessages } from "@/lib/i18n";
 
 export type TrashItem = {
   id: string;
@@ -25,11 +26,14 @@ type TrashListProps = {
 
 /** 휴지통 내용 — 검색 · 목록 · 복원/영구 삭제 · 빈 상태 · 안내 (프로토타입 `.trash`, 폭 420) */
 function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
+  const m = useMessages();
   const [query, setQuery] = React.useState("");
   const [confirmId, setConfirmId] = React.useState<string>();
   const listRef = React.useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
-  const shown = q ? items.filter((i) => (i.title || "제목 없음").toLowerCase().includes(q)) : items;
+  const shown = q
+    ? items.filter((i) => (i.title || m.page.untitled).toLowerCase().includes(q))
+    : items;
 
   // 행이 바뀐 뒤 포커스를 둘 곳: 같은 행의 버튼, 다음 행의 첫 버튼, 없으면 목록 자체
   const focusAfter = (selector: string | undefined) =>
@@ -53,8 +57,8 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
             setQuery(v);
             setConfirmId(undefined);
           }}
-          placeholder="휴지통 검색…"
-          aria-label="휴지통 검색"
+          placeholder={m.page.trash.searchPlaceholder}
+          aria-label={m.page.trash.search}
           disabled={!items.length}
         />
       </div>
@@ -64,15 +68,15 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
         className="max-h-75 overflow-y-auto overscroll-contain px-1 outline-none"
       >
         {!items.length ? (
-          <p className="px-4 py-6 text-center text-caption text-tertiary">휴지통이 비어 있어요.</p>
+          <p className="px-4 py-6 text-center text-caption text-tertiary">{m.page.trash.empty}</p>
         ) : !shown.length ? (
           <p role="status" className="px-4 py-6 text-center text-caption text-tertiary">
-            “{query}”에 해당하는 페이지가 없어요.
+            {m.page.trash.noMatch(query)}
           </p>
         ) : (
-          <ul aria-label="휴지통 페이지" className="grid">
+          <ul aria-label={m.page.trash.list} className="grid">
             {shown.map((item, index) => {
-              const name = item.title || "제목 없음";
+              const name = item.title || m.page.untitled;
               const confirming = confirmId === item.id;
               return (
                 <li
@@ -103,7 +107,7 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
                   {confirming ? (
                     <span className="flex shrink-0 items-center gap-1">
                       <span role="alert" className="text-label text-danger">
-                        영구 삭제할까요?
+                        {m.page.trash.confirmPurge}
                       </span>
                       {/* 기본 포커스는 취소 — Enter 한 번으로 지우지 않게 */}
                       <Button
@@ -115,7 +119,7 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
                           focusAfter(`[data-row="${item.id}"] [data-purge]`);
                         }}
                       >
-                        취소
+                        {m.page.trash.cancel}
                       </Button>
                       <Button
                         size="sm"
@@ -125,7 +129,7 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
                           onPurge(item.id);
                         }}
                       >
-                        삭제
+                        {m.page.trash.purge}
                       </Button>
                     </span>
                   ) : (
@@ -133,7 +137,7 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
                       <span className="shrink-0 text-label text-tertiary">{item.deletedAt}</span>
                       <span className="flex shrink-0 opacity-0 transition-opacity duration-(--dur-fast) group-focus-within/row:opacity-100 group-hover/row:opacity-100 force-hover:opacity-100">
                         <IconButton
-                          label={`“${name}” 복원`}
+                          label={m.page.trash.restore(name)}
                           onClick={() => {
                             leave(index);
                             onRestore(item.id);
@@ -142,7 +146,7 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
                           <RotateCcw strokeWidth={1.5} />
                         </IconButton>
                         <IconButton
-                          label={`“${name}” 영구 삭제`}
+                          label={m.page.trash.purgeOne(name)}
                           data-purge=""
                           onClick={() => setConfirmId(item.id)}
                         >
@@ -157,9 +161,7 @@ function TrashList({ items, onRestore, onPurge, className }: TrashListProps) {
           </ul>
         )}
       </div>
-      <p className="border-t border-line p-2 text-label text-tertiary">
-        휴지통의 페이지는 직접 비울 때까지 남아 있어요.
-      </p>
+      <p className="border-t border-line p-2 text-label text-tertiary">{m.page.trash.footer}</p>
     </div>
   );
 }
@@ -173,10 +175,16 @@ type TrashPopoverProps = TrashListProps & {
 
 /** PG-TrashPopover — 사이드바 휴지통 항목 옆에 뜨는 휴지통 (PAGE-08). */
 function TrashPopover({ children, open, onOpenChange, ...list }: TrashPopoverProps) {
+  const m = useMessages();
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       {children ? <PopoverTrigger asChild>{children}</PopoverTrigger> : <PopoverAnchor />}
-      <PopoverContent side="right" align="end" aria-label="휴지통" className="max-w-none p-0">
+      <PopoverContent
+        side="right"
+        align="end"
+        aria-label={m.page.trash.label}
+        className="max-w-none p-0"
+      >
         <TrashList {...list} />
       </PopoverContent>
     </Popover>

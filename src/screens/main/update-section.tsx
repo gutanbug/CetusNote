@@ -8,9 +8,11 @@ import { updaterStore, useUpdater } from "@/features/updater";
 import { updateView } from "@/features/updater/view";
 import { openWhatsNewForCurrent, releaseUrl } from "@/features/release-notes";
 import { openLink } from "@/lib/storage/open-link";
+import { useMessages } from "@/lib/i18n";
 
 /** 설정 › 일반 › 업데이트 (SYS-07) — 현재 버전, 확인·설치 버튼, 자동 확인 스위치 */
 export function UpdateSection() {
+  const m = useMessages();
   const state = useUpdater((s) => s);
   const current = useUpdater((s) => s.currentVersion);
   const autoCheck = useSession((s) => s.autoUpdateCheck);
@@ -36,10 +38,10 @@ export function UpdateSection() {
   return (
     <>
       <SettingsRow
-        name="업데이트"
+        name={m.settings.update.name}
         description={
           <span role="status" aria-live="polite" className={view.error ? "text-danger" : undefined}>
-            현재 버전 {current ?? "…"}
+            {m.settings.update.version(current ?? "…")}
             {view.message ? ` · ${view.message}` : ""}
           </span>
         }
@@ -52,7 +54,7 @@ export function UpdateSection() {
                 size="sm"
                 onClick={() => void openLink(releaseUrl(releaseVersion))}
               >
-                릴리스 보기
+                {m.settings.update.releaseView}
               </Button>
             ) : null}
             <Button
@@ -67,19 +69,22 @@ export function UpdateSection() {
           </div>
         )}
       </SettingsRow>
-      <SettingsRow name="릴리스 노트" description="이번 버전에서 바뀐 내용을 다시 볼 수 있어요">
+      <SettingsRow
+        name={m.settings.update.releaseNotesName}
+        description={m.settings.update.releaseNotesDesc}
+      >
         <Button variant="secondary" size="sm" onClick={() => void openWhatsNewForCurrent()}>
-          릴리스 노트 보기
+          {m.settings.update.releaseNotesButton}
         </Button>
       </SettingsRow>
       {view.progress !== null || state.status === "downloading" ? (
         <div className="pb-3">
-          <Progress aria-label="업데이트 내려받기 진행률" value={view.progress ?? 0} />
+          <Progress aria-label={m.settings.update.progress} value={view.progress ?? 0} />
         </div>
       ) : null}
       <SettingsRow
-        name="자동으로 업데이트 확인"
-        description="앱을 켰을 때와 켜 둔 동안 하루에 한 번 새 버전이 있는지 확인해요. 설치는 물어본 뒤에 해요."
+        name={m.settings.update.autoName}
+        description={m.settings.update.autoDesc}
         controlId="auto-update"
       >
         <Switch

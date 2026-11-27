@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cva, type VariantProps } from "class-variance-authority";
 import { motionTokens } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -11,19 +12,19 @@ type Star = { id: string; bayer: string; x: number; y: number; mag: number; name
  * 프로토타입 components.html §25와 같은 좌표다. (docs/design/concept.md)
  */
 const STARS: Star[] = [
-  { id: "alpha", bayer: "α", x: 9.9, y: 24.7, mag: 2.54, name: "멘카르" },
+  { id: "alpha", bayer: "α", x: 9.9, y: 24.7, mag: 2.54, name: "멘카르" }, // i18n-ignore
   { id: "lambda", bayer: "λ", x: 11.5, y: 12.8, mag: 4.7 },
   { id: "mu", bayer: "μ", x: 20.5, y: 9.9, mag: 4.27 },
   { id: "xi2", bayer: "ξ²", x: 30.9, y: 13.9, mag: 4.3 },
   { id: "nu", bayer: "ν", x: 25.7, y: 21, mag: 4.86 },
   { id: "gamma", bayer: "γ", x: 21.5, y: 26.8, mag: 3.47 },
   { id: "delta", bayer: "δ", x: 23.9, y: 34, mag: 4.07 },
-  { id: "omicron", bayer: "ο", x: 36.3, y: 42.2, mag: 3, name: "미라" },
-  { id: "zeta", bayer: "ζ", x: 53.5, y: 60.4, mag: 3.73, name: "바텐 카이토스" },
+  { id: "omicron", bayer: "ο", x: 36.3, y: 42.2, mag: 3, name: "미라" }, // i18n-ignore
+  { id: "zeta", bayer: "ζ", x: 53.5, y: 60.4, mag: 3.73, name: "바텐 카이토스" }, // i18n-ignore
   { id: "theta", bayer: "θ", x: 70.4, y: 55, mag: 3.6 },
   { id: "eta", bayer: "η", x: 79.9, y: 60, mag: 3.45 },
   { id: "iota", bayer: "ι", x: 110.1, y: 56.6, mag: 3.56 },
-  { id: "beta", bayer: "β", x: 95.3, y: 79.2, mag: 2.04, name: "디프다" },
+  { id: "beta", bayer: "β", x: 95.3, y: 79.2, mag: 2.04, name: "디프다" }, // i18n-ignore
   { id: "tau", bayer: "τ", x: 58, y: 74.2, mag: 3.5 },
 ];
 
@@ -144,6 +145,7 @@ function Constellation({
   className,
   ...props
 }: ConstellationProps) {
+  const m = useMessages();
   const small = size === "sm";
   const animate = twinkle && tone !== "faint" && !small;
   const reduced = useReducedMotion();
@@ -341,7 +343,7 @@ function Constellation({
         <g className="fill-tertiary font-sans" fontSize={3.2}>
           {STARS.filter((s) => s.name).map((s) => (
             <text key={s.id} x={s.x + 2.4} y={s.y - 2.2}>
-              {s.name}
+              {(m.ui.constellation.names as Record<string, string>)[s.id] ?? s.name}
             </text>
           ))}
         </g>

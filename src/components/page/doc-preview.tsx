@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Check, Image as ImageIcon, Table } from "lucide-react";
+import { msg, useMessages } from "@/lib/i18n";
 
 /** Tiptap JSON 노드 (필요한 만큼만) */
 export type PreviewNode = {
@@ -69,7 +70,7 @@ function lines(nodes: PreviewNode[] = [], depth = 0, out: Line[] = [], max = 12)
         out.push({ kind: "media", text: textOf(n), depth, icon: "image" });
         break;
       case "table":
-        out.push({ kind: "media", text: "표", depth, icon: "table" });
+        out.push({ kind: "media", text: msg().page.docPreview.table, depth, icon: "table" });
         break;
       case "callout":
         out.push({
@@ -104,6 +105,7 @@ type DocPreviewProps = {
  * 에디터를 띄우지 않는 가벼운 그림이라 카드 여러 장에 써도 된다. 비어 있으면 "빈 문서".
  */
 function DocPreview({ doc, max = 7, className }: DocPreviewProps) {
+  const m = useMessages();
   const list = lines(doc?.content, 0, [], max);
   return (
     <div
@@ -163,7 +165,7 @@ function DocPreview({ doc, max = 7, className }: DocPreviewProps) {
           </div>
         ))
       ) : (
-        <span className="text-tertiary">빈 문서</span>
+        <span className="text-tertiary">{m.page.docPreview.empty}</span>
       )}
     </div>
   );

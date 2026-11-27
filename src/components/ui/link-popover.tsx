@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ExternalLink, Link2Off } from "lucide-react";
 import * as React from "react";
@@ -27,6 +28,7 @@ function normalizeHref(raw: string): string | null {
  * OV-Popover 안에 넣어 쓴다.
  */
 function LinkEditor({ href = "", onSubmit, onOpen, onRemove, className }: LinkEditorProps) {
+  const m = useMessages();
   const [value, setValue] = React.useState(href);
   const id = React.useId();
   const submit = (e: React.FormEvent) => {
@@ -41,26 +43,26 @@ function LinkEditor({ href = "", onSubmit, onOpen, onRemove, className }: LinkEd
       className={cn("flex items-center gap-1 p-1", className)}
     >
       <label htmlFor={id} className="sr-only">
-        링크 주소
+        {m.ui.linkPopover.url}
       </label>
       <Input
         id={id}
         autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="https://… 붙여넣기"
+        placeholder={m.ui.linkPopover.placeholder}
         className="w-60"
       />
       <Button type="submit" size="sm" disabled={!value.trim()}>
-        적용
+        {m.ui.linkPopover.apply}
       </Button>
       {href && onOpen ? (
-        <IconButton label="링크 열기" onClick={() => onOpen(href)}>
+        <IconButton label={m.ui.linkPopover.open} onClick={() => onOpen(href)}>
           <ExternalLink strokeWidth={1.5} />
         </IconButton>
       ) : null}
       {href && onRemove ? (
-        <IconButton label="링크 제거" onClick={onRemove}>
+        <IconButton label={m.ui.linkPopover.remove} onClick={onRemove}>
           <Link2Off strokeWidth={1.5} />
         </IconButton>
       ) : null}

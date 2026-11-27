@@ -2,6 +2,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { toast } from "@/components/ui/toast";
+import { msg } from "@/lib/i18n";
 
 /** 한 번 붙여넣기에서 내려받을 웹 이미지 수 — 넘는 것은 버린다 */
 export const MAX_PASTED_IMAGES = 20;
@@ -121,10 +122,13 @@ export function isFetchableImage(url: unknown): url is string {
 
 export function remoteImagesPlugin({ fetch, upload }: Download) {
   const download = (url: string): Promise<string> => {
-    if (!isFetchableImage(url)) return Promise.reject(new Error("지원하지 않는 주소"));
+    if (!isFetchableImage(url))
+      return Promise.reject(new Error(msg().editor.remoteImage.unsupported));
     if (DATA_IMAGE.test(url))
-      return upload ? upload(dataUrlToFile(url)) : Promise.reject(new Error("저장소 없음"));
-    return fetch ? fetch(url) : Promise.reject(new Error("내려받기 없음"));
+      return upload
+        ? upload(dataUrlToFile(url))
+        : Promise.reject(new Error(msg().editor.remoteImage.noUpload));
+    return fetch ? fetch(url) : Promise.reject(new Error(msg().editor.remoteImage.noFetch));
   };
 
   return new Plugin({
@@ -146,7 +150,7 @@ export function remoteImagesPlugin({ fetch, upload }: Download) {
           } else if (HTTP.test(url)) {
             // 실패: 캡션(없으면 "원본 이미지")을 원래 주소의 링크로 남긴다
             const text = state.schema.text(
-              node.textContent || "원본 이미지",
+              node.textContent || msg().editor.imageOriginal,
               link ? [link.create({ href: url })] : [],
             );
             tr.replaceWith(
@@ -161,9 +165,9 @@ export function remoteImagesPlugin({ fetch, upload }: Download) {
         if (!tr.docChanged) return;
         view.dispatch(tr.setMeta("addToHistory", false));
         if (!src)
-          toast("웹 이미지를 가져오지 못했어요", {
+          toast(msg().editor.remoteImage.failed, {
             id: "remote-image-failed",
-            description: "원래 주소의 링크로 남겼어요.",
+            description: msg().editor.remoteImage.failedDescription,
           });
       };
 

@@ -6,6 +6,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { PageIcon } from "@/components/ui/page-icon";
 import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
+import { useMessages } from "@/lib/i18n";
 
 // ── 표시 (순수 UI: props만 받는다) ─────────────────────
 
@@ -33,7 +34,8 @@ const rowClass = cn(
  * 열기 단축키: Enter(새 탭은 ⌘/Ctrl+Enter). 열기 버튼과 지우기 버튼은 따로 두어 중첩 버튼을 피한다.
  */
 function SubpageBlock({ state, title, icon, selected, onOpen, onRemove }: SubpageBlockProps) {
-  const label = title || "제목 없음";
+  const m = useMessages();
+  const label = title || m.editor.untitled;
 
   if (state === "loading") {
     return (
@@ -45,7 +47,7 @@ function SubpageBlock({ state, title, icon, selected, onOpen, onRemove }: Subpag
       >
         <span aria-hidden className="size-4 rounded-xs bg-subtle" />
         <span aria-hidden className="h-3 w-40 rounded-xs bg-subtle" />
-        <span className="sr-only">페이지를 불러오는 중</span>
+        <span className="sr-only">{m.editor.subpage.loading}</span>
       </div>
     );
   }
@@ -85,7 +87,7 @@ function SubpageBlock({ state, title, icon, selected, onOpen, onRemove }: Subpag
               "group-focus-within:opacity-100 group-hover:opacity-100 force-hover:opacity-100",
             )}
           >
-            하위 페이지
+            {m.editor.subpage.label}
             <ChevronRight strokeWidth={1.5} className="size-4" />
           </span>
         </button>
@@ -97,15 +99,15 @@ function SubpageBlock({ state, title, icon, selected, onOpen, onRemove }: Subpag
             <SubpageIcon icon={icon} />
           )}
           <span className="min-w-0 flex-1 truncate text-ui">
-            {state === "missing" ? "삭제된 페이지" : label}
+            {state === "missing" ? m.editor.subpage.deleted : label}
           </span>
           {state === "trashed" ? (
-            <span className="shrink-0 text-caption">휴지통에 있는 페이지</span>
+            <span className="shrink-0 text-caption">{m.editor.subpage.inTrash}</span>
           ) : null}
         </div>
       )}
       {removable && onRemove ? (
-        <IconButton label="블록 지우기" onClick={onRemove} className="mr-1">
+        <IconButton label={m.editor.subpage.removeBlock} onClick={onRemove} className="mr-1">
           <X strokeWidth={1.5} />
         </IconButton>
       ) : null}

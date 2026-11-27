@@ -1,3 +1,4 @@
+/* i18n-ignore-file — 벤치마크 픽스처 데이터 */
 import {
   createPage,
   DEFAULT_STATUSES,
