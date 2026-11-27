@@ -5,10 +5,13 @@ import { displayTitle } from "@/features/pages/title";
 import {
   attachWakeListeners,
   createReminderScheduler,
+  createStoreReminderScheduler,
   REMINDER_COPY,
+  remindersStore,
   requestNotificationPermission,
   type MissedReminder,
   type ReminderScheduler,
+  type StoreDue,
 } from "@/features/reminders";
 import type { DateReminder } from "@/lib/dates/collect-reminders";
 import * as React from "react";
@@ -28,6 +31,25 @@ type MissedState = { items: MissedReminder[]; open: boolean };
 export const useMissed = create<MissedState>(() => ({ items: [], open: false }));
 const showMissed = (items: MissedReminder[]) => useMissed.setState({ items, open: true });
 export const setMissedOpen = (open: boolean) => useMissed.setState({ open });
+
+/** 알림 목록(SYS-16) 가운데 울린 것: 앱 안 대화상자에서 미루기·완료·열기를 고른다 */
+type DueState = { items: StoreDue[]; open: boolean };
+export const useDueReminders = create<DueState>(() => ({ items: [], open: false }));
+export const setDueOpen = (open: boolean) => useDueReminders.setState({ open });
+/** 울린 항목을 대화상자에 올린다. 같은 알림이 두 번 들어오면 한 번만 보인다 */
+const showDue = (incoming: StoreDue[]) =>
+  useDueReminders.setState((s) => {
+    const keys = new Set(s.items.map((i) => i.key));
+    const items = [...s.items, ...incoming.filter((i) => !keys.has(i.key))];
+    return { items, open: items.length > 0 };
+  });
+/** 알림 한 건을 대화상자에서 뺀다 (미루기·완료·열기 뒤) */
+export function dismissDue(id: string) {
+  useDueReminders.setState((s) => {
+    const items = s.items.filter((i) => i.rem.id !== id);
+    return { items, open: items.length > 0 };
+  });
+}
 
 /** 앱 안 알림 (OS 알림을 보내지 못했을 때). 제목과 「열기」 */
 function notifyInApp(item: MissedReminder) {
@@ -96,6 +118,13 @@ export function startReminderAlerts(): () => void {
     },
   });
   scheduler = s;
+  // 알림 목록(SYS-16): 울린 것은 대화상자에서 미루기·완료·열기를 고른다
+  const ss = createStoreReminderScheduler({
+    onFallback: showDue,
+    onMissed: showDue,
+  });
+  const unsubStore = remindersStore.subscribe((state) => ss.setList(state.list));
+  ss.setList(remindersStore.getState().list);
   const unsubSummary = summaryIndex.subscribe(() => sync(s));
   // 구조가 바뀌면(휴지통·지움) 목록을 다시 맞춘다. 본문만 고친 편집은 구조 참조가 그대로라 건너뛴다
   let structure = pagesStore.getState().structure;
@@ -113,13 +142,20 @@ export function startReminderAlerts(): () => void {
     structure = state.structure;
     sync(s);
   });
-  const detachWake = attachWakeListeners(s);
+  const detachWake = attachWakeListeners({
+    wake: () => {
+      s.wake();
+      ss.wake();
+    },
+  });
   sync(s);
   return () => {
     unsubSummary();
     unsubPages();
+    unsubStore();
     detachWake();
     s.dispose();
+    ss.dispose();
     sent.clear();
     scheduler = null;
   };

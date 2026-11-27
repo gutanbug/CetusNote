@@ -36,6 +36,11 @@ fn collect(root: &Path) -> Result<Vec<(String, PathBuf)>> {
     if meta.is_file() && !is_symlink(&meta) {
         out.push((WORKSPACE_FILE.to_owned(), meta));
     }
+    // 알림 목록(SYS-16, ADR-030)
+    let reminders = root.join(super::reminders::REMINDERS_FILE);
+    if reminders.is_file() && !is_symlink(&reminders) {
+        out.push((super::reminders::REMINDERS_FILE.to_owned(), reminders));
+    }
     if let Ok(entries) = fs::read_dir(root.join(PAGES_DIR)) {
         for e in entries.filter_map(|e| e.ok()) {
             let name = e.file_name().to_string_lossy().into_owned();
@@ -112,6 +117,9 @@ fn zip_err(e: zip::result::ZipError) -> StorageError {
 fn allowed(name: &str) -> Option<u64> {
     if name == MANIFEST || name == WORKSPACE_FILE {
         return Some(JSON_MAX_BYTES);
+    }
+    if name == super::reminders::REMINDERS_FILE {
+        return Some(super::reminders::REMINDERS_MAX_BYTES as u64);
     }
     if let Some(file) = name.strip_prefix("pages/") {
         return file
@@ -384,6 +392,27 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(fs::read(asset.path()).unwrap(), PNG);
+    }
+
+    #[test]
+    fn backup_and_restore_keep_reminders_file() {
+        let (d, ws) = sample();
+        let body = br#"{"schemaVersion":1,"reminders":[]}"#;
+        fs::write(ws.root.join(super::super::reminders::REMINDERS_FILE), body).unwrap();
+        let zip = d.path().join("r.zip");
+        create_backup(&ws.root, &zip, "2026-11-27T00:00:00Z").unwrap();
+        let mut archive = ZipArchive::new(std::fs::File::open(&zip).unwrap()).unwrap();
+        assert!(
+            archive
+                .by_name(super::super::reminders::REMINDERS_FILE)
+                .is_ok()
+        );
+        let out = d.path().join("restored-reminders");
+        restore_backup(&zip, &out).unwrap();
+        assert_eq!(
+            fs::read(out.join(super::super::reminders::REMINDERS_FILE)).unwrap(),
+            body
+        );
     }
 
     #[test]

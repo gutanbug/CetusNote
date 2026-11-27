@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["image-png", "protocol-asset"] }
+tauri = { version = "2", features = ["image-png", "protocol-asset", "tray-icon"] }
 tauri-plugin-opener = "2"
 libc = "0.2"
 # 폴더 선택·저장 대화상자. Rust 커맨드 안에서만 띄운다(프론트엔드 권한 없음).
@@ -35,6 +35,10 @@ tauri-plugin-updater = "=2.14.1"
 tauri-plugin-process = "=2.4.0"
 # 날짜 칩 알림(EDIT-37, ADR-025 알림 항목). 앱이 켜져 있을 때만 OS 알림을 띄운다. 2.7.0은 2026-10-14 공개, tauri ^2.12와 호환
 tauri-plugin-notification = "=2.7.0"
+# 로그인할 때 시작(SYS-15). 2.7.0은 2026-10-01 공개. npm 패키지 @tauri-apps/plugin-autostart와 같은 판
+tauri-plugin-autostart = "=2.7.0"
+# 빠른 입력 전역 단축키(QN-03). 2.4.1은 2026-10-10 공개. npm 패키지 @tauri-apps/plugin-global-shortcut과 같은 판
+tauri-plugin-global-shortcut = "=2.4.1"
 # PDF 내보내기(DATA-06): 메인 WKWebView의 createPDF로 쪽을 찍고 PDFKit으로 한 파일에 합친다(pdf.rs). objc2는 tauri·wry가 쓰는 판과 같다
 # 개발용 빌드에서만 등록 (lib.rs의 cfg(debug_assertions)). 개발 자동화 도구가 앱에 접속하는 통로.
 tauri-plugin-mcp-bridge = "0.13"
@@ -52,7 +56,7 @@ objc2-foundation = "=0.3.2"
 objc2-web-kit = { version = "=0.3.2", features = ["std", "WKWebView", "WKPDFConfiguration", "block2", "objc2-app-kit"] }
 objc2-pdf-kit = { version = "=0.3.2", features = ["std", "PDFDocument", "PDFPage", "objc2-app-kit"] }
 # 미리보기 쪽 그림(PNG, DATA-06): PDFKit 썸네일을 비트맵으로 바꾼다. objc2-web-kit이 쓰는 판과 같다
-objc2-app-kit = { version = "=0.3.2", features = ["std", "NSApplication", "NSImage", "NSBitmapImageRep"] }
+objc2-app-kit = { version = "=0.3.2", features = ["std", "NSApplication", "NSImage", "NSBitmapImageRep", "NSWindow"] }
 block2 = "=0.6.2"
 
 # Windows PDF 내보내기(DATA-06·SYS-08): WebView2 PrintToPdf. wry·tauri가 쓰는 판과 같다

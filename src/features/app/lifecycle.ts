@@ -1,6 +1,7 @@
 import { msg } from "@/lib/i18n";
 import { toast } from "@/components/ui/toast";
 import { metaStore } from "@/features/meta";
+import { remindersStore } from "@/features/reminders";
 import { onKeptExternal, pagesStore } from "@/features/pages";
 import { sessionStore } from "@/features/session";
 import { workspaceStore } from "@/features/workspace";
@@ -38,6 +39,7 @@ export function useLoadWorkspaceOnOpen() {
           () => pagesStore.getState().load(),
           (p) => sessionStore.getState().load(p),
           () => metaStore.getState().load(),
+          () => remindersStore.getState().load(),
         ],
         launchGate,
         // 기다리는 사이 다른 워크스페이스로 바뀌었으면 준비 완료로 표시하지 않는다
@@ -208,12 +210,17 @@ export function useSaveOnClose() {
     }
     /** 남은 저장을 모두 쓴다. 하나라도 실패하면 false */
     const saveAll = async (): Promise<boolean> => {
-      const [ok] = await Promise.all([
+      const [ok, , , remindersOk] = await Promise.all([
         pagesStore.getState().flushAll(),
         sessionStore.getState().flush(),
         metaStore.getState().flush(),
+        remindersStore
+          .getState()
+          .flush()
+          .then(() => !remindersStore.getState().saveError)
+          .catch(() => false),
       ]);
-      return ok;
+      return ok && remindersOk;
     };
     let disposed = false;
     const unlistens: Array<() => void> = [];

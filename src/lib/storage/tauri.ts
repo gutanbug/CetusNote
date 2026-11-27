@@ -92,6 +92,8 @@ export function createTauriStorage(): Storage {
     readVersion: async (pageId, versionId) =>
       normalizePage(await call<unknown>("history_read", { id: pageId, version: versionId })),
     deleteVersions: (pageId) => writeCall("history_delete", { id: pageId }),
+    readReminders: () => call<unknown | null>("reminders_read"),
+    writeReminders: (value) => writeCall("reminders_write", { value }),
     readSettings: () => call<Record<string, unknown> | null>("settings_read"),
     writeSettings: (value) => call("settings_write", { value }),
     setAppIcon: (theme) => call("app_icon_set", { theme }),

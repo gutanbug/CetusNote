@@ -290,6 +290,10 @@ export interface Storage {
   readVersion(pageId: string, versionId: string): Promise<Page>;
   /** 페이지의 버전 기록을 모두 지운다(영구 삭제 때) */
   deleteVersions(pageId: string): Promise<void>;
+  /** 알림 파일(`reminders.json`, SYS-16) 원본. 파일이 없으면 null. 모양 검사와 정규화는 features/reminders가 한다 */
+  readReminders(): Promise<unknown | null>;
+  /** 알림 파일을 원자적으로 쓴다. 최상위 모양이 틀리면 거절하고 기존 파일을 남긴다 */
+  writeReminders(value: unknown): Promise<void>;
   readSettings(): Promise<Record<string, unknown> | null>;
   writeSettings(settings: Record<string, unknown>): Promise<void>;
   /** 앱 아이콘 바꾸기(SET-07): 화이트("light")·블랙("dark"). 미리보기에서는 아무 일도 없다 */

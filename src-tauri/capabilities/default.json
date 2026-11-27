@@ -6,9 +6,11 @@
   "permissions": [
     "core:default",
     "core:window:allow-destroy",
+    "core:window:allow-hide",
     "core:window:allow-start-dragging",
     "core:webview:allow-set-webview-zoom",
     "storage",
+    "app-prefs",
     "opener:default",
     "updater:default",
     "process:allow-restart",

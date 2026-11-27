@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick",
+  "description": "Capability for the quick input window (QN-03): hide/show/resize only, plus the note commands it needs",
+  "windows": ["quick"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-size",
+    "core:window:allow-set-focus",
+    "quick"
+  ]
+}

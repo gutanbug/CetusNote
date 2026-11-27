@@ -290,6 +290,7 @@ export const registry = {
   "PG-SettingsNav": { layer: "L5", name: "설정 탭 목록", status: "audited", priority: "P0" },
   "PG-SettingsRow": { layer: "L5", name: "설정 행", status: "audited", priority: "P0" },
   "PG-McpStatus": { layer: "L5", name: "MCP 연결 상태", status: "ready", priority: "P1" },
+  "PG-ShortcutRecorder": { layer: "L5", name: "단축키 기록기", status: "ready", priority: "P1" },
   "PG-ThemeCard": { layer: "L5", name: "테마 카드", status: "audited", priority: "P0" },
   "PG-AccentSwatch": {
     layer: "L5",

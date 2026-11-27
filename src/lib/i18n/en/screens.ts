@@ -344,6 +344,10 @@ export const screens: Messages["screens"] = {
     view: "View",
     missedDesc: "Date reminders from while the app was closed.",
   },
+  quickInput: {
+    label: "Quick input",
+    placeholder: "Type a note and press Enter",
+  },
   tabs: { home: "Home" },
   mainScreen: {
     noPageTitle: "No page is open",

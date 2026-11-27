@@ -9,6 +9,7 @@ pub mod backup;
 pub mod export;
 pub mod history;
 pub mod meta;
+pub mod reminders;
 pub mod watch;
 
 use serde::Serialize;

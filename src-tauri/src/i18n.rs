@@ -147,6 +147,9 @@ pub enum Text {
     PdfOpen,
     #[cfg_attr(target_os = "macos", allow(dead_code))] // Windows·Linux 인쇄 경로에서만 쓴다
     PdfImportMacOnly,
+    TrayQuickInput,
+    TrayOpenApp,
+    TrayQuit,
 }
 
 impl Text {
@@ -225,6 +228,9 @@ impl Text {
         Text::PdfOsUnsupported,
         Text::PdfOpen,
         Text::PdfImportMacOnly,
+        Text::TrayQuickInput,
+        Text::TrayOpenApp,
+        Text::TrayQuit,
     ];
 
     /// (한국어, 영어)
@@ -338,6 +344,9 @@ impl Text {
                 "미리보기 PDF를 읽지 못했어요",
                 "Could not read the preview PDF.",
             ),
+            Text::TrayQuickInput => ("빠른 입력", "Quick Input"),
+            Text::TrayOpenApp => ("CetusNote 열기", "Open CetusNote"),
+            Text::TrayQuit => ("종료", "Quit"),
         }
     }
 }
@@ -386,6 +395,11 @@ fn en_error(code: &str) -> &'static str {
         "symlink" => "Links are not allowed here.",
         "too_large" => "This file is too large.",
         "wrong_kind" => "This kind of file cannot be added here.",
+        "invalid_shortcut" => "This shortcut cannot be read.",
+        "shortcut_reserved" => "Command+Space and Option+Space are reserved by macOS.",
+        "shortcut_unavailable" => "Another app or the system is already using this shortcut.",
+        "accessibility_required" => "Double-tap needs Accessibility permission.",
+        "autostart_failed" => "Could not change the launch-at-login setting.",
         _ => "Something went wrong.",
     }
 }
@@ -402,8 +416,8 @@ pub fn set_locale(app: AppHandle, locale: String) -> Result<()> {
         app.set_menu(menu)
             .map_err(|e| StorageError::new("io", e.to_string()))?;
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = &app;
+    // 메뉴 막대 메뉴도 같은 언어로 다시 만든다 (SYS-15)
+    crate::tray::refresh(&app);
     Ok(())
 }
 

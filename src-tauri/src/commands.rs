@@ -541,6 +541,17 @@ pub fn workspace_write(
     })
 }
 
+/// 알림 목록 (SYS-16): 워크스페이스의 `reminders.json`. 없으면 `None`
+#[tauri::command]
+pub fn reminders_read(state: State<AppState>) -> Result<Option<Value>> {
+    with_workspace(&state, Workspace::read_reminders)
+}
+
+#[tauri::command]
+pub fn reminders_write(state: State<AppState>, value: Value, ws_token: u64) -> Result<()> {
+    with_workspace_token(&state, ws_token, |ws| ws.write_reminders(&value))
+}
+
 #[tauri::command]
 pub fn pages_load_all(state: State<AppState>) -> Result<LoadedPages> {
     with_workspace(&state, Workspace::load_all)

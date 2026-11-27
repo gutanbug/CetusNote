@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reminder foundation: alarms and timers are stored per workspace in `reminders.json`, with repeat rules (daily, weekdays, weekly, monthly), snooze, and a parser that reads time phrases in Korean and English from a quick-input sentence. The scheduler and the reminder UI are not connected yet. (SYS-16)
+- Reminders are now scheduled: due reminders send an OS notification (or an in-app dialog when notifications are off), reminders missed while the app was closed are listed on the next start, and the due dialog offers 10 min, 1 hour, tomorrow 9:00, done, and open. Reminders are included in workspace backups. (SYS-16)
+- Menu bar residency: closing the window keeps CetusNote in the menu bar (on by default; Settings can turn it off). The menu bar item offers Quick Input, Open CetusNote and Quit. Quit with ⌘Q as before. (SYS-15)
+- Quick input window: a global shortcut (⌥⇧Space by default, changeable in Settings) opens a small floating window at the top of the screen. The window is a placeholder for now and gets its full UI later. (QN-03)
+- Launch at login (off by default) in Settings. (SYS-15)
 - Calendar: drag a record bar to move its dates (Esc cancels), drag its left or right edge to change only the start or due date, drag across empty days to create a record for that range, Alt+←/→ and Alt+Shift+←/→ on a focused bar, and a Week view next to Month. (COLL-04)
 - Collection start date: a built-in 시작/Start property next to Due. The calendar draws each record from its start to its due date as connected bars across weeks, with overlapping bars in separate rows and a "+N" overflow; a record with only one date shows as a single-day bar. Existing pages open unchanged. (COLL-01, COLL-04)
 - English interface: Settings › General › Language (System, 한국어, English). Menus, dialogs, toasts, dates and native file dialogs follow the language; slash commands, the command palette and icon search match both Korean and English keywords. (SYS-14)

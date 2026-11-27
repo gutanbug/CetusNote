@@ -1,0 +1,9 @@
+# 빠른 입력 창(quick)에 준다: 빠른 메모 저장·검색에 필요한 커맨드만 (최소 권한)
+[[set]]
+identifier = "quick"
+description = "빠른 입력 창: 현재 워크스페이스 확인, 페이지 목록(메타)·쓰기"
+permissions = [
+  "allow-workspace-current",
+  "allow-pages-load-meta",
+  "allow-page-write",
+]

@@ -128,6 +128,7 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     ? normalizeWorkspace(options.workspace)
     : null;
   let settings: Record<string, unknown> | null = null;
+  let reminders: unknown | null = null;
   const exports: { fileName: string; text: string }[] = [];
   /** 버전 기록: 페이지 id → 오래된 것부터 */
   const history = new Map<string, { id: string; savedAt: string; page: Page }[]>();
@@ -377,6 +378,12 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
         throw new StorageError("fetch_failed", e instanceof Error ? e.message : String(e));
       }
       return this.writeAsset(pageId, bytes);
+    },
+    async readReminders() {
+      return reminders && clone(reminders);
+    },
+    async writeReminders(next) {
+      reminders = clone(next);
     },
     async readSettings() {
       return settings && clone(settings);

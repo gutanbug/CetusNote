@@ -10,6 +10,8 @@ const COMMANDS: &[&str] = &[
     "workspace_create",
     "workspace_read",
     "workspace_write",
+    "reminders_read",
+    "reminders_write",
     "pages_load_all",
     "app_executable_path",
     "mcp_status",
@@ -61,6 +63,8 @@ const COMMANDS: &[&str] = &[
     "app_import_enex_pick",
     "app_import_enex_read",
     "confirm_quit",
+    "app_prefs_apply",
+    "main_window_close",
 ];
 
 fn main() {

@@ -154,6 +154,14 @@ export type SessionState = {
   autoUpdateCheck: boolean;
   /** 컬렉션 레코드를 여는 기본 방식 (COLL-07). 컬렉션마다 바꿀 수 있다 */
   recordOpen: RecordOpenMode;
+  /** 메뉴 막대에 남긴다 (SYS-15). 기본 켬 */
+  menuBarResident: boolean;
+  /** 로그인할 때 시작 (SYS-15). 기본 끔 */
+  launchAtLogin: boolean;
+  /** 빠른 입력 단축키 조합 (QN-03). 기본 Alt+Shift+Space */
+  quickShortcut: string;
+  /** 두 번 누르기 수식키 (QN-03, macOS). 기본 끔 */
+  doubleTap: DoubleTapKey;
   /** 최근에 연 문서(새 것이 앞, 최대 10개) — 워크스페이스마다 (SHELL-03) */
   recent: string[];
   /** 열린 탭과 지금 탭 — 워크스페이스마다 (SHELL-11). 비어 있으면 화면이 처음 열 때 채운다 */
@@ -179,6 +187,8 @@ export type SessionState = {
   setAutoBackup(on: boolean): void;
   setAutoUpdateCheck(on: boolean): void;
   setRecordOpen(mode: RecordOpenMode): void;
+  /** 앱 설정(메뉴 막대·로그인 시작·빠른 입력 단축키·두 번 누르기)만 저장한다. Rust 적용은 app-prefs.ts가 맡는다 */
+  setAppPrefs(patch: Partial<AppPrefs>): void;
   open(id: string | null): void;
   /** 지금 보는 문서는 그대로 두고 최근 목록 맨 앞에만 올린다 (레코드 상세로 연 보드 카드) */
   touch(id: string): void;
@@ -191,6 +201,36 @@ export type SessionState = {
   /** 기다리지 않고 바로 저장 */
   flush(): Promise<void>;
 };
+
+export type DoubleTapKey = "off" | "control" | "shift" | "command";
+
+export type AppPrefs = {
+  menuBarResident: boolean;
+  launchAtLogin: boolean;
+  quickShortcut: string;
+  doubleTap: DoubleTapKey;
+};
+
+export const DEFAULT_APP_PREFS: AppPrefs = {
+  menuBarResident: true,
+  launchAtLogin: false,
+  quickShortcut: "Alt+Shift+Space",
+  doubleTap: "off",
+};
+
+const DOUBLE_TAP_KEYS: readonly DoubleTapKey[] = ["off", "control", "shift", "command"];
+
+/** settings.json의 앱 설정을 읽는다. 값이 이상하면 기본값을 쓴다 */
+function readAppPrefs(s: Record<string, unknown>): AppPrefs {
+  const shortcut = typeof s.quickShortcut === "string" ? s.quickShortcut.trim() : "";
+  const tap = DOUBLE_TAP_KEYS.find((k) => k === s.doubleTap);
+  return {
+    menuBarResident: s.menuBarResident !== false,
+    launchAtLogin: s.launchAtLogin === true,
+    quickShortcut: shortcut || DEFAULT_APP_PREFS.quickShortcut,
+    doubleTap: tap ?? "off",
+  };
+}
 
 type Remembered = {
   lastPageId?: string | null;
@@ -208,6 +248,10 @@ type Settings = Record<string, unknown> & {
   autoBackup?: unknown;
   autoUpdateCheck?: unknown;
   recordOpen?: unknown;
+  menuBarResident?: unknown;
+  launchAtLogin?: unknown;
+  quickShortcut?: unknown;
+  doubleTap?: unknown;
   sidebarWidth?: number | null;
   recordPanelWidth?: number | null;
   sidebarCollapsed?: boolean;
@@ -259,6 +303,10 @@ export function createSessionStore(
         autoBackup: s.autoBackup,
         autoUpdateCheck: s.autoUpdateCheck,
         recordOpen: s.recordOpen,
+        menuBarResident: s.menuBarResident,
+        launchAtLogin: s.launchAtLogin,
+        quickShortcut: s.quickShortcut,
+        doubleTap: s.doubleTap,
         workspaces,
       };
       try {
@@ -290,6 +338,7 @@ export function createSessionStore(
       autoBackup: true,
       autoUpdateCheck: true,
       recordOpen: "modal",
+      ...DEFAULT_APP_PREFS,
       recent: [],
       tabs: [],
       activeTab: 0,
@@ -327,6 +376,7 @@ export function createSessionStore(
             settings.recordOpen === "side" || settings.recordOpen === "tab"
               ? settings.recordOpen
               : "modal",
+          ...readAppPrefs(settings),
           recent: Array.isArray(mine?.recent)
             ? mine.recent.filter((x): x is string => typeof x === "string").slice(0, RECENT_LIMIT)
             : [],
@@ -346,6 +396,9 @@ export function createSessionStore(
             };
           })(),
         });
+      },
+      setAppPrefs(patch) {
+        change(patch);
       },
       open(id) {
         if (get().activeId === id) return;

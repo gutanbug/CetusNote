@@ -342,6 +342,10 @@ export const screens = {
     view: "보기",
     missedDesc: "앱이 꺼져 있던 동안 지난 날짜 알림이에요.",
   },
+  quickInput: {
+    label: "빠른 입력",
+    placeholder: "메모를 입력하고 Enter를 누르세요",
+  },
   tabs: { home: "홈" },
   mainScreen: {
     noPageTitle: "열린 페이지가 없어요",

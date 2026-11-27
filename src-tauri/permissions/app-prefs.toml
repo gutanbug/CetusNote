@@ -1,0 +1,5 @@
+# 메뉴 막대·로그인 시작·빠른 입력 단축키·두 번 누르기 설정 적용 (SYS-15, QN-03). 메인 창에만 준다.
+[[set]]
+identifier = "app-prefs"
+description = "메뉴 막대 상주, 로그인할 때 시작, 빠른 입력 단축키와 두 번 누르기 설정을 Rust에 적용"
+permissions = ["allow-app-prefs-apply", "allow-main-window-close"]

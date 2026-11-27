@@ -12,6 +12,7 @@ import {
   useSaveOnClose,
 } from "@/features/app/lifecycle";
 import { sessionStore } from "@/features/session";
+import { applyStoredAppPrefs } from "@/features/session/app-prefs";
 import { useAutoUpdateChecks } from "@/features/updater";
 import { useWorkspace, workspaceStore } from "@/features/workspace";
 import { MainScreen } from "@/screens/main/main-screen";
@@ -61,6 +62,14 @@ function useAppearance(debug: boolean) {
   }, [appearance, loaded, debug]);
 }
 
+/** 저장된 앱 설정(메뉴 막대·로그인 시작·단축키·두 번 누르기)을 Rust에 한 번 적용한다 (SYS-15, QN-03) */
+function useAppPrefsOnLoad(debug: boolean) {
+  const loaded = useStore(sessionStore, (s) => s.loaded);
+  useEffect(() => {
+    if (loaded && !debug) void applyStoredAppPrefs();
+  }, [loaded, debug]);
+}
+
 /** 창 고정 셸의 스크롤 가드 (SYS-05) — 문서가 프로그램 스크롤로 밀리지 않게 */
 function usePinnedShell() {
   useEffect(() => pinShellScroll(), []);
@@ -89,6 +98,7 @@ export default function App() {
   useKeptExternalNotice(openVersionHistory);
   useReminderAlerts();
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));
+  useAppPrefsOnLoad(!!DebugScreen && hash.startsWith("#/debug"));
   const phase = useWorkspace((s) => s.phase);
   const reduced = useReducedMotion();
   // 업데이트 직후·새 버전이면 「업데이트 내용」을 한 번 띄운다. 워크스페이스가 준비된 뒤에만 (SYS-12)

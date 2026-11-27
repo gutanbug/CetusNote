@@ -12,6 +12,8 @@ permissions = [
   "allow-workspace-create",
   "allow-workspace-read",
   "allow-workspace-write",
+  "allow-reminders-read",
+  "allow-reminders-write",
   "allow-pages-load-all",
   "allow-app-executable-path",
   "allow-mcp-status",
@@ -63,4 +65,6 @@ permissions = [
   "allow-app-import-enex-pick",
   "allow-app-import-enex-read",
   "allow-confirm-quit",
+  "allow-app-prefs-apply",
+  "allow-main-window-close",
 ]
