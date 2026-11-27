@@ -19,6 +19,7 @@ import { create } from "zustand";
 import { openPageLink } from "./actions";
 import { resolveMention } from "./mention-model";
 import { msg } from "@/lib/i18n";
+import { showQuickAlert } from "@/lib/storage/window";
 
 /**
  * 날짜 알림 (EDIT-37) 화면 연결. 앱 시작 때 한 번 켜고(useReminderAlerts), 페이지 요약이 바뀔 때마다
@@ -124,6 +125,10 @@ export function startReminderAlerts(): () => void {
     onMissed: showDue,
     isFocused: () => typeof document !== "undefined" && document.hasFocus(),
     onFocused: showDue,
+    // 창이 뒤에 있으면 알림 패널(빠른 입력 창)을 띄워 알린다. OS 알림은 그대로 보낸다
+    onUnfocused: (items) => {
+      showQuickAlert(items.map((item) => item.rem.id)).catch(() => undefined);
+    },
   });
   const unsubStore = remindersStore.subscribe((state) => ss.setList(state.list));
   ss.setList(remindersStore.getState().list);

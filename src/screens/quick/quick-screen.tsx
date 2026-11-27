@@ -1,36 +1,52 @@
 import { emitAppEvent as emit, listenAppEvent } from "@/lib/storage/quick-events";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { QuickInput, type QuickChip, type QuickResult } from "@/components/page/quick-input";
+import {
+  QuickInput,
+  type QuickAlertAction,
+  type QuickAlertItem,
+  type QuickPreview,
+  type QuickResult,
+  type QuickSuccess,
+  type QuickUpcoming,
+} from "@/components/page/quick-input";
 import {
   dueAt,
+  parseLocal,
   remaining,
-  type Reminder,
   type ReminderTarget,
   type RepeatRule,
 } from "@/features/reminders/model";
-import { formatReminderWhen } from "@/features/reminders/present";
 import { remindersStore, useReminders } from "@/features/reminders";
 import { createSearchIndex, type SearchIndex } from "@/features/search/search-index";
 import { displayTitle } from "@/features/pages/title";
 import { parseReminderText } from "@/lib/reminder-parse";
-import { useMessages } from "@/lib/i18n";
+import { intlLocale, useMessages } from "@/lib/i18n";
 import { createPage, ulid, type Page, type QuickNote } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
-import { hideCurrentWindow, resizeCurrentWindow, showMainWindow } from "@/lib/storage/window";
+import {
+  hideCurrentWindow,
+  resizeCurrentWindow,
+  showMainWindow,
+  takeQuickAlert,
+} from "@/lib/storage/window";
 import { matchHangul } from "@/lib/hangul";
 
 /**
  * 빠른 입력 창(QN-03 + SYS-16). 별도 JS 컨텍스트라 앱 본체의 스토어를 공유하지 않는다.
  * 워크스페이스 메타(빠른 메모)·페이지 구조·알림 파일을 저장 계층으로 직접 읽고 쓴다.
  * 쓴 뒤에는 `quick://changed`·`reminders://changed` 이벤트로 메인 창이 다시 읽게 한다.
+ * 알림이 울리면 Rust가 창을 띄우고 `quick://alert`({ ids })를 보낸다 → 대응 상태(미루기·완료·열기).
  */
 
 /** 알림 시각 한 개: 알람(지역 시각 + 반복) 또는 타이머(초) */
 type TimeSpec =
   { kind: "alarm"; at: string; repeat?: RepeatRule } | { kind: "timer"; durationSec: number };
 
+type QM = ReturnType<typeof useMessages>["screens"]["quickInput"];
+
 const RESULT_LIMIT = 6;
-const CONFIRM_MS = 800;
+/** 저장 확인 행을 보여 주는 시간. 그 뒤 창이 숨는다 */
+const CONFIRM_MS = 1400;
 // 카드 680 + 좌우 여백(p-4, 그림자 자리)
 const WINDOW_WIDTH = 712;
 
@@ -49,17 +65,49 @@ function nextAt(now: Date, hour: number, minute = 0, daysIfPast = 1): Date {
   return d;
 }
 
-/** 칩과 확인 문구에 쓰는 가짜 알림 한 개 (formatReminderWhen으로 같은 문장을 쓴다) */
-function previewReminder(spec: TimeSpec, now: Date): Reminder {
-  const base = {
-    id: "preview",
-    target: { type: "none" as const },
-    label: "",
-    createdAt: now.toISOString(),
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/** 언어에 맞는 시각 「오후 3:01」 */
+function timeOf(d: Date): string {
+  return new Intl.DateTimeFormat(intlLocale(), { hour: "numeric", minute: "2-digit" }).format(d);
+}
+
+/** 지금 기준 상대 표현: 「1분 뒤」 「오늘 3:01」 「내일 9:00」 */
+function relativeOf(due: Date, now: Date, m: QM): string {
+  const diff = due.getTime() - now.getTime();
+  if (diff > 0 && diff < 60 * 60_000) return m.relMinutes(Math.max(1, Math.ceil(diff / 60_000)));
+  const t = timeOf(due);
+  if (sameDay(due, now)) return m.relToday(t);
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (sameDay(due, tomorrow)) return m.relTomorrow(t);
+  return m.relDate(due.getMonth() + 1, due.getDate(), t);
+}
+
+/** 입력 칸 아래 미리보기 행과 저장 확인 문구를 한 번에 만든다 */
+function describe(spec: TimeSpec, now: Date, m: QM): { preview: QuickPreview; detail: string } {
+  if (spec.kind === "timer") {
+    const primary = m.previewTimer(Math.max(1, Math.round(spec.durationSec / 60)));
+    return { preview: { kind: "timer", primary, relative: null }, detail: primary };
+  }
+  const due = parseLocal(spec.at) ?? now;
+  const t = timeOf(due);
+  const relative = relativeOf(due, now, m);
+  if (spec.repeat) {
+    return {
+      preview: { kind: "repeat", primary: m.previewRepeat(m.repeatRule[spec.repeat], t), relative },
+      detail: `${t} · ${relative}`,
+    };
+  }
+  return {
+    preview: { kind: "alarm", primary: m.previewAlarm(t), relative },
+    detail: `${t} · ${relative}`,
   };
-  return spec.kind === "timer"
-    ? { ...base, kind: "timer", at: now.toISOString(), durationSec: spec.durationSec }
-    : { ...base, kind: "alarm", at: spec.at, repeat: spec.repeat };
 }
 
 function specFromParsed(when: NonNullable<ReturnType<typeof parseReminderText>["when"]>): TimeSpec {
@@ -126,12 +174,15 @@ export function QuickScreen() {
   const [picked, setPicked] = useState<TimeSpec | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [success, setSuccess] = useState<QuickSuccess | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [alertIds, setAlertIds] = useState<string[]>([]);
   const [pages, setPages] = useState<PageRow[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
 
-  // 파싱: 입력 문장에서 시각을 알아들었으면 칩으로 보여 준다 (무시하면 같은 시각은 다시 붙지 않는다)
+  // 파싱: 입력 문장에서 시각을 알아들었으면 미리보기로 보여 준다 (무시하면 같은 시각은 다시 붙지 않는다)
   const parsed = useMemo(() => parseReminderText(value, now), [value, now]);
   const parsedKey = parsed.when ? JSON.stringify(parsed.when) : null;
   const parsedSpec = parsed.when && parsedKey !== dismissedKey ? specFromParsed(parsed.when) : null;
@@ -139,14 +190,10 @@ export function QuickScreen() {
   const usingParsed = picked === null && parsedSpec !== null;
   const label = (usingParsed ? parsed.label : value).trim();
 
-  const chip: QuickChip | null = spec
-    ? {
-        kind: spec.kind === "timer" ? "timer" : spec.repeat ? "repeat" : "alarm",
-        text: formatReminderWhen(previewReminder(spec, now), now),
-      }
-    : null;
+  const described = spec ? describe(spec, now, m) : null;
+  const preview: QuickPreview | null = described?.preview ?? null;
 
-  // 페이지 검색: 칩이 없고 글자가 있을 때만 (저장 의도가 없을 때)
+  // 페이지 검색: 시각이 없고 글자가 있을 때만 (저장 의도가 없을 때)
   const index = useMemo<SearchIndex>(() => {
     const idx = createSearchIndex();
     idx.build(pages.map((r) => r.page));
@@ -175,11 +222,41 @@ export function QuickScreen() {
       label: r.label || m.timerLabel,
       left: clock(remaining(r, now) ?? 0),
     }));
-  const upcoming = reminders
+  const upcoming: QuickUpcoming[] = reminders
     .filter((r) => r.kind === "alarm" && !r.done && dueAt(r) !== null)
     .sort((a, b) => (dueAt(a)?.getTime() ?? 0) - (dueAt(b)?.getTime() ?? 0))
     .slice(0, 3)
-    .map((r) => ({ id: r.id, label: r.label, when: formatReminderWhen(r, now) }));
+    .flatMap((r) => {
+      const due = dueAt(r);
+      if (!due) return [];
+      const time = timeOf(due);
+      return [
+        {
+          id: r.id,
+          label: r.label || m.alarmLabel,
+          when: r.repeat ? m.previewRepeat(m.repeatRule[r.repeat], time) : time,
+          relative: relativeOf(due, now, m),
+        },
+      ];
+    });
+
+  // 울린 알림: 목록에 남아 있는 것만 (처리하면 id가 빠진다)
+  const alertItems: QuickAlertItem[] = alertIds.flatMap((id) => {
+    const r = reminders.find((x) => x.id === id);
+    if (!r) return [];
+    const due = dueAt(r);
+    const time = due ? timeOf(due) : "";
+    const when =
+      due && due.getTime() > now.getTime() ? `${time} · ${relativeOf(due, now, m)}` : time;
+    return [
+      {
+        id,
+        label: r.label || (r.kind === "timer" ? m.timerLabel : m.alarmLabel),
+        when,
+        canOpen: r.target.type === "page",
+      },
+    ];
+  });
 
   // 입력이 비었으면 목록을, 아니면 결과 개수만큼 창 높이를 맞춘다
   useEffect(() => {
@@ -221,7 +298,7 @@ export function QuickScreen() {
     }
   }
 
-  // 창이 다시 보일 때: 포커스, 알림·페이지 목록 새로 읽기
+  // 창이 다시 보일 때: 포커스, 알림·페이지 목록 새로 읽기 (메인 창에서 만든 알림도 여기서 나온다)
   const refresh = () => {
     void remindersStore.getState().load();
     void loadPages();
@@ -241,14 +318,42 @@ export function QuickScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function finish(text: string) {
-    setConfirmation(text);
+  // 알림이 울렸다: 목록을 다시 읽고 대응 상태를 보인다 (자동으로 숨지 않는다)
+  useEffect(() => {
+    // 대기 중인 알림을 Rust에서 꺼내 온다. 창이 막 만들어져 이벤트를 놓쳤어도 처음 그릴 때 받는다.
+    // 이벤트 값은 신호로만 쓴다(같은 알림이 두 번 보이지 않게 Rust 대기열에서 꺼낸 것만 쓴다)
+    const take = async () => {
+      const ids = await takeQuickAlert();
+      if (ids.length === 0) return;
+      setSuccess(null);
+      setAlertIds((prev) => [...new Set([...prev, ...ids])]);
+      void remindersStore.getState().load();
+    };
+    void take();
+    const unlisten = listenAppEvent("quick://alert", () => void take());
+    return () => void unlisten.then((off) => off());
+  }, []);
+
+  /** 창을 숨긴다. 대응 상태도 함께 비운다 (남은 알림은 울린 채로 둔다) */
+  function hideAll() {
+    setAlertIds([]);
+    void hideCurrentWindow();
+  }
+
+  function resetInput() {
     setValue("");
     setPicked(null);
     setDismissedKey(null);
+    setError(null);
+    setNotice(null);
+  }
+
+  function finish(s: QuickSuccess) {
+    setSuccess(s);
+    resetInput();
     window.setTimeout(() => {
-      setConfirmation(null);
-      void hideCurrentWindow();
+      setSuccess(null);
+      hideAll();
     }, CONFIRM_MS);
   }
 
@@ -295,13 +400,15 @@ export function QuickScreen() {
     if (busy.current) return;
     busy.current = true;
     try {
+      const now2 = new Date();
+      const detail = spec ? describe(spec, now2, m).detail : "";
       await saveNoteOrPage(mode, spec, text);
-      const when = spec ? formatReminderWhen(previewReminder(spec, new Date()), new Date()) : null;
-      finish(mode === "page" ? m.savedPage : when ? m.savedWithAlarm(when) : m.savedNote);
+      const title = mode === "page" ? m.successPage : spec ? m.successAlarm : m.successNote;
+      finish({ title, detail });
     } catch (e) {
-      // 실제 저장 실패만 알린다. 시각이 없어서 생긴 문구가 아니다 (입력은 남겨 다시 시도하게 한다)
+      // 실제 저장 실패만 알린다. 입력은 남겨 다시 시도하게 한다
       console.error("[quick] save failed", e);
-      setConfirmation(m.saveFailed);
+      setError(m.saveFailed);
     } finally {
       busy.current = false;
     }
@@ -312,12 +419,12 @@ export function QuickScreen() {
     await showMainWindow();
     await emit("quick://open-page", { id });
     setValue("");
-    await hideCurrentWindow();
+    hideAll();
   }
 
   async function onAttachResult(id: string) {
     if (!spec) {
-      setConfirmation(m.needTime);
+      setNotice(m.needTime);
       return;
     }
     const base = { target: { type: "page" as const, id }, label: label || m.timerLabel };
@@ -327,19 +434,19 @@ export function QuickScreen() {
       remindersStore.getState().add({ kind: "alarm", at: spec.at, repeat: spec.repeat, ...base });
     await remindersStore.getState().flush();
     await emit("reminders://changed");
-    finish(m.attached);
+    finish({ title: m.attached, detail: "" });
   }
 
   function onPreset(id: string) {
     if (id === "direct") {
-      setConfirmation(m.directHint);
+      setNotice(m.directHint);
       document.querySelector<HTMLInputElement>('[role="combobox"]')?.focus();
       return;
     }
     const s = presetSpec(id, new Date());
     if (s) {
       setPicked(s);
-      setConfirmation(null);
+      setNotice(null);
     }
   }
 
@@ -349,6 +456,25 @@ export function QuickScreen() {
     await emit("reminders://changed");
   }
 
+  /** 울린 알림 하나에 대한 행동. 다 처리하면 창을 숨긴다 */
+  async function onAlertAction(id: string, action: QuickAlertAction) {
+    const r = reminders.find((x) => x.id === id);
+    if (action === "open") {
+      if (r?.target.type === "page") await onOpenResult(r.target.id);
+      else hideAll();
+      return;
+    }
+    const store = remindersStore.getState();
+    if (action === "snooze10") store.snooze(id, 10);
+    else if (action === "snooze60") store.snooze(id, 60);
+    else store.complete(id);
+    await store.flush();
+    await emit("reminders://changed");
+    const rest = alertIds.filter((x) => x !== id);
+    setAlertIds(rest);
+    if (rest.length === 0) void hideCurrentWindow();
+  }
+
   return (
     <div ref={rootRef} className="p-4">
       <QuickInput
@@ -356,17 +482,16 @@ export function QuickScreen() {
         onValueChange={(v) => {
           setValue(v);
           setActiveIndex(-1);
-          setConfirmation(null);
+          setError(null);
+          setNotice(null);
         }}
         onSubmit={(mode) => void onSubmit(mode)}
         onEscape={() => {
-          setValue("");
-          setPicked(null);
-          setDismissedKey(null);
-          void hideCurrentWindow();
+          resetInput();
+          hideAll();
         }}
-        chip={chip}
-        onClearChip={() => {
+        preview={preview}
+        onClearPreview={() => {
           // × 는 파싱된 시각과 선택한 시각을 모두 무시한다 (입력이 바뀌어 다른 시각이 되면 다시 붙는다)
           setPicked(null);
           setDismissedKey(parsedKey ?? "__picked__");
@@ -384,7 +509,12 @@ export function QuickScreen() {
         timers={value.trim() ? [] : timers}
         onStopTimer={(id) => void onStopTimer(id)}
         upcoming={value.trim() ? [] : upcoming}
-        confirmation={confirmation}
+        success={success}
+        error={error}
+        notice={notice}
+        alert={alertItems.length > 0 ? alertItems : null}
+        onAlertAction={(id, action) => void onAlertAction(id, action)}
+        onAlertDismiss={hideAll}
       />
     </div>
   );

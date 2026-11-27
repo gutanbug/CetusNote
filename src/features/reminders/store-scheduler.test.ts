@@ -68,4 +68,49 @@ describe("StoreReminderScheduler", () => {
     await flush();
     expect(send).not.toHaveBeenCalled();
   });
+
+  describe("포커스 밖 알림 패널 (SYS-16)", () => {
+    function live(focused: boolean) {
+      const clock = { t: new Date(2026, 10, 27, 10, 0) };
+      const send = vi.fn(async () => "sent" as const);
+      const onUnfocused = vi.fn();
+      const onFocused = vi.fn();
+      const sched = new StoreReminderScheduler({
+        now: () => clock.t,
+        setTimer: () => 0,
+        clearTimer: () => undefined,
+        permission: async () => "granted",
+        send,
+        fired: { has: () => false, add: () => undefined },
+        isFocused: () => focused,
+        onFocused,
+        onUnfocused,
+      });
+      clock.t = new Date(2026, 10, 27, 10, 5);
+      const rem = createReminder(
+        { id: "a", kind: "alarm", target, label: "물", at: "2026-11-27T10:05" },
+        new Date(2026, 10, 27, 10, 0),
+      )!;
+      return { sched, rem, send, onUnfocused, onFocused };
+    }
+
+    it("포커스 밖에서 울리면 OS 알림과 함께 onUnfocused에 id를 넘긴다", async () => {
+      const { sched, rem, send, onUnfocused, onFocused } = live(false);
+      sched.setList([rem]);
+      await flush();
+      expect(onUnfocused).toHaveBeenCalledTimes(1);
+      expect(onUnfocused.mock.calls[0][0][0].rem.id).toBe("a");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(onFocused).not.toHaveBeenCalled();
+    });
+
+    it("보고 있는 창에서는 onUnfocused를 부르지 않고 대화상자로 간다", async () => {
+      const { sched, rem, send, onUnfocused, onFocused } = live(true);
+      sched.setList([rem]);
+      await flush();
+      expect(onUnfocused).not.toHaveBeenCalled();
+      expect(onFocused).toHaveBeenCalledTimes(1);
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
 });

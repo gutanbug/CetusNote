@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reminder alerts: when CetusNote is in the background, a due reminder also opens the quick input window as an alert panel (without activating the app), and the menu bar lists up to three upcoming alarms under the timer line. (SYS-16)
 - Collection tables can pin columns: the column header menu has 「Pin up to here」 and 「Unpin」, so the title and the first N property columns stay visible while scrolling sideways. (COLL-02)
 - Reminders view: a 「Reminders」 sidebar item (badge = today's and overdue reminders) opens a list grouped into running timers, overdue, today, tomorrow, this week, later, repeating and recently done. Each row opens its page or quick note and can be snoozed (10 min, 1 hour, tomorrow 9:00), completed, stopped (timers) or deleted. Arrow keys move between rows. The command palette has 「Show reminders」. (SYS-16)
 - Quick-note reminders: each quick note has a bell to set a reminder, and its next reminder time shows under the note. The page menu has a 「Reminder…」 item that opens the same picker as the top-bar bell. A reminder that fires while the window is in use opens the due dialog (snooze, done, open) instead of an OS notification. Opening a quick-note reminder from the dialog reveals and highlights that note. (SYS-16, QN-03)

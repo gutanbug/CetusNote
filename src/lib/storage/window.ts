@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
+import { isTauri } from "./default";
+
 /**
  * 창 닫기 요청을 가로챈다. handler가 끝난 뒤 preventClose()를 부르지 않았으면 창이 닫힌다.
  * 등록을 풀 함수를 돌려준다. (권한: core:window:allow-destroy)
@@ -78,4 +80,22 @@ export function isMainWindow(): boolean {
 /** 메뉴 막대 글자(예 "24:13")와 메뉴 맨 위 흐린 줄을 바꾼다. null이면 둘 다 지운다 (SYS-16). 권한: storage */
 export async function setTrayStatus(text: string | null): Promise<void> {
   await invoke("tray_set_status", { text });
+}
+
+/** 메뉴 맨 위에 다가오는 알림 줄을 보인다 (최대 3줄, 예 「15:01 물 마시기」). 빈 배열이면 지운다 (SYS-16). 권한: storage */
+export async function setTrayUpcoming(items: string[]): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("tray_set_upcoming", { items });
+}
+
+/** 알림 패널(빠른 입력 창)을 띄우고 알림 id를 넘긴다. 메인 창이 보이지 않을 때 쓴다 (SYS-16). 권한: storage */
+export async function showQuickAlert(ids: string[]): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("quick_alert", { ids });
+}
+
+/** 패널이 아직 가져가지 않은 알림 id를 받아 비운다. 패널이 뜰 때와 `quick://alert`를 받을 때 부른다. 권한: quick */
+export async function takeQuickAlert(): Promise<string[]> {
+  if (!isTauri()) return [];
+  return invoke<string[]>("quick_pending_alert");
 }

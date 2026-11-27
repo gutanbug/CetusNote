@@ -20,6 +20,9 @@ const ITEM_STATUS: &str = "tray-status";
 const ITEM_QUICK: &str = "tray-quick";
 const ITEM_OPEN: &str = "tray-open";
 const ITEM_QUIT: &str = "tray-quit";
+const ITEM_UPCOMING_PREFIX: &str = "tray-upcoming-";
+/// 메뉴에 보이는 다가오는 알림 줄 수의 상한 (SYS-16)
+pub const UPCOMING_MAX: usize = 3;
 
 /// 「메뉴 막대에 남기」 설정 값. 기본은 켬. 창 닫기 때 숨길지 정할 때 읽는다
 static RESIDENT: AtomicBool = AtomicBool::new(true);
@@ -45,12 +48,30 @@ fn status_text() -> Option<String> {
     STATUS.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
+/// 메뉴 맨 위에 보일 다가오는 알림 줄 (최대 `UPCOMING_MAX`). `tray_set_upcoming`이 바꾼다
+static UPCOMING: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn upcoming_items() -> Vec<String> {
+    UPCOMING.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+fn upcoming_id(index: usize) -> String {
+    format!("{ITEM_UPCOMING_PREFIX}{index}")
+}
+
+/// 메뉴 맨 위 흐린 줄의 개수 (타이머 줄 + 다가오는 알림 줄). 이 수가 바뀔 때만 메뉴를 다시 만든다
+fn header_rows() -> usize {
+    usize::from(status_text().is_some()) + upcoming_items().len()
+}
+
 /// 지금 트레이에 단 메뉴 (타이머 줄 글자를 바꿀 때 항목을 찾는다). 앱은 Wry 런타임만 쓴다
 static MENU: Mutex<Option<Menu<Wry>>> = Mutex::new(None);
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::new(app)?;
-    if let Some(text) = status_text() {
+    let status = status_text();
+    let upcoming = upcoming_items();
+    if let Some(text) = status {
         menu.append(&MenuItem::with_id(
             app,
             ITEM_STATUS,
@@ -58,6 +79,17 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             false,
             None::<&str>,
         )?)?;
+    }
+    for (index, text) in upcoming.into_iter().enumerate() {
+        menu.append(&MenuItem::with_id(
+            app,
+            upcoming_id(index),
+            text,
+            false,
+            None::<&str>,
+        )?)?;
+    }
+    if header_rows() > 0 {
         menu.append(&PredefinedMenuItem::separator(app)?)?;
     }
     menu.append(&MenuItem::with_id(
@@ -132,19 +164,51 @@ pub fn set_resident<R: Runtime>(app: &AppHandle<R>, on: bool) {
 #[tauri::command]
 pub fn tray_set_status(app: AppHandle, text: Option<String>) {
     let text = text.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
-    let line_changed = status_text().is_some() != text.is_some();
+    let rows_before = header_rows();
     *STATUS.lock().unwrap_or_else(|e| e.into_inner()) = text.clone();
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
         return;
     };
     let _ = tray.set_title(text.as_deref());
-    if line_changed {
+    if rows_before != header_rows() {
         refresh(&app);
     } else if let Some(text) = text {
-        let menu = MENU.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if let Some(MenuItemKind::MenuItem(item)) = menu.and_then(|m| m.get(ITEM_STATUS)) {
-            let _ = item.set_text(text);
+        set_row_text(ITEM_STATUS, text);
+    }
+}
+
+/// 메뉴 맨 위에 다가오는 알림 줄을 보인다 (SYS-16). 빈 줄은 버리고 최대 `UPCOMING_MAX`줄만 쓴다.
+/// 줄 수가 바뀔 때만 메뉴를 다시 만들고, 같은 수면 줄 글자만 바꾼다. 같은 내용이면 아무것도 하지 않는다
+#[tauri::command]
+pub fn tray_set_upcoming(app: AppHandle, items: Vec<String>) {
+    let items: Vec<String> = items
+        .into_iter()
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .take(UPCOMING_MAX)
+        .collect();
+    if upcoming_items() == items {
+        return;
+    }
+    let rows_before = header_rows();
+    *UPCOMING.lock().unwrap_or_else(|e| e.into_inner()) = items.clone();
+    if app.tray_by_id(TRAY_ID).is_none() {
+        return;
+    }
+    if rows_before != header_rows() {
+        refresh(&app);
+    } else {
+        for (index, text) in items.into_iter().enumerate() {
+            set_row_text(&upcoming_id(index), text);
         }
+    }
+}
+
+/// 지금 메뉴의 항목 글자를 바꾼다 (항목이 없으면 아무것도 하지 않는다)
+fn set_row_text(id: &str, text: String) {
+    let menu = MENU.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if let Some(MenuItemKind::MenuItem(item)) = menu.and_then(|m| m.get(id)) {
+        let _ = item.set_text(text);
     }
 }
 

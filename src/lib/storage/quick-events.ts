@@ -7,9 +7,14 @@ import { isTauri } from "./default";
  * - quick://changed: 메모·페이지가 바뀌었으니 메인 창이 워크스페이스 메타·페이지 목록을 다시 읽는다
  * - reminders://changed: 알림 파일이 바뀌었으니 메인 창이 알림 목록을 다시 읽는다
  * - quick://shown: 빠른 입력 창이 떴다 (Rust → 빠른 입력 창). 입력 칸에 포커스를 준다
+ * - quick://alert: 알림이 울렸다 (Rust → 빠른 입력 창, { ids: string[] }). 알림 대응 상태를 보인다
  */
 export type AppEventName =
-  "quick://open-page" | "quick://changed" | "reminders://changed" | "quick://shown";
+  | "quick://open-page"
+  | "quick://changed"
+  | "reminders://changed"
+  | "quick://shown"
+  | "quick://alert";
 
 export function emitAppEvent(name: AppEventName, payload?: unknown): Promise<void> {
   if (!isTauri()) return Promise.resolve();

@@ -38,6 +38,8 @@ export type StoreSchedulerDeps = {
   /** 메인 창이 떠 있어 사용자가 보고 있을 때 울린 알림. 있으면 OS 알림 대신 이것을 부른다 */
   isFocused?(): boolean;
   onFocused?(items: StoreDue[]): void;
+  /** 메인 창이 포커스 밖일 때 울린 알림마다 한 번 (OS 알림과 함께). 알림 패널을 띄우는 데 쓴다 (SYS-16) */
+  onUnfocused?(items: StoreDue[]): void;
   /** 앱이 꺼져 있던 동안 지난 알림 (한 번씩) */
   onMissed?(items: StoreDue[]): void;
 };
@@ -133,6 +135,7 @@ export class StoreReminderScheduler {
       this.deps.onFocused([item]);
       return;
     }
+    this.deps.onUnfocused?.([item]);
     const perm = await this.deps.permission();
     if (perm === "granted") {
       const result = await this.deps

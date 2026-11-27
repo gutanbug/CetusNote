@@ -70,6 +70,9 @@ const COMMANDS: &[&str] = &[
     "quick_note_append",
     "quick_resize",
     "quick_hide",
+    "quick_alert",
+    "quick_pending_alert",
+    "tray_set_upcoming",
 ];
 
 fn main() {

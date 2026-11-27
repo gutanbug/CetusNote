@@ -65,7 +65,10 @@ export { createRemindersStore, type RemindersState } from "./store";
 
 /** 알림 목록(SYS-16) 스케줄러. 목록이 바뀔 때 `setList`를 부른다 */
 export function createStoreReminderScheduler(
-  callbacks: Pick<StoreSchedulerDeps, "onFallback" | "onMissed" | "isFocused" | "onFocused">,
+  callbacks: Pick<
+    StoreSchedulerDeps,
+    "onFallback" | "onMissed" | "isFocused" | "onFocused" | "onUnfocused"
+  >,
 ): StoreReminderScheduler {
   return new StoreReminderScheduler({
     now: () => new Date(),

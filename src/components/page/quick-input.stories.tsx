@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { useState } from "react";
-import { QuickInput, type QuickInputProps } from "./quick-input";
+import { QuickInput, type QuickPreview } from "./quick-input";
 
 const PRESETS = [
   { id: "min10", label: "10분 뒤" },
@@ -33,6 +33,12 @@ const RESULTS = [
   { id: "p3", title: "배포 체크리스트", path: "개발", highlight: [] },
 ];
 
+const ALARM_PREVIEW: QuickPreview = {
+  kind: "alarm",
+  primary: "오후 3:01에 알림",
+  relative: "1분 뒤",
+};
+
 /** 빠른 입력 바(QN-03). 순수 UI — 앱에서는 빠른 입력 창(screens/quick)이 상태와 저장을 맡는다 */
 const meta = {
   title: "L5 페이지/PG-QuickInput",
@@ -42,8 +48,8 @@ const meta = {
     onValueChange: fn(),
     onSubmit: fn(),
     onEscape: fn(),
-    chip: null,
-    onClearChip: fn(),
+    preview: null,
+    onClearPreview: fn(),
     presets: PRESETS,
     onPreset: fn(),
     results: [],
@@ -54,7 +60,12 @@ const meta = {
     timers: [],
     onStopTimer: fn(),
     upcoming: [],
-    confirmation: null,
+    success: null,
+    error: null,
+    notice: null,
+    alert: null,
+    onAlertAction: fn(),
+    onAlertDismiss: fn(),
   },
   decorators: (Story) => (
     <div className="w-[680px] bg-app p-4">
@@ -66,69 +77,114 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** 비어 있을 때: 진행 중인 타이머와 다가오는 알림 */
-export const Empty: Story = {
+export const EmptyWithLists: Story = {
   args: {
     timers: [{ id: "t1", label: "차 우리기", left: "03:12" }],
     upcoming: [
-      { id: "a1", label: "회의 준비", when: "오후 3:00" },
-      { id: "a2", label: "약 먹기", when: "매일 오전 9:00" },
+      { id: "a1", label: "회의 준비", when: "오후 3:00", relative: "1시간 뒤" },
+      { id: "a2", label: "약 먹기", when: "매일 오전 9:00", relative: "내일 오전 9:00" },
     ],
   },
 };
 
-/** 시간 칩: 문장에서 알아들은 시각을 보여 주고 × 로 무시한다 */
-export const WithChip: Story = {
-  args: {
-    value: "회의 준비",
-    chip: { text: "내일 9:00", kind: "alarm" },
+/** 예정된 알림이 없을 때: 빈 상태 한 줄 */
+export const EmptyNoReminders: Story = {
+  args: { upcoming: [] },
+};
+
+/** 시각을 알아들으면 입력 아래 행에 보여 준다: 알림·타이머·반복 */
+export const Preview: Story = {
+  render: (args) => (
+    <div className="flex flex-col gap-3">
+      <QuickInput {...args} value="회의 준비" preview={ALARM_PREVIEW} />
+      <QuickInput
+        {...args}
+        value="스트레칭"
+        preview={{ kind: "timer", primary: "25분 타이머", relative: null }}
+      />
+      <QuickInput
+        {...args}
+        value="물 마시기"
+        preview={{ kind: "repeat", primary: "매일 오전 9:00", relative: "내일 오전 9:00" }}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    // 시각이 있으면 Enter 힌트가 보인다
+    await expect(c.getAllByText("알림 만들기")[0]).toBeVisible();
+    // × 는 시각을 무시한다
+    await userEvent.click(c.getAllByRole("button", { name: "알림 시각 무시" })[0]);
+    await expect(args.onClearPreview).toHaveBeenCalled();
   },
 };
 
-/** 타이머 칩과 반복 칩 */
-export const TimerAndRepeat: Story = {
-  render: (args) => (
-    <div className="flex flex-col gap-3">
-      <QuickInput {...args} value="스트레칭" chip={{ text: "25분", kind: "timer" }} />
-      <QuickInput {...args} value="물 마시기" chip={{ text: "매일 9:00", kind: "repeat" }} />
-    </div>
-  ),
+/** 저장 뒤 확인: 입력 아래 카드가 확인 행으로 바뀐다 */
+export const Success: Story = {
+  args: {
+    value: "",
+    success: { title: "알림을 만들었어요", detail: "오후 3:01 · 1분 뒤" },
+  },
+};
+
+/** 저장 실패: 입력은 그대로, 위험 색 문구 */
+export const SaveError: Story = {
+  args: {
+    value: "회의 준비",
+    preview: ALARM_PREVIEW,
+    error: "저장하지 못했어요. 입력은 그대로 두었으니 다시 시도해 주세요",
+  },
+};
+
+/** 울린 알림: 미루기·완료·열기. 첫 행동 버튼이 포커스를 받는다 */
+export const Alert: Story = {
+  args: {
+    alert: [
+      { id: "r1", label: "회의 준비", when: "오후 3:01", canOpen: true },
+      { id: "r2", label: "약 먹기", when: "오후 3:00", canOpen: false },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const c = within(canvasElement);
+    await userEvent.click(c.getAllByRole("button", { name: "10분 뒤" })[0]);
+    await expect(args.onAlertAction).toHaveBeenCalledWith("r1", "snooze10");
+    await userEvent.click(c.getAllByRole("button", { name: "완료" })[1]);
+    await expect(args.onAlertAction).toHaveBeenCalledWith("r2", "done");
+    await userEvent.click(c.getByRole("button", { name: "열기" }));
+    await expect(args.onAlertAction).toHaveBeenCalledWith("r1", "open");
+  },
 };
 
 /** 페이지 검색 결과 6개 이하, 선택 행은 ↑/↓로 옮긴다 */
 export const Results: Story = {
-  args: { value: "회의", results: RESULTS, activeIndex: 0, chip: null },
+  args: { value: "회의", results: RESULTS, activeIndex: 0 },
 };
 
-/** 시간 칩이 있으면 결과 행마다 알림 붙이기 버튼이 보인다 */
-export const ResultsWithChip: Story = {
+/** 시각이 있으면 결과 행마다 알림 붙이기 버튼이 보인다 */
+export const ResultsWithPreview: Story = {
   args: {
     value: "회의",
     results: RESULTS,
     activeIndex: 1,
-    chip: { text: "30분 뒤", kind: "alarm" },
+    preview: { kind: "alarm", primary: "오후 3:31에 알림", relative: "30분 뒤" },
   },
-};
-
-/** 저장 뒤 짧은 확인 문구 */
-export const Confirmation: Story = {
-  args: { value: "", confirmation: "저장했어요 · 내일 9:00 알림" },
 };
 
 /** 입력 상태 전환: 입력 → 알림 메뉴 → 항목 선택 */
 export const Interactive: Story = {
   render: (args) => {
     const [value, setValue] = useState("");
-    const [chip, setChip] = useState<QuickInputProps["chip"]>(null);
+    const [preview, setPreview] = useState<QuickPreview | null>(null);
     return (
       <QuickInput
         {...args}
         value={value}
         onValueChange={setValue}
-        chip={chip}
-        onClearChip={() => setChip(null)}
+        preview={preview}
+        onClearPreview={() => setPreview(null)}
         onPreset={(id) => {
           args.onPreset(id);
-          setChip({ text: "10분 뒤", kind: "alarm" });
+          setPreview({ kind: "alarm", primary: "10분 뒤에 알림", relative: "10분 뒤" });
         }}
       />
     );

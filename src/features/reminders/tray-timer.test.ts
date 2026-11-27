@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Reminder } from "./model";
-import { formatTrayTimer, nearestTimerLeft, startTrayTimerStatus } from "./tray-timer";
+import { formatLocal } from "./model";
+import {
+  formatTrayAlarmWhen,
+  formatTrayTimer,
+  nearestTimerLeft,
+  startTrayTimerStatus,
+  upcomingTrayLines,
+} from "./tray-timer";
 
 const NOW = new Date(2026, 10, 27, 10, 0, 0);
 
@@ -51,6 +58,7 @@ describe("startTrayTimerStatus", () => {
       list: () => list,
       now: () => new Date(),
       send,
+      sendUpcoming: vi.fn(() => Promise.resolve()),
     });
     expect(send).toHaveBeenLastCalledWith("01:05");
 
@@ -65,5 +73,61 @@ describe("startTrayTimerStatus", () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(send.mock.calls.length).toBe(calls);
     stop();
+  });
+});
+
+/** 지금부터 `addMin`분 뒤에 울리는 알람 */
+function alarm(at: Date, label = "", extra: Partial<Reminder> = {}): Reminder {
+  return {
+    id: `a${at.getTime()}`,
+    kind: "alarm",
+    label,
+    at: formatLocal(at),
+    target: { type: "none" },
+    createdAt: new Date(NOW.getTime() - 60_000).toISOString(),
+    ...extra,
+  } as unknown as Reminder;
+}
+
+describe("다가오는 알림 줄 (SYS-16)", () => {
+  it("오늘은 시각만, 내일과 그 밖은 날짜를 붙인다", () => {
+    expect(formatTrayAlarmWhen(new Date(2026, 10, 27, 15, 1), NOW)).toBe("15:01");
+    expect(formatTrayAlarmWhen(new Date(2026, 10, 28, 9, 0), NOW)).toMatch(/9:00$/);
+    expect(formatTrayAlarmWhen(new Date(2026, 11, 3, 9, 0), NOW)).toMatch(/12월 3일 9:00$/);
+  });
+
+  it("끝나지 않은 알람만 울릴 시각 순으로 최대 3줄, 라벨 없으면 기본 이름", () => {
+    const list = [
+      alarm(new Date(2026, 10, 27, 15, 1), "물 마시기"),
+      alarm(new Date(2026, 10, 27, 12, 30)),
+      alarm(new Date(2026, 10, 27, 8, 0), "지난 알람"),
+      alarm(new Date(2026, 10, 27, 18, 0), "done", { done: true }),
+      alarm(new Date(2026, 10, 27, 11, 0), "회의"),
+      alarm(new Date(2026, 10, 27, 20, 0), "저녁"),
+      timer(300),
+    ];
+    const lines = upcomingTrayLines(list, NOW);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toBe("11:00 회의");
+    expect(lines[1]).toMatch(/^12:30 \S/);
+    expect(lines[1]).not.toBe("12:30 ");
+    expect(lines[2]).toBe("15:01 물 마시기");
+  });
+
+  it("보낼 줄이 바뀔 때만 보낸다", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const list: Reminder[] = [alarm(new Date(2026, 10, 27, 15, 1), "물 마시기")];
+    const sendUpcoming = vi.fn<(items: string[]) => Promise<void>>(() => Promise.resolve());
+    const stop = startTrayTimerStatus({
+      list: () => list,
+      now: () => NOW,
+      send: () => Promise.resolve(),
+      sendUpcoming,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(sendUpcoming).toHaveBeenCalledTimes(1);
+    expect(sendUpcoming).toHaveBeenLastCalledWith(["15:01 물 마시기"]);
+    stop();
+    vi.useRealTimers();
   });
 });

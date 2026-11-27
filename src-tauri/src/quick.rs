@@ -4,6 +4,8 @@
 //! 전체 화면 앱 위·모든 Space에 뜬다. 같은 프런트엔드를 `#/quick` 해시로 연다.
 //! 포커스를 잃으면 `on_window_event`(lib.rs)가 숨긴다. Esc·저장은 프런트엔드가 `window.hide()`로 숨긴다.
 
+use std::sync::Mutex;
+
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Monitor, Runtime, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder,
@@ -12,6 +14,11 @@ use tauri::{
 pub const LABEL: &str = "quick";
 /// 창이 떴을 때 프런트엔드에 알리는 이벤트 (포커스·목록 새로 읽기)
 pub const SHOWN_EVENT: &str = "quick://shown";
+/// 알림 패널을 띄울 때 보내는 이벤트. payload `{ "ids": [...] }` (힌트일 뿐이다. 실제 목록은 `quick_pending_alert`로 받는다)
+pub const ALERT_EVENT: &str = "quick://alert";
+
+/// 아직 프런트엔드가 가져가지 않은 알림 id. 패널이 막 만들어져 웹뷰가 준비되기 전에 울려도 잃지 않는다
+static PENDING_ALERT: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// 기본 크기 (논리 px). 결과가 나오면 프런트엔드가 높이를 늘린다
 /// 카드(680×72)에 사방 16px 여백(그림자 자리, 프런트엔드 p-4)을 더한 크기
 pub const WIDTH: f64 = 712.0;
@@ -276,6 +283,47 @@ fn show_on_main<R: Runtime>(app: &AppHandle<R>) {
     let _ = app.emit(SHOWN_EVENT, ());
 }
 
+/// 대기 중인 알림 id에 더한다 (중복은 뺀다)
+fn queue_alert(ids: &[String]) {
+    let mut pending = PENDING_ALERT.lock().unwrap_or_else(|e| e.into_inner());
+    for id in ids {
+        if !pending.contains(id) {
+            pending.push(id.clone());
+        }
+    }
+}
+
+/// 대기 중인 알림 id를 모두 꺼내고 비운다
+fn take_alert() -> Vec<String> {
+    std::mem::take(&mut *PENDING_ALERT.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+/// 알림 패널을 연다 (SYS-16). `show`와 같은 비활성 패널 경로를 쓰고, 메인 창을 앞으로 가져오지 않는다.
+/// id는 대기 목록에 쌓이고 `quick://alert` 이벤트가 나간다. 프런트엔드는 뜰 때와 이벤트를 받을 때 `quick_pending_alert`로 가져간다
+pub fn alert<R: Runtime>(app: &AppHandle<R>, ids: Vec<String>) {
+    if ids.is_empty() {
+        return;
+    }
+    queue_alert(&ids);
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        show_on_main(&handle);
+        let _ = handle.emit_to(LABEL, ALERT_EVENT, serde_json::json!({ "ids": ids }));
+    });
+}
+
+/// 메인 창이 알림 패널을 띄운다 (스케줄러가 창이 보이지 않을 때 부른다)
+#[tauri::command]
+pub fn quick_alert(app: AppHandle, ids: Vec<String>) {
+    alert(&app, ids);
+}
+
+/// 패널이 아직 가져가지 않은 알림 id를 돌려주고 비운다. 패널이 뜰 때와 `quick://alert`를 받을 때 부른다
+#[tauri::command]
+pub fn quick_pending_alert() -> Vec<String> {
+    take_alert()
+}
+
 /// 프런트엔드가 결과 개수에 맞춰 높이를 바꾼다. 입력 줄 위치 규칙을 다시 적용한다
 #[tauri::command]
 pub fn quick_resize(app: AppHandle, width: f64, height: f64) {
@@ -306,6 +354,15 @@ mod tests {
 
     fn close(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-9
+    }
+
+    #[test]
+    fn alert_queue_drops_duplicates_and_drains_once() {
+        let _ = take_alert();
+        queue_alert(&["a".to_string(), "b".to_string()]);
+        queue_alert(&["b".to_string(), "c".to_string()]);
+        assert_eq!(take_alert(), vec!["a", "b", "c"]);
+        assert!(take_alert().is_empty());
     }
 
     #[test]
