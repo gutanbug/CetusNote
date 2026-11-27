@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-11-27
+
 ### Added
 
 - Open the release notes on GitHub from the update notice, the update row in Settings, and the What's new dialog.
@@ -15,10 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Typing is faster, especially in long pages: the editor no longer re-renders the sidebar, dialogs and the whole document on every keystroke.
 - Large workspaces open faster the first time, and the app loads less code at startup.
 - Long pages with many code blocks open much faster the first time.
 - Faster MCP search on large workspaces.
-- Typing is faster, especially in long pages: the editor no longer re-renders the sidebar, dialogs and the whole document on every keystroke.
 - Folders can now be placed inside pages.
 - Evernote import uses less memory on large notebooks, because each file is read and converted before the next one.
 
@@ -29,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reopening the same folder no longer marks every page as changed.
 - Toggle headings, math and dates keep their form when exporting to Markdown and importing back.
 - Column layouts keep their columns and widths when exporting to Markdown and importing back.
-- Switching folders no longer asks to save unsaved changes when you haven't made any: the workspace settings file is only written after a real change.
+- Switching folders no longer asks about unsaved changes when nothing was edited.
 
 ## [0.1.6] - 2026-11-26
 
@@ -125,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial development version. Not released publicly.
 
-[Unreleased]: https://github.com/gutanbug/CetusNote/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/gutanbug/CetusNote/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/gutanbug/CetusNote/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/gutanbug/CetusNote/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/gutanbug/CetusNote/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/gutanbug/CetusNote/compare/v0.1.3...v0.1.4
