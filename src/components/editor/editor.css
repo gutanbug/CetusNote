@@ -96,6 +96,17 @@
   &:not([data-dim-checked="false"]) ul[data-type="taskList"] > li[data-checked="true"] > div > p {
     @apply text-tertiary line-through decoration-1;
   }
+  /* 계산 줄 결과 (EDIT-38) — 줄 끝의 흐린 글씨. 캐럿이 그 줄 끝에 있으면 「Tab」 안내를 붙인다 */
+  & .sn-calc-result {
+    @apply ml-2 text-tertiary tabular-nums select-none;
+  }
+  /* UI-Kbd와 같은 모양 (위젯 DOM이라 컴포넌트를 쓸 수 없어 클래스를 맞춘다) */
+  & .sn-calc-kbd {
+    @apply ml-2 inline-grid h-5 min-w-5 place-items-center rounded-xs border border-line bg-hover px-1 align-middle font-sans text-micro leading-none font-medium text-secondary;
+  }
+  &[data-calc="false"] .sn-calc-result {
+    @apply hidden;
+  }
   & s {
     @apply decoration-1;
   }

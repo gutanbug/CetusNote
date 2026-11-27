@@ -341,6 +341,7 @@ export function PageView({ page }: { page: Page }) {
                 breadcrumb={breadcrumb}
                 spellCheck={editorPrefs.spellcheck}
                 dimChecked={editorPrefs.dimChecked}
+                calc={editorPrefs.calc}
                 onEditor={setFindEditor}
                 copyAsText={copyAsMarkdown}
               />

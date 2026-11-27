@@ -69,6 +69,7 @@ describe("createSessionStore (SHELL-01, SHELL-05)", () => {
       newPageFont: "serif",
       spellcheck: false,
       dimChecked: true,
+      calc: true,
     });
     const c = createSessionStore(storage, { delay: 10 });
     await c.getState().load("/other");

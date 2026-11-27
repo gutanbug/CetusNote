@@ -184,6 +184,7 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 | ED-Columns         | 단 나누기            | 2·3·4열, 열 블록 담기, 열 너비 손잡이(마우스 드래그), 좁으면 세로로 쌓임                                                                              | 손잡이 H(마우스 전용)            | 커스텀 노드 + 노드 뷰 (`columns > column{2,4} > 블록+`)       | —    | P2   | Ready     |
 | ED-EmojiInline     | 본문 이모지          | 글자 크기(1em) 이모지 한 글자, 피커 트리거(슬래시 「이모지」)                                                                                         | D 선택                           | tiptap 커스텀 인라인 노드 + OV-EmojiPicker(L2 재사용)         | —    | P2   | Ready     |
 | ED-DateChip        | 날짜 칩              | 상대 표시(오늘·내일·어제·N일 뒤), 지난 날짜 흐림, 알림 설정 표시(종 아이콘·EDIT-37), 누르면 날짜 팝오버                                               | D H F A(팝오버 열림) X           | 커스텀 인라인 노드 + 노드 뷰, UI-Calendar를 OV-Popover에 넣음 | —    | P2   | Ready     |
+| ED-CalcLine        | 계산 줄              | 줄 끝 `=`에 결과(흐린 글씨, tabular-nums). 캐럿이 줄 끝이면 「Tab」 안내, Tab으로 본문에 넣기. 설정에서 끄면 숨김(`data-calc`)                        | D A(캐럿이 줄 끝) X(설정 끔)     | 커스텀 확장 + 위젯 장식(`calc-line.ts`), 계산은 `lib/calc`    | —    | P2   | Ready     |
 | ED-TableOfContents | 목차 블록            | 본문 H1–H3을 들여쓴 계층 목록으로(라이브). 항목은 버튼(누르면 그 제목으로, 부드럽게·모션 줄이기면 즉시), 제목이 없으면 안내 문구. 카드 없이 왼쪽 선만 | —                                | tiptap 커스텀 노드(atom)                                      | —    | P2   | Ready     |
 
 ### EDIT-28~37 계획 메모 (2026-11-24)

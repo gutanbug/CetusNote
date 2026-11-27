@@ -25,6 +25,7 @@ export function PrintView() {
   const all = usePagesWhile(id !== null);
   const cover = useAssetUrl(page?.cover);
   const dim = useSession((s) => s.editor.dimChecked);
+  const calc = useSession((s) => s.editor.calc);
   const images = React.useMemo<ImageSource>(
     () => ({
       load: (src) => assetUrl(src),
@@ -78,6 +79,7 @@ export function PrintView() {
         images={images}
         spellCheck={false}
         dimChecked={dim}
+        calc={calc}
       />
     </div>,
     document.body,

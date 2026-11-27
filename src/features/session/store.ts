@@ -45,12 +45,15 @@ export type EditorPrefs = {
   spellcheck: boolean;
   /** 완료한 체크 항목을 회색 + 취소선으로 */
   dimChecked: boolean;
+  /** 계산 줄(EDIT-38): 줄 끝 `=`에 계산 결과를 보여 준다 */
+  calc: boolean;
 };
 
 export const DEFAULT_EDITOR: EditorPrefs = {
   newPageFont: "default",
   spellcheck: true,
   dimChecked: true,
+  calc: true,
 };
 
 function readEditor(raw: unknown): EditorPrefs {
@@ -59,6 +62,7 @@ function readEditor(raw: unknown): EditorPrefs {
     newPageFont: e.newPageFont === "serif" || e.newPageFont === "mono" ? e.newPageFont : "default",
     spellcheck: e.spellcheck !== false,
     dimChecked: e.dimChecked !== false,
+    calc: e.calc !== false,
   };
 }
 

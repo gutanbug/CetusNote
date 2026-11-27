@@ -269,6 +269,7 @@ export const registry = {
   "ED-Columns": { layer: "L4", name: "단 나누기", status: "ready", priority: "P2" },
   "ED-EmojiInline": { layer: "L4", name: "본문 이모지", status: "ready", priority: "P2" },
   "ED-DateChip": { layer: "L4", name: "날짜 칩", status: "ready", priority: "P2" },
+  "ED-CalcLine": { layer: "L4", name: "계산 줄", status: "ready", priority: "P2" },
   "PG-PageHeader": { layer: "L5", name: "페이지 헤더", status: "audited", priority: "P0" },
   "PG-Properties": {
     layer: "L5",

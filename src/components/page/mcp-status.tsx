@@ -9,7 +9,8 @@ function McpStatus({ status, className }: { status: McpStatusValue | null; class
   const state = mcpState(status);
   return (
     <span role="status" aria-live="polite" className={className} data-state={state}>
-      <StatusChip status={LABEL[state]} color={COLOR[state]} aria-label={`MCP ${LABEL[state]}`} />
+      <span className="sr-only">MCP </span>
+      <StatusChip status={LABEL[state]} color={COLOR[state]} />
     </span>
   );
 }

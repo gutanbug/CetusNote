@@ -738,6 +738,7 @@ function RecordBody({ page }: { page: Page }) {
         attachments={attachments}
         spellCheck={prefs.spellcheck}
         dimChecked={prefs.dimChecked}
+        calc={prefs.calc}
       />
     </div>
   );

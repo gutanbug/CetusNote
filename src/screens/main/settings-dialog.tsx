@@ -180,6 +180,23 @@ function Editor() {
           onCheckedChange={(dimChecked) => set({ dimChecked })}
         />
       </SettingsRow>
+      <SettingsRow
+        name="계산 줄"
+        description={
+          <>
+            줄 끝에 <code className="font-mono">=</code>를 쓰면 결과를 보여 줘요. Tab을 누르면
+            본문에 넣어요. 예: <code className="font-mono">점심 12,000원 + 커피 4,500원 =</code>
+          </>
+        }
+        controlId="calc-lines"
+      >
+        <Switch
+          id="calc-lines"
+          aria-describedby="calc-lines-desc"
+          checked={e.calc}
+          onCheckedChange={(calc) => set({ calc })}
+        />
+      </SettingsRow>
       <RecordOpenRow />
       <SettingsRow
         name="마크다운 단축 입력"
@@ -585,7 +602,9 @@ function McpRow() {
     };
   }, []);
   const ready = Boolean(path);
-  const command = ready ? `claude mcp add cetusnote -- "${path}" --mcp` : "";
+  // 경로에 " $ ` \ 가 있어도 셸이 그대로 읽게 (Windows 경로에는 "가 올 수 없다)
+  const quoted = `"${(path ?? "").replace(/(["$`\\])/g, "\\$1")}"`;
+  const command = ready ? `claude mcp add cetusnote -- ${quoted} --mcp` : "";
   const desktop = ready
     ? JSON.stringify({ mcpServers: { cetusnote: { command: path, args: ["--mcp"] } } }, null, 2)
     : "";
@@ -608,25 +627,31 @@ function McpRow() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={!ready}
+            // 경로를 찾는 동안에도 키보드로 닿아 안내를 읽을 수 있게 disabled 대신 aria-disabled
+            aria-disabled={!ready}
+            className="aria-disabled:opacity-40"
             aria-describedby={ready ? undefined : "mcp-hint"}
-            onClick={() => void copy(command, "Claude Code 명령을 복사했어요.")}
+            onClick={() => ready && void copy(command, "Claude Code 명령을 복사했어요.")}
           >
             Claude Code 명령 복사
           </Button>
           <Button
             variant="secondary"
             size="sm"
-            disabled={!ready}
+            // 경로를 찾는 동안에도 키보드로 닿아 안내를 읽을 수 있게 disabled 대신 aria-disabled
+            aria-disabled={!ready}
+            className="aria-disabled:opacity-40"
             aria-describedby={ready ? undefined : "mcp-hint"}
-            onClick={() => void copy(desktop, "Claude Desktop 설정을 복사했어요.")}
+            onClick={() => ready && void copy(desktop, "Claude Desktop 설정을 복사했어요.")}
           >
             Claude Desktop 설정 복사
           </Button>
         </div>
         {ready ? null : (
           <p id="mcp-hint" className="text-caption text-secondary">
-            앱 실행 파일 경로를 찾지 못해 명령을 만들 수 없어요.
+            {path === null
+              ? "앱 실행 파일 경로를 확인하고 있어요."
+              : "앱 실행 파일 경로를 찾지 못해 명령을 만들 수 없어요."}
           </p>
         )}
         {ready ? (

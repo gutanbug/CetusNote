@@ -49,6 +49,8 @@ export type NoteEditorProps = {
   spellCheck?: boolean;
   /** 완료한 체크 항목을 회색 + 취소선으로 (SET-04, 기본 켬) */
   dimChecked?: boolean;
+  /** 계산 줄(EDIT-38): 줄 끝 `=`에 결과를 보여 준다 */
+  calc?: boolean;
   /** 여러 블록을 복사할 때 다른 앱용 글자(마크다운)로 바꾸는 함수 (EDIT-26). 없으면 블록 글자만 */
   copyAsText?: (doc: JSONContent) => string;
   /** 하위 페이지 블록(EDIT-29) — 제목·열기. 없으면 블록은 「삭제된 페이지」로 보인다 */
@@ -62,7 +64,7 @@ export type NoteEditorProps = {
   className?: string;
 };
 
-function proseAttributes(label: string, spellCheck: boolean, dimChecked: boolean) {
+function proseAttributes(label: string, spellCheck: boolean, dimChecked: boolean, calc: boolean) {
   return {
     class: "sn-prose",
     role: "textbox",
@@ -70,6 +72,7 @@ function proseAttributes(label: string, spellCheck: boolean, dimChecked: boolean
     "aria-label": label,
     spellcheck: spellCheck ? "true" : "false",
     "data-dim-checked": dimChecked ? "true" : "false",
+    "data-calc": calc ? "true" : "false",
   };
 }
 
@@ -90,6 +93,7 @@ export function NoteEditor({
   attachments,
   spellCheck = true,
   dimChecked = true,
+  calc = true,
   onEditor,
   copyAsText,
   subpages,
@@ -212,7 +216,7 @@ export function NoteEditor({
     content,
     editable,
     autofocus: autoFocus ? "end" : false,
-    editorProps: { attributes: proseAttributes(label, spellCheck, dimChecked) },
+    editorProps: { attributes: proseAttributes(label, spellCheck, dimChecked, calc) },
     onUpdate: ({ editor: e }) => onChangeRef.current?.(e.getJSON()),
   });
   React.useLayoutEffect(() => {
@@ -232,10 +236,10 @@ export function NoteEditor({
     editor.setOptions({
       editorProps: {
         ...editor.options.editorProps,
-        attributes: proseAttributes(label, spellCheck, dimChecked),
+        attributes: proseAttributes(label, spellCheck, dimChecked, calc),
       },
     });
-  }, [editor, label, spellCheck, dimChecked]);
+  }, [editor, label, spellCheck, dimChecked, calc]);
   const mentionListId = React.useId().replace(/:/g, "") + "-mention";
 
   React.useEffect(() => {

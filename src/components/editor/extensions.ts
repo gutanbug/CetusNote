@@ -1,4 +1,5 @@
 import { TabIndent } from "./tab-indent";
+import { CalcLine } from "./calc-line";
 import { TableSelectAll } from "./table-select-all";
 import { TextAlignment } from "./text-align";
 import type { AnyExtension } from "@tiptap/core";
@@ -87,6 +88,7 @@ const TEXT_SYMBOLS = new Set(["copyright", "registered", "tm"]);
  * | 찾기·바꾸기          | FindReplace (커스텀, 장식)       | ⌘F ⌥⌘F (ED-FindBar)            |
  * | 마크다운으로 복사      | CopyAsText (커스텀)             | 여러 블록 복사 → 글자는 마크다운 |
  * | 마크다운 붙여넣기      | MarkdownPaste (커스텀, marked)  | 마크다운 글 붙여넣기, ⇧⌘V는 글자 그대로 |
+ * | 계산 줄               | CalcLine (커스텀, 장식)          | 줄 끝 `=` → 결과, Tab으로 넣기 |
  */
 export function createExtensions({
   placeholder = "'/'를 입력해 명령어 사용",
@@ -105,6 +107,7 @@ export function createExtensions({
     PageMention.configure({ resolve: mention?.resolve, open: mention?.open }),
     BlockKeys,
     TabIndent,
+    CalcLine,
     MarkdownPaste,
     FindReplace,
     CopyAsTextExtension.configure({ serialize: copyAsText ?? null }),
