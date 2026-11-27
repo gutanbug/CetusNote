@@ -5,7 +5,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
-import { startsWithTyped } from "@/lib/hangul";
+import { foldText, matchHangul } from "@/lib/hangul";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { DropIndicator, type DropPosition } from "./drop-indicator";
@@ -307,7 +307,8 @@ const PageTree = React.memo(function PageTree({
     const start = repeat || text.length === 1 ? from + 1 : from;
     for (let i = 0; i < rows.length; i++) {
       const v = rows[(start + i) % rows.length]!;
-      if (startsWithTyped(v.node.title || "제목 없음", query)) return focusRow(v.node.id);
+      if (matchHangul(foldText(v.node.title || "제목 없음"), query, { prefix: true }))
+        return focusRow(v.node.id);
     }
   };
 

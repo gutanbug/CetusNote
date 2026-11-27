@@ -62,6 +62,20 @@ describe("⌘K 목록 (SRCH-01)", () => {
     expect(m.titleHighlights).toEqual([[3, 5]]);
   });
 
+  it("섞인 검색어(회ㅇ)는 제목에서 강조", () => {
+    const { pages, index, meet } = setup();
+    // 제목 "주간 회의"
+    expect(
+      paletteItems("회ㅇ", pages, index).find((i) => i.id === meet.id)!.titleHighlights,
+    ).toEqual([[3, 5]]);
+    expect(
+      paletteItems("주간 회ㅇ", pages, index).find((i) => i.id === meet.id)!.titleHighlights,
+    ).toEqual([
+      [0, 2],
+      [3, 5],
+    ]);
+  });
+
   it("본문에서 맞으면 발췌문과 강조", () => {
     const { pages, index } = setup();
     const [r] = paletteItems("검토", pages, index);

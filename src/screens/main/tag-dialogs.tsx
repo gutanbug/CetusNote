@@ -12,7 +12,7 @@ import { TagChip } from "@/components/ui/tag-chip";
 import { useMeta } from "@/features/meta";
 import { usePagesWhile } from "@/features/pages";
 import { cleanTagName, tagExists, tagUsage } from "@/features/tags/manage";
-import { isChoseong, toChoseong } from "@/lib/hangul";
+import { foldText, matchHangul } from "@/lib/hangul";
 import * as React from "react";
 import { useRestoreFocus } from "./use-restore-focus";
 import { runTagOp } from "./tag-actions";
@@ -233,8 +233,7 @@ function MergeTagDialog({
 
 /** 태그 이름이 검색어(정규화된 소문자)에 맞는지: 글자 그대로 포함, 또는 초성 검색(ㅁㅅ → 문서) */
 function matchTag(name: string, q: string): boolean {
-  const n = name.normalize("NFC").toLowerCase();
-  return n.includes(q) || (isChoseong(q) && toChoseong(n).includes(q));
+  return matchHangul(foldText(name), q) !== null;
 }
 
 function DeleteTagDialog({

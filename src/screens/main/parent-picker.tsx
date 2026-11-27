@@ -1,3 +1,4 @@
+import { foldText, matchHangul } from "@/lib/hangul";
 import {
   CommandDialog,
   CommandEmpty,
@@ -46,7 +47,7 @@ export function ParentPicker({
   useRestoreFocus(open);
   const q = query.trim().normalize("NFC").toLowerCase();
   const shown = targets.filter(
-    (t) => !q || (t ? displayTitle(t) : "맨 위").normalize("NFC").toLowerCase().includes(q),
+    (t) => !q || matchHangul(foldText(t ? displayTitle(t) : "맨 위"), q) !== null,
   );
 
   return (

@@ -1,4 +1,4 @@
-import { isChoseong, toChoseong } from "@/lib/hangul";
+import { findHangul, hangulPatterns, type HangulPattern, type Span } from "@/lib/hangul";
 import type { Page } from "@/lib/storage";
 
 /**
@@ -58,8 +58,6 @@ type Entry = {
   title: string;
   icon: string | null;
   titleNorm: string;
-  /** titleNorm의 초성 (같은 길이) */
-  titleCho: string;
   body: string;
   bodyNorm: string;
   updatedAt: string;
@@ -83,19 +81,20 @@ const SNIPPET_LENGTH = 96;
 /** 앞쪽 공백을 찾아 넓힐 최대 글자 수 */
 const SNIPPET_WORD_REACH = 12;
 
-function ranges(text: string, terms: string[]): [number, number][] {
-  const out: [number, number][] = [];
-  for (const t of terms) {
-    for (let i = text.indexOf(t); i !== -1; i = text.indexOf(t, i + t.length))
-      out.push([i, i + t.length]);
-  }
-  return out.sort((a, b) => a[0] - b[0]);
+/** 글자 그대로 낱말이 몇 번 있는지 (cap까지만 센다) */
+function countWord(text: string, word: string, cap = 50): number {
+  let n = 0;
+  for (let i = text.indexOf(word); i !== -1 && n < cap; i = text.indexOf(word, i + word.length))
+    n++;
+  return n;
 }
 
-function countOf(text: string, term: string, cap = 50): number {
+/** 패턴이 본문에 몇 번 맞는지 (cap까지만 센다). 글자 그대로 낱말은 indexOf가 더 빠르다 */
+function countOf(text: string, p: HangulPattern, cap = 50): number {
+  if (p.literal) return countWord(text, p.word, cap);
   let n = 0;
-  for (let i = text.indexOf(term); i !== -1 && n < cap; i = text.indexOf(term, i + term.length))
-    n++;
+  const all = text.matchAll(p.g);
+  while (n < cap && !all.next().done) n++;
   return n;
 }
 
@@ -121,7 +120,6 @@ export function createSearchIndex() {
       title: page.title,
       icon: page.icon,
       titleNorm: normalize(page.title),
-      titleCho: toChoseong(normalize(page.title)),
       body: bodyNorm.length === body.length ? body : bodyNorm,
       bodyNorm,
       updatedAt: page.updatedAt,
@@ -185,43 +183,53 @@ export function createSearchIndex() {
     search(query: string, { limit = 50, includeTrashed = false } = {}): SearchResult[] {
       flush();
       const whole = normalize(query);
-      const terms = [...new Set(whole.split(" ").filter(Boolean))];
-      const cho = new Set(terms.filter(isChoseong));
-      if (!terms.length) return [];
+      const pats = hangulPatterns(query);
+      if (!pats.length) return [];
+      const first = pats[0]!;
+      const wholePrefix = hangulPatterns(query, { prefix: true })[0]!;
+      // 제목 전체가 검색어와 맞는지(초성·입력 중 규칙 포함) — 글자 그대로 같은 것보다는 한 단계 아래
+      const wholeExact = new RegExp(`${wholePrefix.re.source}$`, "u");
+      const firstPrefix = hangulPatterns(first.word, { prefix: true })[0]!;
       const scored: { e: Entry; score: number; inTitle: boolean }[] = [];
       for (const e of entries.values()) {
         if (e.trashed && !includeTrashed) continue;
+        // 글자 그대로 모두 맞으면 inTitleLit, 초성·입력 중 규칙까지 쓰면 inTitle
         let inTitle = true;
+        let inTitleLit = true;
         let ok = true;
         let bodyHits = 0;
-        for (const t of terms) {
-          const t1 = e.titleNorm.includes(t) || (cho.has(t) && e.titleCho.includes(t));
-          const b = countOf(e.bodyNorm, t);
+        for (const p of pats) {
+          const t1 = p.re.test(e.titleNorm);
           if (!t1) inTitle = false;
+          if (!(p.exact && e.titleNorm.includes(p.word))) inTitleLit = false;
+          const b = countOf(e.bodyNorm, p);
           if (!t1 && !b) {
             ok = false;
             break;
           }
-          bodyHits += b;
+          // 본문은 글자 그대로 맞은 횟수만 순위에 쓴다 (초성으로만 맞은 본문은 맨 뒤)
+          if (p.exact) bodyHits += p.literal ? b : countWord(e.bodyNorm, p.word);
         }
         if (!ok) continue;
-        const first = terms[0]!;
         const score =
-          (e.titleNorm === whole || (cho.size > 0 && e.titleCho === whole) ? 20_000 : 0) +
-          (inTitle ? 10_000 : 0) +
-          // 글자 그대로 맞으면 초성으로 맞은 것보다 조금 앞
-          (e.titleNorm.startsWith(whole) ? 2_000 : 0) +
-          (cho.size > 0 && e.titleCho.startsWith(whole) ? 1_000 : 0) +
-          (e.titleNorm.startsWith(first) || (cho.has(first) && e.titleCho.startsWith(first))
-            ? 5_000
-            : 0) +
+          (e.titleNorm === whole ? 20_000 : wholeExact.test(e.titleNorm) ? 15_000 : 0) +
+          (inTitleLit ? 10_000 : inTitle ? 6_000 : 0) +
+          (e.titleNorm.startsWith(whole) ? 2_000 : wholePrefix.re.test(e.titleNorm) ? 1_000 : 0) +
+          (first.exact
+            ? e.titleNorm.startsWith(first.word)
+              ? 5_000
+              : 0
+            : firstPrefix.re.test(e.titleNorm)
+              ? 2_500
+              : 0) +
           Math.min(bodyHits, 999);
         scored.push({ e, score, inTitle });
       }
       scored.sort((a, b) => b.score - a.score || b.e.updatedAt.localeCompare(a.e.updatedAt));
       return scored.slice(0, limit).map(({ e, inTitle }) => {
-        const first = Math.min(...terms.map((t) => e.bodyNorm.indexOf(t)).filter((i) => i >= 0));
-        const start = Number.isFinite(first) ? Math.max(0, first - SNIPPET_BEFORE) : 0;
+        const spans = findHangul(e.bodyNorm, pats);
+        const firstAt = spans[0]?.[0] ?? -1;
+        const start = firstAt >= 0 ? Math.max(0, firstAt - SNIPPET_BEFORE) : 0;
         const end = Math.min(e.body.length, start + SNIPPET_LENGTH);
         // 단어 중간에서 자르지 않게 가까운 공백까지만 넓힌다(멀리 있으면 그 자리에서 자른다)
         const space = start > 0 ? e.body.lastIndexOf(" ", start) : -1;
@@ -229,10 +237,13 @@ export function createSearchIndex() {
         const prefix = from > 0 ? "…" : "";
         const suffix = end < e.body.length ? "…" : "";
         const snippet = prefix + e.body.slice(from, end) + suffix;
-        const shift = prefix.length - from;
-        const highlights = ranges(e.bodyNorm.slice(from, end), terms).map(
-          ([a, b]) => [a + from + shift, b + from + shift] as [number, number],
-        );
+        // 강조: 조각 안에 온전히 든 맞은 곳만, 조각 기준 위치로
+        const highlights = spans
+          .filter(([a, b]: Span) => a >= from && b <= end)
+          .map(
+            ([a, b]: Span) =>
+              [a - from + prefix.length, b - from + prefix.length] as [number, number],
+          );
         return {
           id: e.id,
           title: e.title,

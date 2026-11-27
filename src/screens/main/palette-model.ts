@@ -1,7 +1,7 @@
 import { displayTitle } from "@/features/pages/title";
 import { buildPageTree } from "@/features/pages/tree";
 import type { SearchIndex } from "@/features/search";
-import { isChoseong, toChoseong } from "@/lib/hangul";
+import { findHangul, foldText, hangulPatterns } from "@/lib/hangul";
 import type { PageMeta } from "@/features/pages";
 import type { Page } from "@/lib/storage";
 
@@ -64,19 +64,12 @@ export type PaletteItem = {
 const RECENT_LIMIT = 8;
 const RESULT_LIMIT = 30;
 
-/** 같은 길이로 비교 가능한 글자에서 검색어 위치 (NFC + 소문자, 한글 초성 포함) */
+/** 제목 안에서 검색어가 맞은 곳 (검색 인덱스와 같은 규칙: 글자 그대로 · 초성 · 입력 중 음절) */
 function titleRanges(title: string, query: string): [number, number][] {
-  const norm = title.normalize("NFC").toLowerCase();
+  const norm = foldText(title);
+  // 소문자·정규화로 길이가 달라지면 위치가 어긋나므로 강조하지 않는다
   if (norm.length !== title.length) return [];
-  const cho = toChoseong(norm);
-  const out: [number, number][] = [];
-  for (const t of new Set(query.normalize("NFC").toLowerCase().split(/\s+/).filter(Boolean))) {
-    // 초성만 친 낱말(ㅁㅅ)은 제목의 초성에서 찾는다 — 글자 그대로 맞는 곳이 있으면 그쪽
-    const hay = isChoseong(t) && !norm.includes(t) ? cho : norm;
-    for (let i = hay.indexOf(t); i !== -1; i = hay.indexOf(t, i + t.length))
-      out.push([i, i + t.length]);
-  }
-  return out.sort((a, b) => a[0] - b[0]);
+  return findHangul(norm, hangulPatterns(query));
 }
 
 /** ⌘K 목록: 검색어가 없으면 최근에 고친 문서, 있으면 검색 결과(보이는 문서만) */

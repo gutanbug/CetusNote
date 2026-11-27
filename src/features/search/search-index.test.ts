@@ -94,7 +94,7 @@ describe("검색 (ADR-003: 부분 문자열)", () => {
     ]);
   });
 
-  it("한글 초성으로 제목을 찾는다(본문은 글자 그대로만)", () => {
+  it("한글 초성으로 제목을 찾는다(본문도 초성으로 맞고, 본문에만 맞으면 뒤로)", () => {
     const idx = createSearchIndex();
     idx.build([
       page("주간 회의", []),
@@ -102,7 +102,12 @@ describe("검색 (ADR-003: 부분 문자열)", () => {
       page("메모", ["회의 내용"]),
       page("ㅎㅇ 메모", []),
     ]);
-    expect(idx.search("ㅎㅇ").map((r) => r.title)).toEqual(["ㅎㅇ 메모", "회의록", "주간 회의"]);
+    expect(idx.search("ㅎㅇ").map((r) => r.title)).toEqual([
+      "ㅎㅇ 메모",
+      "회의록",
+      "주간 회의",
+      "메모",
+    ]);
     expect(idx.search("ㅈㄱ ㅎㅇ").map((r) => r.title)).toEqual(["주간 회의"]);
     expect(idx.search("ㅎㅇㄹ").map((r) => r.title)).toEqual(["회의록"]);
     expect(idx.search("ㅁㅁ").map((r) => r.title)).toEqual(["메모", "ㅎㅇ 메모"]);
@@ -186,5 +191,39 @@ describe("본문 색인 미루기 (SYS-11)", () => {
     lazy.flush();
     expect(lazy.search("안건")).toEqual(eager.search("안건"));
     expect(lazy.search("예산")).toEqual(eager.search("예산"));
+  });
+});
+
+describe("초성·섞인 검색어 (SRCH-04)", () => {
+  it("본문에서도 초성과 섞인 검색어가 맞고, 강조는 본문 글자 위치", () => {
+    const idx = createSearchIndex();
+    idx.build([page("메모", ["내일 회의록 보내기"])]);
+    const [r] = idx.search("ㅎㅇㄹ");
+    expect(r?.matchIn).toBe("body");
+    const [a, b] = r!.highlights[0]!;
+    expect(r!.snippet.slice(a, b)).toBe("회의록");
+    expect(idx.search("회ㅇ보")).toHaveLength(0);
+    expect(idx.search("회ㅇ록")).toHaveLength(1);
+  });
+
+  it("입력 중인 마지막 음절은 받침이 달라도 맞는다(회의로 → 회의록)", () => {
+    const idx = createSearchIndex();
+    idx.build([page("회의록"), page("회의실")]);
+    expect(idx.search("회의로").map((r) => r.title)).toEqual(["회의록"]);
+    expect(idx.search("회의록").map((r) => r.title)).toEqual(["회의록"]);
+  });
+
+  it("글자 그대로 맞는 제목이 초성으로만 맞는 제목보다 위", () => {
+    const idx = createSearchIndex();
+    idx.build([
+      page("회의 메모", [], { updatedAt: "2026-11-27T00:00:00.000Z" }),
+      page("회의록", [], { updatedAt: "2026-11-01T00:00:00.000Z" }),
+    ]);
+    expect(idx.search("회의").map((r) => r.title)).toEqual(["회의 메모", "회의록"]);
+    expect(idx.search("회ㅇ").map((r) => r.title)).toEqual(["회의 메모", "회의록"]);
+    // 글자 그대로 "ㅎㅇ"가 든 제목 → 초성으로만 맞는 제목보다 앞
+    const idx2 = createSearchIndex();
+    idx2.build([page("회의록"), page("ㅎㅇ 정리")]);
+    expect(idx2.search("ㅎㅇ").map((r) => r.title)).toEqual(["ㅎㅇ 정리", "회의록"]);
   });
 });
