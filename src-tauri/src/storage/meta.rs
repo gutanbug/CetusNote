@@ -66,6 +66,55 @@ fn strip_content(mut page: Value) -> Value {
     page
 }
 
+/** 목록의 한 파일. `page`가 None이면 아직 읽지 않은 파일 */
+struct Slot {
+    name: String,
+    mtime: u64,
+    size: u64,
+    path: std::path::PathBuf,
+    page: Option<std::result::Result<Value, String>>,
+}
+
+/// 한 페이지 파일을 읽어 본문을 뺀 값으로. 깨졌거나 이름과 id가 다르면 알릴 문구
+fn parse_page_file(path: &Path, stem: &str) -> std::result::Result<Value, String> {
+    let page = read_json_opt(path)
+        .and_then(|v| v.ok_or_else(|| StorageError::new("not_found", "")))
+        .map_err(|e| e.message)?;
+    match validate_page(&page) {
+        Ok(id) if id == stem => Ok(strip_content(page)),
+        Ok(id) => Err(format!("파일 이름과 id({id})가 달라요")),
+        Err(e) => Err(e.message),
+    }
+}
+
+/// 아직 읽지 않은 칸을 채운다. 적으면 그 자리에서, 많으면 코어 수만큼 스레드로 나눠 읽는다(순서는 그대로)
+fn parse_missing(slots: &mut [Slot]) {
+    const PARALLEL_FROM: usize = 64;
+    let mut missing: Vec<&mut Slot> = slots.iter_mut().filter(|s| s.page.is_none()).collect();
+    let fill = |slot: &mut Slot| {
+        let stem = slot
+            .name
+            .strip_suffix(".json")
+            .unwrap_or(&slot.name)
+            .to_owned();
+        slot.page = Some(parse_page_file(&slot.path, &stem));
+    };
+    if missing.len() < PARALLEL_FROM {
+        missing.into_iter().for_each(fill);
+        return;
+    }
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(8);
+    let chunk = missing.len().div_ceil(threads);
+    std::thread::scope(|scope| {
+        for part in missing.chunks_mut(chunk) {
+            scope.spawn(move || part.iter_mut().for_each(|slot| fill(slot)));
+        }
+    });
+}
+
 impl Workspace {
     /// `pages/*.json`의 구조만 읽는다(본문 `content`는 뺀다). `load_all`과 같은 파일을 같은 규칙으로 거르고,
     /// 깨진 파일은 `errors`에 모은다. 색인을 고쳤으면 `.cache/pages-index.json`을 다시 쓴다(실패해도 무시).
@@ -76,6 +125,7 @@ impl Workspace {
         let mut pages = Vec::new();
         let mut errors: Vec<LoadError> = Vec::new();
         let mut changed = false;
+        let mut slots: Vec<Slot> = Vec::new();
 
         for entry in fs::read_dir(self.pages_dir())? {
             let entry = entry?;
@@ -111,35 +161,49 @@ impl Workspace {
                     && e.size == size
                     && e.page.get("id").and_then(Value::as_str) == Some(stem)
             });
-            let page = if let Some(hit) = cached {
-                hit.page.clone()
-            } else {
-                changed = true;
-                let parsed = read_json_opt(&path)
-                    .and_then(|v| v.ok_or_else(|| StorageError::new("not_found", "")));
-                match parsed {
-                    Ok(page) => match validate_page(&page) {
-                        Ok(id) if id == stem => strip_content(page),
-                        Ok(id) => {
-                            errors.push(fail(format!("파일 이름과 id({id})가 달라요")));
-                            continue;
-                        }
-                        Err(e) => {
-                            errors.push(fail(e.message));
-                            continue;
-                        }
-                    },
-                    Err(e) => {
-                        errors.push(fail(e.message));
-                        continue;
+            slots.push(match cached {
+                Some(hit) => Slot {
+                    name,
+                    mtime,
+                    size,
+                    page: Some(Ok(hit.page.clone())),
+                    path,
+                },
+                None => {
+                    changed = true;
+                    Slot {
+                        name,
+                        mtime,
+                        size,
+                        page: None,
+                        path,
                     }
+                }
+            });
+        }
+
+        // 색인에 없거나 바뀐 파일만 읽는다. 첫 열기·가져오기 뒤에는 수천 개라 코어 수만큼 나눠 읽는다 (SYS-11)
+        parse_missing(&mut slots);
+
+        for slot in slots {
+            let parsed = slot
+                .page
+                .unwrap_or_else(|| Err("페이지 파일을 읽지 못했어요".into()));
+            let page = match parsed {
+                Ok(page) => page,
+                Err(message) => {
+                    errors.push(LoadError {
+                        file: slot.name,
+                        message,
+                    });
+                    continue;
                 }
             };
             next.insert(
-                name,
+                slot.name,
                 Entry {
-                    mtime,
-                    size,
+                    mtime: slot.mtime,
+                    size: slot.size,
                     page: page.clone(),
                 },
             );
@@ -203,6 +267,35 @@ mod tests {
             .and_then(|e| e.page.get("title"))
             .and_then(Value::as_str)
             .map(str::to_owned)
+    }
+
+    /// 많은 파일(병렬로 읽는 경로)도 결과가 순서대로 읽은 것과 같고, 깨진 파일은 오류로 모인다 (SYS-11)
+    #[test]
+    fn many_files_parse_in_parallel_with_same_result() {
+        let (_d, ws) = ws();
+        let ids: Vec<String> = (0..200).map(|i| format!("01JD{i:022}")).collect();
+        for (i, id) in ids.iter().enumerate() {
+            ws.write_page(&page(id, &format!("제목 {i}"), "본문"))
+                .unwrap();
+        }
+        fs::write(ws.pages_dir().join(format!("01JE{:022}.json", 1)), "{").unwrap();
+        let first = ws.load_meta().unwrap();
+        assert_eq!(first.pages.len(), 200);
+        assert_eq!(first.errors.len(), 1);
+        assert!(first.pages.iter().all(|p| p.get("content").is_none()));
+        let full = ws.load_all().unwrap();
+        let titles = |v: &[Value]| {
+            let mut t: Vec<String> = v
+                .iter()
+                .map(|p| p["title"].as_str().unwrap().to_owned())
+                .collect();
+            t.sort();
+            t
+        };
+        assert_eq!(titles(&first.pages), titles(&full.pages));
+        // 색인으로 다시 읽어도 같은 순서·같은 값
+        let again = ws.load_meta().unwrap();
+        assert_eq!(again.pages, first.pages);
     }
 
     #[test]
@@ -368,6 +461,75 @@ mod tests {
         eprintln!(
             "PERF read_page_ms={one_ms:.2} read_page_bytes={}",
             serde_json::to_vec(&one).unwrap().len()
+        );
+    }
+}
+
+/// 워크스페이스 열기 측정 (SYS-10·SYS-11). 기본 테스트에서는 건너뛴다.
+/// 실행: `PERF_WORKSPACE=<페이지 n개 워크스페이스> cargo test --release storage::meta::bench -- --ignored --nocapture`
+/// 폴더를 임시 위치로 복사해 색인 없는 첫 열기(cold)와 색인이 있는 다시 열기(warm)를 잰다.
+#[cfg(test)]
+mod bench {
+    use super::*;
+    use std::time::Instant;
+
+    fn copy_dir(from: &Path, to: &Path) {
+        fs::create_dir_all(to).unwrap();
+        for e in fs::read_dir(from).unwrap() {
+            let e = e.unwrap();
+            let target = to.join(e.file_name());
+            if e.file_type().unwrap().is_dir() {
+                copy_dir(&e.path(), &target);
+            } else {
+                fs::copy(e.path(), target).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn perf_open_workspace() {
+        let Some(dir) = std::env::var_os("PERF_WORKSPACE") else {
+            eprintln!("PERF skip: PERF_WORKSPACE 없음");
+            return;
+        };
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("ws");
+        fs::create_dir_all(&root).unwrap();
+        copy_dir(&Path::new(&dir).join(PAGES_DIR), &root.join(PAGES_DIR));
+        fs::copy(
+            Path::new(&dir).join("workspace.json"),
+            root.join("workspace.json"),
+        )
+        .unwrap();
+        let _ = fs::remove_dir_all(root.join(CACHE_DIR));
+        let ms = |s: Instant| s.elapsed().as_secs_f64() * 1000.0;
+        let t = Instant::now();
+        let ws = Workspace::open(root.clone()).unwrap();
+        let open_ms = ms(t);
+        let t = Instant::now();
+        let cold = ws.load_meta().unwrap();
+        let cold_ms = ms(t);
+        let mut warm = Vec::new();
+        let mut ser = Vec::new();
+        let mut bytes = 0;
+        for _ in 0..5 {
+            let ws = Workspace::open(root.clone()).unwrap();
+            let t = Instant::now();
+            let loaded = ws.load_meta().unwrap();
+            warm.push(ms(t));
+            let t = Instant::now();
+            bytes = serde_json::to_string(&loaded).unwrap().len();
+            ser.push(ms(t));
+        }
+        warm.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        ser.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        eprintln!(
+            "PERF open: pages={} open={open_ms:.1}ms cold_meta={cold_ms:.1}ms warm_meta(median)={:.1}ms serialize={:.1}ms payload={}KB",
+            cold.pages.len(),
+            warm[2],
+            ser[2],
+            bytes / 1024
         );
     }
 }

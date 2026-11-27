@@ -61,6 +61,11 @@ export default defineConfig(() => ({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // 협업(Yjs)을 쓰지 않으므로 끌기 손잡이가 부르는 y-tiptap·collaboration을 작은 대역으로 바꾼다 (SYS-11, src/lib/stubs/)
+      "@tiptap/y-tiptap": fileURLToPath(new URL("./src/lib/stubs/y-tiptap.ts", import.meta.url)),
+      "@tiptap/extension-collaboration": fileURLToPath(
+        new URL("./src/lib/stubs/collaboration.ts", import.meta.url),
+      ),
     },
   },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
