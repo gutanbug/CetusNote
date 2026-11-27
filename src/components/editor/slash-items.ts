@@ -1,4 +1,6 @@
-import type { Editor, Range } from "@tiptap/core";
+import type { Editor, JSONContent, Range } from "@tiptap/core";
+import { Selection } from "@tiptap/pm/state";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import {
   AtSign,
   CalendarArrowUp,
@@ -79,6 +81,61 @@ const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRan
 const chainNoFocus = (editor: Editor, range: Range) => editor.chain().deleteRange(range);
 
 /**
+ * 블록을 `/검색어` 자리에 넣는다 (EDIT-07, 어떤 문법 위치에서든 동작).
+ * 1) `/검색어`를 지운다. 2) `command`가 그 자리에서 되면 그대로 둔다(기본: 노드를 캐럿 자리에 넣기).
+ * 3) 스키마가 허용하지 않는 자리(목록 항목의 첫 문단, 인용·토글 안 등)면 캐럿이 있는 블록 바로 뒤에,
+ *    허용되는 가장 안쪽 부모 안에 넣는다. 글은 그대로 두고, 캐럿은 새 블록 안으로 옮긴다.
+ */
+export function insertBlock(
+  editor: Editor,
+  range: Range,
+  node: JSONContent,
+  command: (editor: Editor) => boolean = (ed) => ed.chain().insertContent(node).run(),
+) {
+  chain(editor, range).run();
+  // 빈 목록 항목에서 고르면 항목을 목록 밖으로 빼고 그 자리에서 바꾼다 — 마크다운 단축 입력(`::: `)과 같은 결과.
+  // 그대로 두면 빈 글머리(•) 아래에 블록이 붙는다
+  liftEmptyListItem(editor);
+  if (command(editor)) return;
+  placeBlockAtCaret(editor, editor.schema.nodeFromJSON(node));
+}
+
+function liftEmptyListItem(editor: Editor) {
+  const { $from, empty } = editor.state.selection;
+  if (!empty || $from.parent.content.size !== 0 || $from.depth < 2) return;
+  const item = $from.node($from.depth - 1);
+  if (!["listItem", "taskItem"].includes(item.type.name) || item.childCount !== 1) return;
+  editor.commands.liftListItem(item.type.name);
+}
+
+function placeBlockAtCaret(editor: Editor, node: PMNode) {
+  const { state } = editor;
+  const { $from } = state.selection;
+  const tr = state.tr;
+  let at = -1;
+  for (let d = $from.depth - 1; d >= 0 && at < 0; d--) {
+    const parent = $from.node(d);
+    const index = $from.index(d);
+    // 캐럿 문단이 비었으면 그 문단을 바꾼다
+    if (
+      d === $from.depth - 1 &&
+      $from.parent.content.size === 0 &&
+      parent.canReplaceWith(index, index + 1, node.type)
+    ) {
+      at = $from.before();
+      tr.replaceWith(at, $from.after(), node);
+    } else if (parent.canReplaceWith(index + 1, index + 1, node.type)) {
+      at = $from.after(d + 1);
+      tr.insert(at, node);
+    }
+  }
+  if (at < 0) return;
+  // 원자 노드(구분선·목차 등)는 그 뒤에, 블록 노드는 안쪽 첫 글자 자리에 캐럿을 둔다
+  const caret = node.isAtom || node.isLeaf ? at + node.nodeSize : at + 1;
+  editor.view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(caret), 1)).scrollIntoView());
+}
+
+/**
  * ED-SlashMenu 항목 — 프로토타입 app.js `SLASH`와 같은 순서·문구.
  * 데이터베이스는 P2라 아직 없다.
  */
@@ -149,7 +206,15 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "기본 블록",
     hint: ">>",
     keywords: ["toggle", "details", "접기"],
-    run: (e, r) => chain(e, r).setDetails().run(),
+    run: (e, r) =>
+      insertBlock(e, r, {
+        type: "details",
+        attrs: { open: true },
+        content: [
+          { type: "detailsSummary" },
+          { type: "detailsContent", content: [{ type: "paragraph" }] },
+        ],
+      }),
   },
   {
     id: "blockquote",
@@ -159,7 +224,10 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "기본 블록",
     hint: ">",
     keywords: ["quote", "blockquote", "인용문"],
-    run: (e, r) => chain(e, r).toggleBlockquote().run(),
+    run: (e, r) =>
+      insertBlock(e, r, { type: "blockquote", content: [{ type: "paragraph" }] }, (ed) =>
+        ed.chain().toggleBlockquote().run(),
+      ),
   },
   {
     id: "divider",
@@ -258,7 +326,10 @@ export const SLASH_ITEMS: SlashItem[] = [
     group: "고급",
     hint: ":::",
     keywords: ["callout", "강조", "메모"],
-    run: (e, r) => chain(e, r).setCallout().run(),
+    run: (e, r) =>
+      insertBlock(e, r, { type: "callout", content: [{ type: "paragraph" }] }, (ed) =>
+        ed.chain().setCallout().run(),
+      ),
   },
   ...([2, 3, 4] as const).map((count): SlashItem => ({
     id: `columns${count}`,
@@ -324,7 +395,8 @@ export const SLASH_ITEMS: SlashItem[] = [
     hint: "@",
     keywords: ["mention", "link", "page", "링크", "연결"],
     // `@`를 넣어 페이지 제안을 연다
-    run: (e, r) => chain(e, r).insertContent("@").run(),
+    // 문자열을 넣으면 Tiptap이 HTML로 읽는데 그때 DOM이 필요하다 — 글자 노드로 넣는다
+    run: (e, r) => chain(e, r).insertContent({ type: "text", text: "@" }).run(),
   },
   {
     id: "blockMath",
