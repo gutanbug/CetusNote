@@ -1,3 +1,4 @@
+import { parseLanguagePref, resolveLocale, setLocale, type LanguagePref } from "./i18n";
 import { applyZoom, normalizeZoom } from "./zoom";
 import { getStorage } from "./storage/default";
 import { parseAppIconPref, resolveAppIcon, type AppIconPref } from "./app-icon";
@@ -14,6 +15,8 @@ export type AppearanceInput = {
   zoom?: number;
   /** 앱 아이콘(SET-07). 없으면 자동 */
   appIcon?: AppIconPref;
+  /** 화면 언어(SYS-14). 없으면 시스템 */
+  language?: LanguagePref;
 };
 
 const CACHE_KEY = "cetusnote.appearance";
@@ -46,6 +49,7 @@ function paint(a: AppearanceInput) {
   root.style.setProperty("--font-scale", String(a.fontScale));
   root.style.colorScheme = root.dataset.theme;
   applyZoom(normalizeZoom(a.zoom ?? 1));
+  setLocale(resolveLocale(a.language ?? "system"));
 }
 
 export function applyAppearance(a: AppearanceInput) {
@@ -79,5 +83,6 @@ export function applyCachedAppearance() {
     fontScale: typeof cached.fontScale === "number" ? cached.fontScale : 1,
     zoom: normalizeZoom(cached.zoom ?? 1),
     appIcon: parseAppIconPref(cached.appIcon),
+    language: parseLanguagePref(cached.language),
   });
 }

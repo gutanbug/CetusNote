@@ -1,3 +1,4 @@
+import { parseLanguagePref, type LanguagePref } from "@/lib/i18n";
 import { normalizeZoom } from "@/lib/zoom";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 import type { PageFont, RecordOpenMode, Storage } from "@/lib/storage";
@@ -35,6 +36,8 @@ export type Appearance = {
   defaultWide: boolean;
   /** 앱 아이콘(SET-07): 자동은 테마를 따른다 */
   appIcon: AppIconPref;
+  /** 화면 언어(SYS-14): 시스템은 OS 언어를 따른다(한국어가 아니면 영어) */
+  language: LanguagePref;
 };
 
 /** 에디터 설정 (SET-04). 모든 워크스페이스에 같다 */
@@ -99,6 +102,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   constellation: true,
   defaultWide: false,
   appIcon: "auto",
+  language: "system",
 };
 
 const ACCENTS: AccentPref[] = [
@@ -126,6 +130,7 @@ function readAppearance(raw: unknown): Appearance {
     // 예전 이름(newPageWide)의 값은 옮겨 받는다
     defaultWide: a.defaultWide === undefined ? a.newPageWide === true : a.defaultWide === true,
     appIcon: parseAppIconPref(a.appIcon),
+    language: parseLanguagePref(a.language),
   };
 }
 

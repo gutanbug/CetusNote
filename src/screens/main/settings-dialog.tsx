@@ -34,6 +34,7 @@ import { useWorkspace, workspaceStore } from "@/features/workspace";
 import type { PageFont, RecordOpenMode } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
 import { UpdateSection } from "./update-section";
+import { LOCALE_NAMES, useMessages, type LanguagePref } from "@/lib/i18n";
 import { restoreBuiltinTemplates } from "./actions";
 import { importDocuments } from "./import-document";
 import { openImportAppPicker } from "./import-app-picker";
@@ -501,6 +502,7 @@ function General() {
           className="w-50"
         />
       </SettingsRow>
+      <LanguageRow />
       <SettingsRow
         name="시작 화면"
         description="앱을 켜거나 다른 폴더를 열었을 때 처음 보이는 화면이에요."
@@ -798,5 +800,27 @@ function Appearance() {
         />
       </SettingsRow>
     </div>
+  );
+}
+
+/** 화면 언어 (SYS-14) — 시스템 / 한국어 / English */
+function LanguageRow() {
+  const m = useMessages().settings.general;
+  const language = useSession((s) => s.appearance.language);
+  return (
+    <SettingsRow name={m.language} description={m.languageDescription}>
+      <Segmented
+        label={m.language}
+        options={[
+          { value: "system", label: m.languageSystem },
+          { value: "ko", label: LOCALE_NAMES.ko },
+          { value: "en", label: LOCALE_NAMES.en },
+        ]}
+        value={language}
+        onValueChange={(v) =>
+          sessionStore.getState().setAppearance({ language: v as LanguagePref })
+        }
+      />
+    </SettingsRow>
   );
 }
