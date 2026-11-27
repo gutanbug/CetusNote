@@ -34,3 +34,18 @@ describe("Tauri 커맨드 권한", () => {
     expect([...allowed].sort()).toEqual([...handler].sort());
   });
 });
+
+describe("개발 설정의 권한 묶음 (QN-03)", () => {
+  it("tauri.dev.conf.json이 capabilities/의 모든 파일을 포함한다", async () => {
+    // 개발 설정은 권한 목록을 직접 적는다. 빠지면 개발 앱에서만 그 창의 커맨드가 모두 거부된다
+    const { readdirSync } = await import("node:fs");
+    const files = readdirSync(resolve(root, "capabilities"))
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => JSON.parse(readFileSync(resolve(root, "capabilities", f), "utf8")).identifier);
+    const dev = JSON.parse(readFileSync(resolve(root, "tauri.dev.conf.json"), "utf8"));
+    const listed = (dev.app.security.capabilities as unknown[]).filter(
+      (c): c is string => typeof c === "string",
+    );
+    expect(files.filter((id) => !listed.includes(id))).toEqual([]);
+  });
+});

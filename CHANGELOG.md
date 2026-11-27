@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Quick input (QN-03): pressing the shortcut no longer crashes the app (the panel plugin was not registered), and the quick window gets its permissions in development builds.
 - Quick notes written from the quick input window are appended by the backend in one step, so they are no longer lost when the main window saves workspace settings at the same time. (QN-03)
 - Switching workspaces saves pending reminders to the old workspace before the switch. (SYS-16)
 - Board cards keep their properties (date, tags, owner) on one line. Long tags shrink and cut off, and an overdue date no longer adds a word that makes one card's row wrap differently from the next. Overdue dates keep their red icon, and the "overdue" word stays for screen readers. (COLL-03)

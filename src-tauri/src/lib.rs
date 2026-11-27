@@ -43,13 +43,26 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_notification::init());
+    // 빠른 입력 비활성 패널(QN-03). to_panel·get_webview_panel이 이 플러그인의 상태를 쓴다
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.plugin(tauri_nspanel::init());
+    }
+    builder = builder
         .setup(|app| {
             // 메뉴 막대 아이콘 (SYS-15)
             tray::setup(app.handle())?;
             // 기본 빠른 입력 단축키 (QN-03). 설정 값이 프런트엔드에서 적용되기 전까지 쓴다. 실패해도 앱은 뜬다
             #[cfg(desktop)]
             let _ = shortcut::set(app.handle(), shortcut::DEFAULT_SHORTCUT);
+            // 개발용: MCP 브리지 이벤트로 빠른 입력을 연다 (단축키 없이 확인)
+            #[cfg(debug_assertions)]
+            {
+                use tauri::Listener;
+                let handle = app.handle().clone();
+                app.listen_any("debug://quick-toggle", move |_| quick::toggle(&handle));
+            }
             Ok(())
         })
         .on_window_event(on_window_event)
@@ -140,7 +153,10 @@ pub fn run() {
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(|app, _shortcut, event| {
                         if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                            quick::toggle(app);
+                            // 이 콜백은 C 함수 안에서 불린다. 패닉이 밖으로 나가면 앱이 바로 꺼지므로 여기서 막는다
+                            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                quick::toggle(app)
+                            }));
                         }
                     })
                     .build(),
