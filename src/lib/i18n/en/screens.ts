@@ -376,6 +376,7 @@ export const screens: Messages["screens"] = {
     relDate: (month: number, day: number, time: string) => `${month}/${day} ${time}`,
     actionCreate: "Create reminder",
     successAlarm: "Reminder created",
+    successDetail: (title: string, when: string) => `“${title}” · ${when}`,
     successNote: "Note saved",
     successPage: "Created a new page",
     noUpcoming: "No upcoming reminders",

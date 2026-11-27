@@ -374,6 +374,7 @@ export const screens = {
     relDate: (month: number, day: number, time: string) => `${month}/${day} ${time}`,
     actionCreate: "알림 만들기",
     successAlarm: "알림을 만들었어요",
+    successDetail: (title: string, when: string) => `「${title}」 · ${when}`,
     successNote: "메모를 저장했어요",
     successPage: "새 페이지를 만들었어요",
     noUpcoming: "예정된 알림이 없어요",

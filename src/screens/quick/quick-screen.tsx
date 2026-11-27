@@ -191,7 +191,9 @@ export function QuickScreen() {
   const label = (usingParsed ? parsed.label : value).trim();
 
   const described = spec ? describe(spec, now, m) : null;
-  const preview: QuickPreview | null = described?.preview ?? null;
+  const preview: QuickPreview | null = described
+    ? { ...described.preview, title: label || null }
+    : null;
 
   // 페이지 검색: 시각이 없고 글자가 있을 때만 (저장 의도가 없을 때)
   const index = useMemo<SearchIndex>(() => {
@@ -401,7 +403,9 @@ export function QuickScreen() {
     busy.current = true;
     try {
       const now2 = new Date();
-      const detail = spec ? describe(spec, now2, m).detail : "";
+      const when = spec ? describe(spec, now2, m).detail : "";
+      // 「안녕」 · 오후 3:01에 알림 — 무엇이 언제 울리는지 함께 보인다
+      const detail = spec ? m.successDetail(text || m.alarmLabel, when) : "";
       await saveNoteOrPage(mode, spec, text);
       const title = mode === "page" ? m.successPage : spec ? m.successAlarm : m.successNote;
       finish({ title, detail });

@@ -13,6 +13,8 @@ export type QuickPreview = {
   primary: string;
   /** 「1분 뒤」 「내일 오전 9:00」. 타이머는 없다 */
   relative: string | null;
+  /** 저장될 알림 내용 (문장에서 시각·요청 말을 뺀 것). 비면 null → 기본 이름을 흐리게 보인다 */
+  title?: string | null;
 };
 export type QuickSuccess = { title: string; detail: string };
 export type QuickPreset = { id: string; label: string };
@@ -356,10 +358,18 @@ export function QuickInput(props: QuickInputProps) {
                 className="size-4 shrink-0 text-secondary"
                 strokeWidth={1.5}
               />
-              <span className="min-w-0 truncate text-sm text-primary">{preview.primary}</span>
-              {preview.relative ? (
-                <span className="shrink-0 text-sm text-secondary">{preview.relative}</span>
-              ) : null}
+              {/* 무엇이 저장될지 먼저 보인다: 「안녕」 오후 3:01에 알림 · 1분 뒤 */}
+              <span
+                className={cn(
+                  "max-w-1/2 min-w-0 truncate text-sm font-medium",
+                  preview.title ? "text-primary" : "text-tertiary",
+                )}
+              >
+                {preview.title || m.alarmLabel}
+              </span>
+              <span className="min-w-0 truncate text-sm text-secondary">
+                {preview.relative ? `${preview.primary} · ${preview.relative}` : preview.primary}
+              </span>
               <span className="flex-1" />
               {/* 결과가 골라져 있으면 Enter는 페이지를 연다. 그때는 생성 힌트를 숨긴다 */}
               {showResults && activeIndex >= 0 ? null : (

@@ -444,7 +444,7 @@ export function stripFiller(text: string): string {
       .replace(/\s+remind me$/i, "")
       .replace(/^(?:에는|에|까지)\s+/, "")
       .replace(
-        /(?:^|\s+)(?:알림\s*설정해?\s*줘?|알림\s*줘|알려\s*주세요|알려\s*줘|리마인드\s*해?\s*줘?|알림|알려|타이머)$/,
+        /(?:^|\s+)(?:알림\s*설정해?\s*줘?|알림\s*줘|알려\s*주세요|알려\s*줘|말해\s*주세요|말해\s*줘|얘기해\s*줘|리마인드\s*해?\s*줘?|알림|알려|타이머)$/,
         "",
       )
       .replace(/\s+에$/, "")
@@ -452,7 +452,56 @@ export function stripFiller(text: string): string {
     if (next === t) break;
     t = next;
   }
-  return t;
+  return unquote(t);
+}
+
+/** 혼자 쓰이면 동사 줄기인 한 글자 (「병원 가라고」→「병원 가기」). 낱말 안의 같은 글자(「휴가」)는 명사로 본다 */
+const VERB_STEMS = new Set([
+  "가",
+  "오",
+  "보",
+  "자",
+  "사",
+  "켜",
+  "꺼",
+  "끄",
+  "쉬",
+  "해",
+  "와",
+  "서",
+  "타",
+  "주",
+  "줘",
+  "두",
+]);
+
+/**
+ * 인용 표현을 알림 내용으로 바꾼다.
+ * - 「안녕이라고」「"안녕"이라고」「회의라고」 → 안녕·회의 (명사 + (이)라고)
+ * - 「물 마시라고」「약 먹으라고」「운동하라고」「병원 가라고」 → 물 마시기·약 먹기·운동하기·병원 가기 (시키는 말)
+ * - 「회의 있다고」 → 회의 있다 · 「라는/이라는」 → 뗀다 · 감싼 따옴표도 뗀다
+ */
+export function unquote(text: string): string {
+  let t = text.trim();
+  const words = (s: string) => s.split(" ");
+  const lastWord = (s: string) => {
+    const w = words(s);
+    return w[w.length - 1] ?? "";
+  };
+  let m: RegExpMatchArray | null;
+  if ((m = t.match(/^(.*\S)(?:이라는|라는)$/))) t = m[1];
+  else if ((m = t.match(/^(.*\S)으라고$/))) t = `${m[1]}기`;
+  else if ((m = t.match(/^(.*)하라고$/))) t = `${m[1]}하기`;
+  else if ((m = t.match(/^(.*\S)다고$/))) t = `${m[1]}다`;
+  else if ((m = t.match(/^(.*\S)이라고$/))) t = m[1];
+  else if ((m = t.match(/^(.*\S)라고$/))) {
+    const stem = m[1];
+    const last = lastWord(stem);
+    // 「마시라고」처럼 ~시 + 라고, 또는 혼자 쓰인 한 글자 동사 줄기는 시키는 말로 본다
+    const verb = (last.length >= 2 && last.endsWith("시")) || VERB_STEMS.has(last);
+    t = verb ? `${stem}기` : stem;
+  }
+  return t.replace(/^["'“”‘’「『](.*)["'“”‘’」』]$/, "$1").trim();
 }
 
 /**

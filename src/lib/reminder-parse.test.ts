@@ -136,3 +136,24 @@ describe("parseReminderText: 위치와 못 알아들을 때", () => {
     expect(parseReminderText("2월 30일 9시", NOW).when).toBeNull();
   });
 });
+
+describe("인용 표현 → 알림 내용", () => {
+  const now = new Date(2026, 10, 27, 15, 0);
+  const cases: [string, string][] = [
+    ["1분뒤에 안녕이라고 알림줘", "안녕"],
+    ['1분 뒤에 "안녕"이라고 알려줘', "안녕"],
+    ["10분 뒤에 물 마시라고 알려줘", "물 마시기"],
+    ["30분 후에 약 먹으라고 알림", "약 먹기"],
+    ["내일 9시에 운동하라고 알려줘", "운동하기"],
+    ["5분 뒤에 병원 가라고 말해줘", "병원 가기"],
+    ["3시에 회의라고 알림줘", "회의"],
+    ["3시에 휴가라고 알림줘", "휴가"],
+    ["2시에 회의 있다고 알려줘", "회의 있다"],
+    ["내일 9시 보고서 정리", "보고서 정리"],
+  ];
+  for (const [input, label] of cases) {
+    it(`${input} → ${label}`, () => {
+      expect(parseReminderText(input, now).label).toBe(label);
+    });
+  }
+});
