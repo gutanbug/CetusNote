@@ -390,6 +390,20 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       // 브라우저 미리보기에는 실행 파일이 없다. 명령을 보여 주기만 하도록 예시 경로를 준다
       return "/Applications/CetusNote.app/Contents/MacOS/cetusnote";
     },
+    async mcpStatus() {
+      // 브라우저 미리보기에는 MCP 서버가 없다. ?fakeMcp=connected|configured 로 상태를 바꿔 본다
+      const fake =
+        typeof location === "undefined"
+          ? null
+          : new URLSearchParams(location.search).get("fakeMcp");
+      if (fake === "connected")
+        return {
+          sessions: [{ pid: 1, client: "claude-code", since: 0 }],
+          claudeCode: true,
+          claudeDesktop: false,
+        };
+      return { sessions: [], claudeCode: fake === "configured", claudeDesktop: false };
+    },
     async exportCsv(fileName, text) {
       exports.push({ fileName, text });
       return fileName;

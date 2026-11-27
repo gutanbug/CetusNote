@@ -288,6 +288,7 @@ export const registry = {
   "PG-TrashPopover": { layer: "L5", name: "휴지통 팝오버", status: "audited", priority: "P0" },
   "PG-SettingsNav": { layer: "L5", name: "설정 탭 목록", status: "audited", priority: "P0" },
   "PG-SettingsRow": { layer: "L5", name: "설정 행", status: "audited", priority: "P0" },
+  "PG-McpStatus": { layer: "L5", name: "MCP 연결 상태", status: "ready", priority: "P1" },
   "PG-ThemeCard": { layer: "L5", name: "테마 카드", status: "audited", priority: "P0" },
   "PG-AccentSwatch": {
     layer: "L5",

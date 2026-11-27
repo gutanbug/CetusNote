@@ -84,6 +84,7 @@ pub fn run() {
             commands::workspace_scan,
             commands::pages_read,
             commands::app_executable_path,
+            commands::mcp_status,
         ]);
 
     // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다

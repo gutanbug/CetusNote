@@ -12,6 +12,7 @@ const COMMANDS: &[&str] = &[
     "workspace_write",
     "pages_load_all",
     "app_executable_path",
+    "mcp_status",
     "pages_load_meta",
     "page_write",
     "page_purge",

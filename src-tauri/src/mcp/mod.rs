@@ -7,6 +7,7 @@
 
 pub mod cache;
 pub mod markdown;
+pub mod presence;
 pub mod tools;
 
 use crate::storage::{self, Workspace};
@@ -136,6 +137,7 @@ impl CetusServer {
 }
 
 fn serve_stdio(ws: Workspace) -> Result<(), String> {
+    let root = ws.root.clone();
     let server = CetusServer {
         ws: Arc::new(ws),
         gate: Arc::new(std::sync::Mutex::new(())),
@@ -144,6 +146,13 @@ fn serve_stdio(ws: Workspace) -> Result<(), String> {
         let running = rmcp::serve_server(server, rmcp::transport::stdio())
             .await
             .map_err(|e| format!("MCP 연결을 시작하지 못했어요: {e}"))?;
+        // 설정 「Agent / MCP」의 연결 뱃지용 표시. 연결이 끝나면(이 값을 버리면) 지운다
+        let client = running
+            .peer()
+            .peer_info()
+            .map(|info| info.client_info.name.clone())
+            .unwrap_or_default();
+        let _presence = presence::Presence::register(&root, &client);
         running
             .waiting()
             .await

@@ -595,6 +595,33 @@ pub fn app_executable_path() -> Result<String> {
         .map_err(|e| StorageError::new("io", e.to_string()))
 }
 
+/// MCP 연결 상태 (DATA-12) — 설정 「Agent / MCP」의 뱃지. 이 워크스페이스에 붙은 `--mcp` 서버와
+/// Claude Code·Claude Desktop 설정에 이 앱 항목이 있는지
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpStatus {
+    pub sessions: Vec<crate::mcp::presence::Session>,
+    pub claude_code: bool,
+    pub claude_desktop: bool,
+}
+
+#[tauri::command]
+pub fn mcp_status(state: State<AppState>) -> Result<McpStatus> {
+    use crate::mcp::presence;
+    let sessions =
+        with_workspace(&state, |ws| Ok(presence::live_sessions(&ws.root))).unwrap_or_default();
+    let exe = std::env::current_exe()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let has =
+        |p: Option<std::path::PathBuf>| p.is_some_and(|p| presence::config_has_entry(&p, &exe));
+    Ok(McpStatus {
+        sessions,
+        claude_code: has(presence::claude_code_config()),
+        claude_desktop: has(presence::claude_desktop_config()),
+    })
+}
+
 /// 앱 설정(테마, 포인트 색, 사이드바 폭 …). 내용은 프론트엔드가 정한다.
 #[tauri::command]
 pub fn settings_read(app: AppHandle) -> Result<Option<Value>> {

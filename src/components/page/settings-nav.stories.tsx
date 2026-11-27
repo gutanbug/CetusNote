@@ -25,7 +25,7 @@ function Nav({ initial = "appearance" }: { initial?: SettingsTab }) {
   );
 }
 
-/** 설정 탭 목록 — 일반 · 외관 · 에디터 · 단축키 · 데이터/백업. ↑↓로 옮기면 바로 연다 */
+/** 설정 탭 목록 — 일반 · 외관 · 에디터 · 단축키 · 데이터/백업 · Agent/MCP. ↑↓로 옮기면 바로 연다 */
 const meta = {
   title: "L5 페이지/PG-SettingsNav",
   component: Nav,
@@ -42,6 +42,6 @@ export const Keyboard: Story = {
     await userEvent.keyboard("{ArrowDown}");
     await expect(c.getByRole("tab", { name: "에디터" })).toHaveAttribute("aria-selected", "true");
     await userEvent.keyboard("{End}");
-    await waitFor(() => expect(c.getByRole("tab", { name: "데이터 / 백업" })).toHaveFocus());
+    await waitFor(() => expect(c.getByRole("tab", { name: "Agent / MCP" })).toHaveFocus());
   },
 };

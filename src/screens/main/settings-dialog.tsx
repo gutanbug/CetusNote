@@ -8,6 +8,9 @@ import {
 import { SettingsNav } from "@/components/page/settings-nav";
 import { SettingsRow } from "@/components/page/settings-row";
 import { ThemeCardGroup } from "@/components/page/theme-card";
+import { McpStatus } from "@/components/page/mcp-status";
+import { mcpDetail, type McpStatusValue } from "@/components/page/mcp-status-model";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -96,6 +99,8 @@ export function SettingsDialog() {
                 <Editor />
               ) : tab === "data" ? (
                 <Data onRestored={() => setOpen(false)} />
+              ) : tab === "agent" ? (
+                <AgentSettings />
               ) : (
                 <p className="text-ui text-tertiary">준비 중이에요.</p>
               )}
@@ -490,9 +495,78 @@ function General() {
           </Button>
         ) : null}
       </SettingsRow>
-      <McpRow />
       <UpdateSection />
       <TagSettings />
+    </div>
+  );
+}
+
+/** MCP 상태를 몇 초마다 다시 읽는다 — AI 도구가 연결하거나 끊으면 뱃지가 따라 바뀐다 */
+const MCP_POLL_MS = 3000;
+
+function useMcpStatus(): McpStatusValue | null {
+  const [status, setStatus] = React.useState<McpStatusValue | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    const read = () =>
+      getStorage()
+        .mcpStatus()
+        .then((s) => {
+          if (!alive) return;
+          const clients = s.sessions.map((x) => x.client);
+          setStatus((prev) =>
+            prev &&
+            prev.claudeCode === s.claudeCode &&
+            prev.claudeDesktop === s.claudeDesktop &&
+            prev.clients.join("\n") === clients.join("\n")
+              ? prev
+              : { clients, claudeCode: s.claudeCode, claudeDesktop: s.claudeDesktop },
+          );
+        })
+        .catch(() => alive && setStatus({ clients: [], claudeCode: false, claudeDesktop: false }));
+    void read();
+    const id = window.setInterval(read, MCP_POLL_MS);
+    window.addEventListener("focus", read);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+      window.removeEventListener("focus", read);
+    };
+  }, []);
+  return status;
+}
+
+/**
+ * Agent / MCP (DATA-12). MCP 서버 연결 상태와 등록 방법, 그리고 앞으로 넣을 개인 AI 에이전트·API 키 자리.
+ * 에이전트 연결(검색·내용 분석)은 아직 없다 — 준비 중이라고만 알린다.
+ */
+function AgentSettings() {
+  const status = useMcpStatus();
+  return (
+    <div className="grid gap-6">
+      <section aria-labelledby="settings-mcp-title">
+        <h3 id="settings-mcp-title" className="text-ui font-medium">
+          MCP 서버
+        </h3>
+        <p className="mt-1 text-caption text-tertiary">
+          Claude Code나 Claude Desktop 같은 AI 도구가 이 워크스페이스의 노트를 읽고 쓸 수 있어요.
+        </p>
+        <SettingsRow name="연결 상태" description={mcpDetail(status)}>
+          <McpStatus status={status} />
+        </SettingsRow>
+        <McpRow />
+      </section>
+      <section aria-labelledby="settings-agent-title" className="border-t border-line pt-4">
+        <h3 id="settings-agent-title" className="text-ui font-medium">
+          AI 에이전트
+        </h3>
+        <SettingsRow
+          name="개인 AI 에이전트 · API 키"
+          description="준비 중이에요. 나중에 여기서 API 키나 에이전트를 연결해 노트 검색과 내용 분석에 쓸 수 있어요."
+        >
+          <StatusChip status="준비 중" color="gray" />
+        </SettingsRow>
+      </section>
     </div>
   );
 }
@@ -525,8 +599,8 @@ function McpRow() {
   };
   return (
     <SettingsRow
-      name="AI 연결(MCP)"
-      description="Claude Code나 Claude Desktop에서 이 워크스페이스의 노트를 읽고 쓸 수 있어요."
+      name="등록하기"
+      description="명령이나 설정을 복사해 AI 도구에 붙여 넣으면 연결돼요."
       stacked
     >
       <div className="grid gap-2">

@@ -33,6 +33,13 @@ claude mcp add cetusnote -- "/Applications/CetusNote.app/Contents/MacOS/cetusnot
 
 설정을 바꾼 뒤에는 클라이언트를 다시 시작해요.
 
+## 연결 상태 (설정 › Agent / MCP)
+
+- 설정의 「Agent / MCP」 탭에서 연결 뱃지를 본다: **연결됨**(이 워크스페이스에 붙은 `--mcp` 서버가 있다) · **설정됨**(Claude Code `~/.claude.json` 또는 Claude Desktop `claude_desktop_config.json`에 이 앱의 `--mcp` 항목이 있다) · **연결 안 됨**. 3초마다, 창으로 돌아올 때 다시 읽는다.
+- 연결 표시: `--mcp` 서버가 연결(initialize)되면 `<워크스페이스>/.cache/mcp/<pid>.json`에 클라이언트 이름·시각·프로세스 시작 시각을 쓰고, 정상 종료하면 지운다(`mcp/presence.rs`). 강제 종료로 남은 파일은 읽을 때 pid 생존·시작 시각으로 걸러 지운다.
+- 클라이언트 설정 파일은 읽기만 하고 있음/없음만 쓴다(수정 시각으로 결과를 기억). `CLAUDE_CONFIG_DIR`가 있으면 그 안의 `.claude.json`을 본다.
+- 같은 탭의 「AI 에이전트」는 개인 AI 에이전트·API 키 연결(검색·내용 분석) 자리다. 아직 준비 중.
+
 ## 어느 워크스페이스를 쓰나
 
 - 기본: 앱이 마지막으로 연 워크스페이스. 앱에서 워크스페이스를 한 번이라도 열어 둬야 해요.

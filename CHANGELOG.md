@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Settings has a new Agent / MCP tab with a connection badge that shows whether an AI tool is connected to this workspace.
+
 ### Fixed
 
 - Updating always installs the newest release, even when a newer one came out after the app last checked.

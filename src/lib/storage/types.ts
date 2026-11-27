@@ -292,6 +292,8 @@ export interface Storage {
   setAppIcon(theme: "light" | "dark"): Promise<void>;
   /** 이 앱 실행 파일 경로. 설정 「AI 연결(MCP)」의 `--mcp` 명령에 쓴다 (DATA-12). 미리보기에서는 예시 경로 */
   appExecutablePath(): Promise<string>;
+  /** MCP 연결 상태 (DATA-12): 이 워크스페이스에 붙은 `--mcp` 서버와 Claude 설정 등록 여부. 미리보기는 가짜 값 */
+  mcpStatus(): Promise<McpStatusInfo>;
   /**
    * 저장 대화상자 → 파일 쓰기(DATA-04). 이미지는 저장 위치 옆 `assets/`에 복사한다.
    * 취소하면 null, 저장하면 파일 이름과 복사하지 못해 건너뛴 이미지 수.
@@ -439,3 +441,10 @@ export type AppImportPick = {
 };
 
 export type ExternalChanges = { changed: string[]; removed: string[]; meta: boolean };
+
+/** MCP 연결 상태 (DATA-12) — Rust `commands::McpStatus` */
+export type McpStatusInfo = {
+  sessions: { pid: number; client: string; since: number }[];
+  claudeCode: boolean;
+  claudeDesktop: boolean;
+};

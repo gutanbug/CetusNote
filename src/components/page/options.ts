@@ -1,8 +1,8 @@
-import { Database, Keyboard, Palette, PenLine, Settings, type LucideIcon } from "lucide-react";
+import { Bot, Database, Keyboard, Palette, PenLine, Settings, type LucideIcon } from "lucide-react";
 
 // L5 설정 부품이 함께 쓰는 선택지 목록
 
-export type SettingsTab = "general" | "appearance" | "editor" | "shortcuts" | "data";
+export type SettingsTab = "general" | "appearance" | "editor" | "shortcuts" | "data" | "agent";
 
 export const SETTINGS_TABS: { id: SettingsTab; name: string; icon: LucideIcon }[] = [
   { id: "general", name: "일반", icon: Settings },
@@ -10,6 +10,8 @@ export const SETTINGS_TABS: { id: SettingsTab; name: string; icon: LucideIcon }[
   { id: "editor", name: "에디터", icon: PenLine },
   { id: "shortcuts", name: "단축키", icon: Keyboard },
   { id: "data", name: "데이터 / 백업", icon: Database },
+  // AI 연결 (DATA-12): MCP 서버 연결 상태와, 앞으로 넣을 개인 AI 에이전트·API 키 설정
+  { id: "agent", name: "Agent / MCP", icon: Bot },
 ];
 
 export const settingsTabId = (prefix: string, tab: SettingsTab) => `${prefix}-tab-${tab}`;
