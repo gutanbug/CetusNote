@@ -53,3 +53,17 @@ export function onQuitRequested(handler: () => void): Promise<() => void> {
 export async function confirmQuit(): Promise<void> {
   await invoke("confirm_quit");
 }
+
+/** 지금 창이 메인 창인가. Tauri 밖(브라우저 미리보기)에서는 false (SYS-16 타이머 표시는 메인 창에서만) */
+export function isMainWindow(): boolean {
+  try {
+    return getCurrentWindow().label === "main";
+  } catch {
+    return false;
+  }
+}
+
+/** 메뉴 막대 글자(예 "24:13")와 메뉴 맨 위 흐린 줄을 바꾼다. null이면 둘 다 지운다 (SYS-16). 권한: storage */
+export async function setTrayStatus(text: string | null): Promise<void> {
+  await invoke("tray_set_status", { text });
+}

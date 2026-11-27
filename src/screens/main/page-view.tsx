@@ -43,6 +43,7 @@ import {
 } from "./actions";
 import { MoveDialog } from "./move-dialog";
 import { PageMenu } from "./page-menu";
+import { PageReminderButton } from "./page-reminder-button";
 import { TagEditor } from "./tag-editor";
 import { openPageFrom } from "./tabs";
 import { useTopBarTitleBar } from "./use-tab-bar";
@@ -236,6 +237,7 @@ export function PageView({ page }: { page: Page }) {
         favorite={favorite}
         onToggleFavorite={() => toggleFavorite(page.id)}
         pageMenu={<PageMenu page={page} favorite={favorite} onMove={() => setMoving(true)} />}
+        reminder={<PageReminderButton target={{ type: "page", id: page.id }} title={page.title} />}
         outline={
           findEditor ? (
             <PageOutline

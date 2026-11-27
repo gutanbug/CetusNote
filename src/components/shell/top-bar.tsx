@@ -38,6 +38,8 @@ type TopBarProps = {
   onOutlineCloseAutoFocus?: (e: Event) => void;
   /** 페이지 메뉴 항목 (OV-Menu 항목들) */
   pageMenu?: React.ReactNode;
+  /** 페이지 알림 버튼(SYS-16). 즐겨찾기와 페이지 메뉴 사이에 놓인다 */
+  reminder?: React.ReactNode;
   className?: string;
 };
 
@@ -56,6 +58,7 @@ function TopBar({
   onFocusMode,
   focusMode,
   pageMenu,
+  reminder,
   outline,
   outlineOpen,
   onOutlineOpenChange,
@@ -125,6 +128,7 @@ function TopBar({
             <Focus strokeWidth={1.5} />
           </IconButton>
         ) : null}
+        {reminder}
         {pageMenu ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

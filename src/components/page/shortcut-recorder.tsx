@@ -86,7 +86,6 @@ function ShortcutRecorder({
     <div className={cn("inline-flex flex-col items-start gap-1", className)}>
       <button
         type="button"
-        aria-label={labels.aria}
         aria-describedby={recording ? "shortcut-recorder-hint" : undefined}
         disabled={disabled}
         onClick={() => setRecording((r) => !r)}
@@ -97,6 +96,8 @@ function ShortcutRecorder({
           recording && "border-accent",
         )}
       >
+        {/* 이름은 보이는 글자에서 만든다(aria-label을 쓰면 보이는 키와 어긋난다 — axe label-content-name-mismatch) */}
+        <span className="sr-only">{labels.aria}</span>
         {recording ? (
           <span className="text-tertiary">{labels.recording}</span>
         ) : keys.length > 0 ? (

@@ -67,4 +67,5 @@ permissions = [
   "allow-confirm-quit",
   "allow-app-prefs-apply",
   "allow-main-window-close",
+  "allow-tray-set-status",
 ]

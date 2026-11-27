@@ -18,12 +18,15 @@ import { useWorkspace, workspaceStore } from "@/features/workspace";
 import { MainScreen } from "@/screens/main/main-screen";
 import { useMainUi } from "@/screens/main/ui-store";
 import { useReminderAlerts } from "@/screens/main/reminder-alerts";
+import { useQuickBridge } from "@/screens/main/quick-bridge";
 import { ReminderAlertsDialog } from "@/screens/main/reminder-dialog";
 import { WhatsNewDialog } from "@/screens/main/whats-new-dialog";
 import { useWhatsNewOnStart } from "@/features/release-notes";
 import { UnsavedSwitchDialog } from "@/screens/main/unsaved-switch-dialog";
 import { SetupScreen } from "@/screens/setup/setup-screen";
 import { lazy, Suspense, useEffect, useState } from "react";
+import { startTrayTimerStatus } from "@/features/reminders/tray-timer";
+import { isMainWindow } from "@/lib/storage/window";
 
 // Debug 화면은 개발 빌드에만 있다. DEV가 false면 import 자체가 번들에서 빠진다 (debug-screen.md §3).
 const DebugScreen = import.meta.env.DEV ? lazy(() => import("./debug/debug-screen")) : null;
@@ -85,11 +88,17 @@ function useWorkspaceInit() {
 /** 「버전 기록 보기」: 그 페이지의 버전 기록 대화상자를 연다 (DATA-07, DATA-09) */
 const openVersionHistory = (pageId: string) => useMainUi.getState().setHistoryPageId(pageId);
 
+/** 타이머가 돌면 메뉴 막대에 남은 시간을 보인다. 메인 창에서만 돈다 (SYS-16) */
+function useTrayTimerStatus() {
+  useEffect(() => (isMainWindow() ? startTrayTimerStatus() : undefined), []);
+}
+
 export default function App() {
   const hash = useHash();
   useDebugShortcut();
   usePinnedShell();
   useWorkspaceInit();
+  useQuickBridge();
   useLoadWorkspaceOnOpen();
   useSaveOnClose();
   useAutoBackupOnOpen();
@@ -97,6 +106,7 @@ export default function App() {
   useExternalChanges();
   useKeptExternalNotice(openVersionHistory);
   useReminderAlerts();
+  useTrayTimerStatus();
   useAppearance(!!DebugScreen && hash.startsWith("#/debug"));
   useAppPrefsOnLoad(!!DebugScreen && hash.startsWith("#/debug"));
   const phase = useWorkspace((s) => s.phase);

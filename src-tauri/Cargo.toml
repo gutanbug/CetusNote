@@ -56,7 +56,7 @@ objc2-foundation = "=0.3.2"
 objc2-web-kit = { version = "=0.3.2", features = ["std", "WKWebView", "WKPDFConfiguration", "block2", "objc2-app-kit"] }
 objc2-pdf-kit = { version = "=0.3.2", features = ["std", "PDFDocument", "PDFPage", "objc2-app-kit"] }
 # 미리보기 쪽 그림(PNG, DATA-06): PDFKit 썸네일을 비트맵으로 바꾼다. objc2-web-kit이 쓰는 판과 같다
-objc2-app-kit = { version = "=0.3.2", features = ["std", "NSApplication", "NSImage", "NSBitmapImageRep", "NSWindow"] }
+objc2-app-kit = { version = "=0.3.2", features = ["std", "NSApplication", "NSImage", "NSBitmapImageRep", "NSWindow", "NSEvent", "block2"] }
 block2 = "=0.6.2"
 
 # Windows PDF 내보내기(DATA-06·SYS-08): WebView2 PrintToPdf. wry·tauri가 쓰는 판과 같다

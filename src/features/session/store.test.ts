@@ -140,3 +140,70 @@ describe("읽던 위치 저장 (PAGE-15)", () => {
     expect(c.getState().activeTab).toBe(0);
   });
 });
+
+describe("앱 설정: 메뉴 막대·로그인 시작·빠른 입력 단축키·두 번 누르기 (SYS-15, QN-03)", () => {
+  it("저장된 값이 없으면 기본값: 메뉴 막대 켬, 로그인 시작 끔, ⌥⇧Space, 두 번 누르기 끔", async () => {
+    const storage = createMemoryStorage();
+    const s = createSessionStore(storage, { delay: 10 });
+    await s.getState().load("/notes/A");
+    expect(s.getState()).toMatchObject({
+      menuBarResident: true,
+      launchAtLogin: false,
+      quickShortcut: "Alt+Shift+Space",
+      doubleTap: "off",
+    });
+  });
+
+  it("이상한 값은 기본값으로 바꾼다. 메뉴 막대는 false일 때만 끈다", async () => {
+    const storage = createMemoryStorage();
+    await storage.writeSettings({
+      menuBarResident: "no",
+      launchAtLogin: "true",
+      quickShortcut: "   ",
+      doubleTap: "option",
+    });
+    const s = createSessionStore(storage, { delay: 10 });
+    await s.getState().load("/notes/A");
+    expect(s.getState()).toMatchObject({
+      menuBarResident: true,
+      launchAtLogin: false,
+      quickShortcut: "Alt+Shift+Space",
+      doubleTap: "off",
+    });
+  });
+
+  it("단축키 앞뒤 공백은 지우고, 두 번 누르기는 알려진 수식키만 읽는다", async () => {
+    const storage = createMemoryStorage();
+    await storage.writeSettings({ quickShortcut: "  Control+Shift+K  ", doubleTap: "shift" });
+    const s = createSessionStore(storage, { delay: 10 });
+    await s.getState().load("/notes/A");
+    expect(s.getState().quickShortcut).toBe("Control+Shift+K");
+    expect(s.getState().doubleTap).toBe("shift");
+  });
+
+  it("바꾼 값은 다른 설정 키를 지우지 않고 다시 열면 그대로 남는다", async () => {
+    vi.useFakeTimers();
+    const storage = createMemoryStorage();
+    await storage.writeSettings({ theme: "dark" });
+    const a = createSessionStore(storage, { delay: 10 });
+    await a.getState().load("/notes/A");
+    a.getState().setAppPrefs({
+      menuBarResident: false,
+      launchAtLogin: true,
+      quickShortcut: "Control+Shift+K",
+      doubleTap: "command",
+    });
+    await vi.advanceTimersByTimeAsync(10);
+
+    const b = createSessionStore(storage, { delay: 10 });
+    await b.getState().load("/notes/A");
+    expect(b.getState()).toMatchObject({
+      menuBarResident: false,
+      launchAtLogin: true,
+      quickShortcut: "Control+Shift+K",
+      doubleTap: "command",
+    });
+    const saved = await storage.readSettings();
+    expect(saved).toMatchObject({ theme: "dark", doubleTap: "command" });
+  });
+});

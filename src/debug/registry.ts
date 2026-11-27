@@ -326,7 +326,19 @@ export const registry = {
     sheet: "§16",
     priority: "P1",
   },
+  "PG-QuickInput": {
+    layer: "L5",
+    name: "빠른 입력 바",
+    status: "implemented",
+    priority: "P1",
+  },
   "PG-Backlinks": { layer: "L5", name: "백링크 목록", status: "ready", priority: "P2" },
+  "PG-ReminderPicker": {
+    layer: "L5",
+    name: "알림 고르기 패널",
+    status: "implemented",
+    priority: "P1",
+  },
   // L6 컬렉션 (COLL-01~06)
   "CL-Toolbar": {
     layer: "L6",

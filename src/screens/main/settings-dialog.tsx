@@ -51,6 +51,7 @@ import { useMainUi } from "./ui-store";
 import { TagItem } from "@/components/shell/tag-item";
 import { countTags, tagColor } from "./tag-colors";
 import { openTagMenuAt, openTagMenuFromKey, useTagUi } from "./tag-ui";
+import { QuickInputSettings } from "./quick-input-settings";
 
 const ID = "settings";
 
@@ -530,6 +531,7 @@ function General() {
           </Button>
         ) : null}
       </SettingsRow>
+      <QuickInputSettings />
       <UpdateSection />
       <TagSettings />
     </div>

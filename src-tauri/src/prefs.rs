@@ -29,7 +29,7 @@ pub fn app_prefs_apply(app: AppHandle, prefs: AppPrefs) -> Result<()> {
         apply_autostart(&app, prefs.launch_at_login)?;
     }
     crate::tray::set_resident(&app, prefs.menu_bar_resident);
-    apply_double_tap(&prefs.double_tap)
+    apply_double_tap(&app, &prefs.double_tap)
 }
 
 /// 메인 창 닫기 마무리 (프런트엔드가 저장을 끝낸 뒤 부른다). 메뉴 막대에 남기면 숨기고, 아니면 닫는다.
@@ -58,22 +58,34 @@ fn apply_autostart(app: &AppHandle, on: bool) -> Result<()> {
     result.map_err(|_| StorageError::new("autostart_failed", "로그인 시작 설정을 바꾸지 못했어요"))
 }
 
-/// 두 번 누르기 설정. 켜려면 손쉬운 사용 권한이 필요하다 (macOS).
-/// TODO: 전역 키 감시(NSEvent addGlobalMonitorForEvents)를 붙이면 `double_tap::selected()`를 보고 발동한다.
-fn apply_double_tap(value: &str) -> Result<()> {
+/// 두 번 누르기 설정 값을 고른 수식키로 바꾼다 ("off"는 None)
+fn parse_double_tap(value: &str) -> Result<Option<ModifierKey>> {
     if value == "off" {
-        double_tap::select(None);
+        return Ok(None);
+    }
+    ModifierKey::parse(value)
+        .map(Some)
+        .ok_or_else(|| StorageError::new("invalid_double_tap", "지원하지 않는 수식키예요"))
+}
+
+/// 두 번 누르기 설정. 켜려면 손쉬운 사용 권한이 필요하다 (macOS).
+/// 권한이 없으면 감시를 붙이지 않고 권한 요청 창을 띄운 뒤 `accessibility_required`로 알린다.
+fn apply_double_tap(app: &AppHandle, value: &str) -> Result<()> {
+    let key = parse_double_tap(value)?;
+    double_tap::select(key);
+    if key.is_none() {
+        double_tap::set_monitoring(app, false);
         return Ok(());
     }
-    let key = ModifierKey::parse(value)
-        .ok_or_else(|| StorageError::new("invalid_double_tap", "지원하지 않는 수식키예요"))?;
-    double_tap::select(Some(key));
     if !double_tap::accessibility_trusted() {
+        double_tap::set_monitoring(app, false);
+        double_tap::accessibility_prompt();
         return Err(StorageError::new(
             "accessibility_required",
             "두 번 누르기는 손쉬운 사용 권한이 있어야 해요",
         ));
     }
+    double_tap::set_monitoring(app, true);
     Ok(())
 }
 
@@ -92,14 +104,17 @@ mod tests {
     }
 
     #[test]
-    fn double_tap_off_clears_selection() {
-        assert!(apply_double_tap("off").is_ok());
-        assert_eq!(double_tap::selected(), None);
+    fn double_tap_parses_off_and_allowed_keys() {
+        assert_eq!(parse_double_tap("off").expect("off"), None);
+        assert_eq!(
+            parse_double_tap("shift").expect("shift"),
+            Some(ModifierKey::Shift)
+        );
     }
 
     #[test]
     fn double_tap_rejects_option_key() {
-        let err = apply_double_tap("option").expect_err("option is not allowed");
+        let err = parse_double_tap("option").expect_err("option is not allowed");
         let _ = err;
     }
 }

@@ -118,6 +118,7 @@ pub fn run() {
             commands::reminders_read,
             commands::reminders_write,
             prefs::app_prefs_apply,
+            tray::tray_set_status,
             prefs::main_window_close,
         ]);
 

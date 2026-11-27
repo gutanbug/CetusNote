@@ -49,6 +49,11 @@ export type RemindersState = {
   complete(id: string, now?: Date): void;
   /** 대기 중인 쓰기를 바로 쓴다 */
   flush(): Promise<void>;
+  /**
+   * 워크스페이스를 바꾸기 직전에 부른다: 대기 중인 쓰기를 이전 워크스페이스에 쓰고,
+   * 그 뒤의 저장·읽기 결과는 버린다(세대 번호로 구분). 목록은 비운다.
+   */
+  reset(): Promise<void>;
 };
 
 export type RemindersStoreOptions = {
@@ -75,6 +80,8 @@ export function createRemindersStore(
   const newId = options.newId ?? (() => ulid());
   let timer: ReturnType<typeof setTimeout> | null = null;
   let dirty = false;
+  /** 워크스페이스 세대. reset·load마다 올라간다. 세대가 다른 응답·저장 결과는 버린다 */
+  let generation = 0;
 
   const store = createStore<RemindersState>()((set, get) => {
     /** 바뀐 목록을 쓴다. 읽기 오류가 있으면 쓰지 않는다 */
@@ -85,10 +92,12 @@ export function createRemindersStore(
       }
       if (!dirty || get().readError) return;
       dirty = false;
+      const gen = generation;
       try {
         await storage.writeReminders(toRemindersFile(get().list));
-        set({ saveError: false });
+        if (gen === generation) set({ saveError: false });
       } catch {
+        if (gen !== generation) return;
         dirty = true;
         set({ saveError: true });
       }
@@ -107,12 +116,26 @@ export function createRemindersStore(
       saveError: false,
 
       async load() {
+        const gen = ++generation;
         try {
           const raw = await storage.readReminders();
+          if (gen !== generation) return;
           set({ list: parseRemindersFile(raw), loaded: true, readError: false });
         } catch {
+          if (gen !== generation) return;
           set({ list: [], loaded: true, readError: true });
         }
+      },
+
+      async reset() {
+        await save();
+        generation++;
+        dirty = false;
+        if (timer !== null) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        set({ list: [], loaded: false, readError: false, saveError: false });
       },
 
       add(input, now = new Date()) {

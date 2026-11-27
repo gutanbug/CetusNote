@@ -65,6 +65,7 @@ const COMMANDS: &[&str] = &[
     "confirm_quit",
     "app_prefs_apply",
     "main_window_close",
+    "tray_set_status",
 ];
 
 fn main() {
