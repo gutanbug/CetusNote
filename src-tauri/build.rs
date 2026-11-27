@@ -69,6 +69,7 @@ const COMMANDS: &[&str] = &[
     "main_window_show",
     "quick_note_append",
     "quick_resize",
+    "quick_hide",
 ];
 
 fn main() {

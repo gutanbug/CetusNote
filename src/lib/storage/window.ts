@@ -27,6 +27,11 @@ export async function showMainWindow(): Promise<void> {
 }
 
 export async function hideCurrentWindow(): Promise<void> {
+  // 빠른 입력 창은 Rust가 닫는다: 띄우기 전 앱 상태(가려짐·뒤에 있음)로 돌려야 메인 창이 앞으로 나오지 않는다 (QN-03)
+  if (getCurrentWindow().label === "quick") {
+    await invoke("quick_hide");
+    return;
+  }
   await getCurrentWindow().hide();
 }
 

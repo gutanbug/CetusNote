@@ -148,6 +148,65 @@ fn logical_size<R: Runtime>(window: &WebviewWindow<R>) -> (f64, f64) {
     }
 }
 
+/// 패널을 띄우기 전 앱 상태 (macOS). 닫을 때 그대로 되돌린다
+#[cfg(target_os = "macos")]
+mod app_state {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use tauri::{AppHandle, Manager, Runtime};
+
+    /// 띄우기 전에 앱이 앞에 있었나 — 아니었으면 닫을 때 다시 뒤로 보낸다
+    static WAS_ACTIVE: AtomicBool = AtomicBool::new(false);
+    /// 앱이 가려진(⌘H) 상태에서 띄웠나 — 그랬으면 닫을 때 다시 가린다
+    static WAS_HIDDEN: AtomicBool = AtomicBool::new(false);
+    /// 가려진 상태에서 메인 창이 열려 있었나 — 메뉴 막대로 닫아 둔 창은 되살리지 않는다
+    static MAIN_WAS_OPEN: AtomicBool = AtomicBool::new(false);
+
+    fn ns_app() -> Option<objc2::rc::Retained<objc2_app_kit::NSApplication>> {
+        objc2_foundation::MainThreadMarker::new()
+            .map(objc2_app_kit::NSApplication::sharedApplication)
+    }
+
+    /// 띄우기 직전 (메인 스레드). 가려진 앱이면 메인 창을 먼저 내려 두고 앱만 드러낸다:
+    /// 가려진 앱의 창을 앞으로 내면 macOS가 앱 전체를 드러내 메인 창까지 나오기 때문이다
+    pub fn before_show<R: Runtime>(app: &AppHandle<R>) {
+        let Some(ns) = ns_app() else { return };
+        WAS_ACTIVE.store(ns.isActive(), Ordering::SeqCst);
+        let hidden = ns.isHidden();
+        WAS_HIDDEN.store(hidden, Ordering::SeqCst);
+        if hidden {
+            let main = app.get_webview_window("main");
+            // 가려진 앱의 창은 보이지 않는 것으로 나오므로, 메뉴 막대로 닫아 둔 창인지를 따로 기록해 둔 값으로 본다
+            let open = main.is_some() && !crate::tray::main_closed();
+            MAIN_WAS_OPEN.store(open, Ordering::SeqCst);
+            if let Some(main) = main {
+                let _ = main.hide();
+            }
+            ns.unhideWithoutActivation();
+        }
+    }
+
+    /// 닫은 직후 (메인 스레드). 띄우기 전 상태로 돌린다
+    pub fn after_hide<R: Runtime>(app: &AppHandle<R>) {
+        let Some(ns) = ns_app() else { return };
+        if WAS_HIDDEN.swap(false, Ordering::SeqCst) {
+            // 메인 창을 다른 앱 창 뒤에 다시 올려 둔 채 가린다 → 앱을 다시 열면 메인 창이 돌아온다
+            let main = app
+                .get_webview_window("main")
+                .filter(|_| MAIN_WAS_OPEN.swap(false, Ordering::SeqCst));
+            if let Some(Ok(ptr)) = main.map(|w| w.ns_window()) {
+                // SAFETY: Tauri가 만든 메인 창의 NSWindow다. 메인 스레드에서 바로 쓴다
+                let window: &objc2_app_kit::NSWindow =
+                    unsafe { &*(ptr as *const objc2_app_kit::NSWindow) };
+                window.orderBack(None);
+            }
+            ns.hide(None);
+        } else if !WAS_ACTIVE.load(Ordering::SeqCst) {
+            // 다른 앱을 쓰다 띄웠으면 메인 창이 키 창을 받아 앞으로 나오지 않게 한다
+            ns.deactivate();
+        }
+    }
+}
+
 /// 보이게 한다. macOS는 패널을 키 창으로만 띄운다 (앱을 활성화하지 않는다)
 fn present<R: Runtime>(app: &AppHandle<R>, window: &WebviewWindow<R>) {
     #[cfg(target_os = "macos")]
@@ -169,10 +228,34 @@ pub fn toggle<R: Runtime>(app: &AppHandle<R>) {
         .get_webview_window(LABEL)
         .filter(|w| w.is_visible().unwrap_or(false))
     {
-        let _ = window.hide();
+        let _ = window;
+        hide(app);
         return;
     }
     show(app);
+}
+
+/// 빠른 입력 창을 닫고, 띄우기 전 앱 상태(가려짐·뒤에 있음)로 돌린다.
+/// Esc·저장(프런트엔드 quick_hide), 포커스를 잃을 때(lib.rs), 단축키를 다시 누를 때 모두 이 길로 닫는다
+pub fn hide<R: Runtime>(app: &AppHandle<R>) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some(window) = handle.get_webview_window(LABEL) else {
+            return;
+        };
+        if !window.is_visible().unwrap_or(false) {
+            return;
+        }
+        let _ = window.hide();
+        #[cfg(target_os = "macos")]
+        app_state::after_hide(&handle);
+    });
+}
+
+/// 프런트엔드(빠른 입력 창)가 Esc·저장 뒤에 부른다
+#[tauri::command]
+pub fn quick_hide(app: AppHandle) {
+    hide(&app);
 }
 
 /// 빠른 입력 창을 연다. 메인 창을 앞으로 가져오지 않는다 (macOS: 비활성 패널)
@@ -187,6 +270,8 @@ fn show_on_main<R: Runtime>(app: &AppHandle<R>) {
     let monitor = cursor_monitor(app, &window);
     let (width, height) = logical_size(&window);
     place(&window, monitor.as_ref(), width, height);
+    #[cfg(target_os = "macos")]
+    app_state::before_show(app);
     present(app, &window);
     let _ = app.emit(SHOWN_EVENT, ());
 }

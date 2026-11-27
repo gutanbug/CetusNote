@@ -39,6 +39,7 @@ pub fn main_window_close(app: AppHandle) {
     use tauri::Manager;
     if let Some(window) = app.get_webview_window("main") {
         if crate::tray::resident() {
+            crate::tray::set_main_closed(true);
             let _ = window.hide();
         } else {
             let _ = window.destroy();

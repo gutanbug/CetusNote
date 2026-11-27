@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Quick input (QN-03): the shortcut shows only the quick panel. CetusNote stays in the background, a hidden app stays hidden, and the main window no longer comes forward when the panel closes.
 - Quick input (QN-03): pressing the shortcut no longer crashes the app (the panel plugin was not registered), and the quick window gets its permissions in development builds.
 - Quick notes written from the quick input window are appended by the backend in one step, so they are no longer lost when the main window saves workspace settings at the same time. (QN-03)
 - Switching workspaces saves pending reminders to the old workspace before the switch. (SYS-16)

@@ -21,7 +21,7 @@ use tauri::{Emitter, Manager};
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     match event {
         tauri::WindowEvent::Focused(false) if window.label() == quick::LABEL => {
-            let _ = window.hide();
+            quick::hide(window.app_handle());
         }
         tauri::WindowEvent::Destroyed if window.label() == "main" && !tray::resident() => {
             window.app_handle().exit(0);
@@ -136,6 +136,7 @@ pub fn run() {
             prefs::main_window_close,
             commands::quick_note_append,
             quick::quick_resize,
+            quick::quick_hide,
         ]);
 
     // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다

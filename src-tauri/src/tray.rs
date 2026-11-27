@@ -23,6 +23,16 @@ const ITEM_QUIT: &str = "tray-quit";
 
 /// 「메뉴 막대에 남기」 설정 값. 기본은 켬. 창 닫기 때 숨길지 정할 때 읽는다
 static RESIDENT: AtomicBool = AtomicBool::new(true);
+/// 메인 창을 메뉴 막대로 닫아 둔 상태인가 (빠른 입력 패널이 앱 상태를 되돌릴 때 본다, QN-03)
+static MAIN_CLOSED: AtomicBool = AtomicBool::new(false);
+
+pub fn set_main_closed(closed: bool) {
+    MAIN_CLOSED.store(closed, Ordering::SeqCst);
+}
+
+pub fn main_closed() -> bool {
+    MAIN_CLOSED.load(Ordering::SeqCst)
+}
 
 /// 타이머 상태 글자 (없으면 None). 메뉴를 다시 만들 때 읽는다
 static STATUS: Mutex<Option<String>> = Mutex::new(None);
@@ -149,6 +159,7 @@ fn handle_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 
 /// 메인 창을 앞으로 가져온다. 숨겨졌거나 최소화돼 있으면 연다 (Dock 클릭·재실행·메뉴)
 pub fn show_main<R: Runtime>(app: &AppHandle<R>) {
+    set_main_closed(false);
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         let _ = window.unminimize();
         let _ = window.show();
