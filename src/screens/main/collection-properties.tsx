@@ -22,6 +22,7 @@ import {
   fieldText,
   moveProperty,
   nextColor,
+  placeProperty,
   remapOption,
   renameField,
   setFieldOptions,
@@ -166,6 +167,10 @@ export function collectionProperties({
     const patch = moveProperty(settings, key as never, dir);
     if (patch) setSettings(patch);
   };
+  const reorder = (key: string, beforeKey: string | null) => {
+    const patch = placeProperty(settings, key as never, beforeKey as never);
+    if (patch) setSettings(patch);
+  };
   const addOption = (field: FieldDef, name: string) => {
     const cur = fieldOf(settings.fields, field.id) ?? field;
     if (cur.options.some((o) => o.name === name)) return;
@@ -300,6 +305,7 @@ export function collectionProperties({
       onToggleHidden={toggleHidden}
       onToggleCard={toggleCard}
       onMove={move}
+      onReorder={reorder}
       onAdd={add}
     />
   );

@@ -126,8 +126,9 @@ export const collection: Messages["collection"] = {
     list: "Properties",
     showOnCardOf: (name) => `Show ${name} on board card`,
     showOf: (name) => `Show ${name}`,
-    moveUpOf: (name) => `Move ${name} up`,
-    moveDownOf: (name) => `Move ${name} down`,
+    reorderOf: (name) => `Reorder ${name}`,
+    reorderHint: "Press Alt+Up or Alt+Down to change the order",
+    movedTo: (name, n) => `Moved “${name}” to position ${n}.`,
     addProperty: "Add property",
   },
   recordDetail: {

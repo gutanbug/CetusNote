@@ -7,6 +7,7 @@ import {
   fieldText,
   filterLabel,
   moveProperty,
+  placeProperty,
   queryRecords,
   remapOption,
   renameField,
@@ -142,6 +143,31 @@ describe("사용자 속성 (COLL-08)", () => {
       "tags",
     ]);
     expect(moveProperty(s, "status", -1)).toBeNull();
+  });
+
+  it("끌어 놓기는 지정한 줄 앞(또는 맨 끝)에 넣고, 제자리면 null", () => {
+    const keys = (s: { properties: { key: string }[] } | null) => s?.properties.map((p) => p.key);
+    expect(keys(placeProperty(base, "status", "tags"))).toEqual([
+      "assignee",
+      "due",
+      "status",
+      "tags",
+    ]);
+    expect(keys(placeProperty(base, "tags", "assignee"))).toEqual([
+      "status",
+      "tags",
+      "assignee",
+      "due",
+    ]);
+    expect(keys(placeProperty(base, "assignee", null))).toEqual([
+      "status",
+      "due",
+      "tags",
+      "assignee",
+    ]);
+    expect(placeProperty(base, "due", "tags")).toBeNull();
+    expect(placeProperty(base, "tags", null)).toBeNull();
+    expect(placeProperty(base, "due", "due")).toBeNull();
   });
 
   it("값 고치기 — 빈 값은 키를 뺀다", () => {

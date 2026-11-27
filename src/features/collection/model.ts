@@ -241,6 +241,23 @@ export function moveProperty(
   return { properties: next };
 }
 
+/** 끌어 놓기로 순서 옮기기 — key를 beforeKey 앞에 넣는다(null이면 맨 끝). 자리가 그대로면 null */
+export function placeProperty(
+  settings: CollectionSettings,
+  key: PropertySlot["key"],
+  beforeKey: PropertySlot["key"] | null,
+): Pick<CollectionSettings, "properties"> | null {
+  const list = settings.properties;
+  const i = list.findIndex((p) => p.key === key);
+  if (i < 0 || beforeKey === key) return null;
+  const rest = list.filter((p) => p.key !== key);
+  const at = beforeKey === null ? rest.length : rest.findIndex((p) => p.key === beforeKey);
+  if (at < 0 || at === i) return null;
+  const next = [...rest];
+  next.splice(at, 0, list[i]!);
+  return { properties: next };
+}
+
 /** 선택 옵션 이름을 바꾸거나 지울 때 레코드 값도 고친다 — 고칠 레코드와 새 값 */
 export function remapOption(
   records: Page[],

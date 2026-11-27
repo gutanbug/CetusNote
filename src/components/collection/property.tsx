@@ -20,6 +20,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  GripVertical,
   Link,
   Plus,
   Trash2,
@@ -668,6 +669,7 @@ export function PropertyList({
   onToggleHidden,
   onToggleCard,
   onMove,
+  onReorder,
   onAdd,
 }: {
   entries: PropertyEntry[];
@@ -675,15 +677,107 @@ export function PropertyList({
   menu?: (entry: PropertyEntry, trigger: React.ReactElement) => React.ReactNode;
   onToggleHidden: (key: string) => void;
   onToggleCard: (key: string) => void;
+  /** Alt+↑/↓ 키로 한 칸 옮김 (보이는 속성끼리) */
   onMove: (key: string, dir: -1 | 1) => void;
+  /** 끌어 놓기: key를 beforeKey 앞에 둔다. null이면 맨 끝 */
+  onReorder: (key: string, beforeKey: string | null) => void;
   onAdd: (type: PropertyType) => void;
 }) {
   const m = useMessages();
   const small = "size-6 text-tertiary [&_svg]:size-3.5 aria-pressed:text-accent";
+  const hintId = React.useId();
+  const listRef = React.useRef<HTMLUListElement>(null);
+  /** 끄는 속성 키 — 그리기용 state와 이벤트에서 바로 읽는 ref를 둔다 (board-view와 같은 방식) */
+  const [dragKey, setDragKey] = React.useState<string>();
+  const dragRef = React.useRef<string | undefined>(undefined);
+  /** 놓을 자리: 이 키 앞(null이면 맨 끝). undefined면 자리 표시 없음 */
+  const [over, setOver] = React.useState<{ before: string | null }>();
+  const [announce, setAnnounce] = React.useState("");
+  /** 키보드로 옮긴 손잡이에 포커스를 이어 준다 */
+  const refocus = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (!refocus.current) return;
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-handle="${CSS.escape(refocus.current)}"]`)
+      ?.focus();
+    refocus.current = undefined;
+  });
+
+  const end = () => {
+    dragRef.current = undefined;
+    setDragKey(undefined);
+    setOver(undefined);
+  };
+  /** 마우스 y로 놓을 자리. 줄 윗반이면 그 앞, 아랫반이면 다음 줄 앞. 제자리면 undefined */
+  const dropAt = (clientY: number): { before: string | null } | undefined => {
+    const from = dragRef.current;
+    if (!from) return undefined;
+    let before: string | null = null;
+    for (const row of listRef.current?.querySelectorAll<HTMLElement>("[data-prop-key]") ?? []) {
+      const key = row.dataset.propKey;
+      if (!key || key === from) continue; // 끄는 줄은 빼고 잰다
+      const r = row.getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) {
+        before = key;
+        break;
+      }
+    }
+    const keys = entries.map((e) => e.key);
+    const next = keys[keys.indexOf(from) + 1] ?? null;
+    if (before === next) return undefined;
+    return { before };
+  };
+  /** 키보드 한 칸 (moveProperty와 같이 숨긴 속성을 건너뛴다). 못 가면 undefined */
+  const stepOf = (key: string, dir: -1 | 1): number | undefined => {
+    let j = entries.findIndex((e) => e.key === key) + dir;
+    while (j >= 0 && j < entries.length && entries[j]!.hidden) j += dir;
+    return j >= 0 && j < entries.length ? j : undefined;
+  };
+  const dragged = dragKey ? entries.find((e) => e.key === dragKey) : undefined;
+  const dropPreview = dragged ? (
+    <li aria-hidden inert data-slot="drop-preview" className="pointer-events-none">
+      <div className={cn(menuItem, "opacity-50")}>
+        <PropertyIcon kind={dragged.kind} />
+        <span className="truncate">{dragged.name}</span>
+      </div>
+    </li>
+  ) : null;
+
   return (
     <div className="grid gap-0.5">
-      <ul aria-label={m.collection.property.list} className="grid gap-0.5">
-        {entries.map((e, i) => {
+      <p id={hintId} className="sr-only">
+        {m.collection.property.reorderHint}
+      </p>
+      <ul
+        ref={listRef}
+        aria-label={m.collection.property.list}
+        className="grid gap-0.5"
+        onDragOver={(e) => {
+          if (!dragRef.current) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          const at = dropAt(e.clientY);
+          if (at?.before !== over?.before || (at === undefined) !== (over === undefined))
+            setOver(at);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(undefined);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const from = dragRef.current;
+          const at = from ? dropAt(e.clientY) : undefined;
+          if (from && at) {
+            onReorder(from, at.before);
+            const keys = entries.map((x) => x.key).filter((k) => k !== from);
+            const pos = at.before === null ? keys.length : keys.indexOf(at.before);
+            const name = entries.find((x) => x.key === from)?.name ?? "";
+            setAnnounce(m.collection.property.movedTo(name, pos + 1));
+          }
+          end();
+        }}
+      >
+        {entries.map((e) => {
           const nameButton = (
             <button
               type="button"
@@ -694,46 +788,73 @@ export function PropertyList({
             </button>
           );
           return (
-            <li key={e.key} className="flex items-center gap-0.5">
-              {menu ? menu(e, nameButton) : nameButton}
-              {/* 토글 이름은 상태와 관계없이 고정, 상태는 aria-pressed (켜지면 포인트 색) */}
-              <IconButton
-                label={m.collection.property.showOnCardOf(e.name)}
-                aria-pressed={e.card}
-                onClick={() => onToggleCard(e.key)}
-                className={small}
+            <React.Fragment key={e.key}>
+              {over?.before === e.key ? dropPreview : null}
+              <li
+                data-prop-key={e.key}
+                data-dragging={dragKey === e.key || undefined}
+                className="flex items-center gap-0.5 transition-opacity duration-(--dur-fast) data-dragging:opacity-45 motion-reduce:transition-none"
               >
-                <Columns3 {...ic} />
-              </IconButton>
-              <IconButton
-                label={m.collection.property.showOf(e.name)}
-                aria-pressed={!e.hidden}
-                onClick={() => onToggleHidden(e.key)}
-                className={small}
-              >
-                {e.hidden ? <EyeOff {...ic} /> : <Eye {...ic} />}
-              </IconButton>
-              {/* disabled는 누르는 순간 포커스를 잃게 만든다(맨 위로 올리면 "위로"가 꺼짐). aria-disabled로 포커스를 남긴다 */}
-              <IconButton
-                label={m.collection.property.moveUpOf(e.name)}
-                aria-disabled={i === 0 || undefined}
-                onClick={() => i > 0 && onMove(e.key, -1)}
-                className={cn(small, "aria-disabled:pointer-events-none aria-disabled:opacity-35")}
-              >
-                <ArrowUp {...ic} />
-              </IconButton>
-              <IconButton
-                label={m.collection.property.moveDownOf(e.name)}
-                aria-disabled={i === entries.length - 1 || undefined}
-                onClick={() => i < entries.length - 1 && onMove(e.key, 1)}
-                className={cn(small, "aria-disabled:pointer-events-none aria-disabled:opacity-35")}
-              >
-                <ArrowDown {...ic} />
-              </IconButton>
-            </li>
+                {/* 손잡이: 끌어서 옮기거나, 포커스한 뒤 Alt+↑/↓ (role 없는 버튼, 이름은 aria-label) */}
+                <button
+                  type="button"
+                  data-handle={e.key}
+                  draggable
+                  aria-label={m.collection.property.reorderOf(e.name)}
+                  aria-describedby={hintId}
+                  aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                  className={cn(
+                    "flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md text-tertiary hover:bg-hover force-hover:bg-hover",
+                    focusRing,
+                  )}
+                  onDragStart={(ev) => {
+                    ev.dataTransfer.effectAllowed = "move";
+                    // WebKit은 데이터가 없으면 끌기를 시작하지 않는다
+                    ev.dataTransfer.setData("text/plain", e.name);
+                    dragRef.current = e.key;
+                    setDragKey(e.key);
+                  }}
+                  onDragEnd={end}
+                  onKeyDown={(ev) => {
+                    if (!ev.altKey || (ev.key !== "ArrowUp" && ev.key !== "ArrowDown")) return;
+                    ev.preventDefault();
+                    const dir = ev.key === "ArrowUp" ? -1 : 1;
+                    const to = stepOf(e.key, dir);
+                    if (to === undefined) return;
+                    refocus.current = e.key;
+                    onMove(e.key, dir);
+                    setAnnounce(m.collection.property.movedTo(e.name, to + 1));
+                  }}
+                >
+                  <GripVertical {...ic} className="size-4" />
+                </button>
+                {menu ? menu(e, nameButton) : nameButton}
+                {/* 토글 이름은 상태와 관계없이 고정, 상태는 aria-pressed (켜지면 포인트 색) */}
+                <IconButton
+                  label={m.collection.property.showOnCardOf(e.name)}
+                  aria-pressed={e.card}
+                  onClick={() => onToggleCard(e.key)}
+                  className={small}
+                >
+                  <Columns3 {...ic} />
+                </IconButton>
+                <IconButton
+                  label={m.collection.property.showOf(e.name)}
+                  aria-pressed={!e.hidden}
+                  onClick={() => onToggleHidden(e.key)}
+                  className={small}
+                >
+                  {e.hidden ? <EyeOff {...ic} /> : <Eye {...ic} />}
+                </IconButton>
+              </li>
+            </React.Fragment>
           );
         })}
+        {over?.before === null ? dropPreview : null}
       </ul>
+      <p role="status" className="sr-only">
+        {announce}
+      </p>
       <div className="border-t border-line pt-1">
         <AddPropertyMenu onAdd={onAdd}>
           <button type="button" className={cn(menuItem, focusRing, "text-secondary")}>

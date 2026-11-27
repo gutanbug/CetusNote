@@ -127,8 +127,9 @@ export const collection = {
     list: "속성",
     showOnCardOf: (name: string) => `${name} 보드 카드 표시`,
     showOf: (name: string) => `${name} 표시`,
-    moveUpOf: (name: string) => `${name} 위로`,
-    moveDownOf: (name: string) => `${name} 아래로`,
+    reorderOf: (name: string) => `${name} 순서 바꾸기`,
+    reorderHint: "Alt+↑ 또는 Alt+↓로 순서를 바꿔요",
+    movedTo: (name: string, n: number) => `“${name}” ${n}번째로 옮겼어요.`,
     addProperty: "속성 추가",
   },
   recordDetail: {
