@@ -12,9 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Calculation lines: end a line with `=` to see its result, then press Tab to insert it. Name values (`rent = 650,000원`) and use them below; works with won/dollar amounts, percentages, durations, dates, and running totals.
 - Calculation lines handle rates: `시급 10,000원 × 8시간`, `10,000원/시간 × 90분`, `월급 3,000,000원 × 6개월`. An option in Settings › Editor lines results up on the right like a receipt.
 - Settings has a new Agent / MCP tab with a connection badge that shows whether an AI tool is connected to this workspace.
+- Search matches Korean initials mixed with syllables (`회ㅇㄹ`, `ㅎ의록`), the last syllable still being typed (`회의로` finds 회의록), and page body text, in ⌘K, `@` mentions, the move dialog, tag pickers and the sidebar type-ahead. Exact title matches rank above initial-based ones.
 
 ### Changed
 
+- Startup loads about 500 kB less: the full emoji list is now fetched the first time emoji are needed (`:` menu, typed emoji, export) instead of at launch. Saved pages and emoji output are unchanged.
+- MCP Markdown now also handles images, attachments, subpages, table of contents and emoji like the app. Workspace images and attachments come back as image and attachment blocks, and page links become subpages or mentions when the page exists.
 - MCP Markdown now matches the app export for toggles, toggle headings, columns, callouts, tables, math, date chips and page links, both when reading pages and when writing them.
 - The math renderer (KaTeX) loads only when a page with equations is shown, so the app starts with less code. Equations show their LaTeX source in a muted style for a moment until it loads.
 
