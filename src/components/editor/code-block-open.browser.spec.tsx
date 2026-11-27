@@ -1,5 +1,6 @@
 import { Editor } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
+import { normalizeDocCodeLanguages } from "@/lib/code-language";
 import { createExtensions } from "./extensions";
 
 /*
@@ -33,6 +34,55 @@ describe("코드 블록 언어 이름 정리", () => {
     expect([...languages].sort()).toEqual(["python", "typescript"]);
     expect(changes).toBe(1);
     expect(editor.can().undo()).toBe(false);
+    editor.destroy();
+    element.remove();
+  });
+
+  it("줄임말 언어로 저장된 문서를 열 때 이름 고치기 트랜잭션이 생기지 않는다", () => {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const doc = normalizeDocCodeLanguages({
+      type: "doc",
+      content: [
+        {
+          type: "codeBlock",
+          attrs: { language: "ts" },
+          content: [{ type: "text", text: "const a = 1" }],
+        },
+        {
+          type: "codeBlock",
+          attrs: { language: "yml" },
+          content: [{ type: "text", text: "a: 1" }],
+        },
+      ],
+    });
+    const editor = new Editor({ element, extensions: createExtensions({}), content: doc });
+    let changes = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changes += 1;
+    });
+    return new Promise<void>((resolve) =>
+      setTimeout(() => {
+        const languages: unknown[] = [];
+        editor.state.doc.forEach((n) => languages.push(n.attrs.language));
+        expect(languages).toEqual(["typescript", "yaml"]);
+        expect(changes).toBe(0);
+        editor.destroy();
+        element.remove();
+        resolve();
+      }, 0),
+    );
+  });
+
+  it("HTML로 읽을 때도 줄임말을 목록 이름으로 바꾼다", () => {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const editor = new Editor({
+      element,
+      extensions: createExtensions({}),
+      content: '<pre><code class="language-py">print(1)</code></pre>',
+    });
+    expect(editor.state.doc.firstChild?.attrs.language).toBe("python");
     editor.destroy();
     element.remove();
   });

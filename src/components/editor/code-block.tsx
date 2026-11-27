@@ -1,3 +1,4 @@
+import type { Attribute } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import type { NodeViewRendererProps } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
@@ -12,6 +13,7 @@ import {
   languageLabel,
   lowlight,
   normalizeLanguage,
+  storedLanguage,
 } from "@/lib/code-language";
 import { cn } from "@/lib/utils";
 import { incrementalLowlight } from "./code-highlight";
@@ -336,6 +338,21 @@ const codeBlockEditable = new Plugin({
 
 /** ED-CodeBlock — 언어 선택(기본은 자동 감지), lowlight 하이라이트, 복사. ``` 로 만든다. */
 export const CodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    // HTML에서 읽을 때(붙여넣기 등)도 줄임말을 목록 이름으로 바꿔서, 열 때 고치는 트랜잭션이 생기지 않게 한다 (SYS-11)
+    const parent: Record<string, Attribute> = this.parent?.() ?? {};
+    const language: Attribute = parent.language ?? { default: null };
+    return {
+      ...parent,
+      language: {
+        ...language,
+        parseHTML: (element: HTMLElement) => {
+          const raw = language.parseHTML ? language.parseHTML.call(this, element) : null;
+          return storedLanguage(raw);
+        },
+      },
+    };
+  },
   addNodeView() {
     return (props) => codeBlockView(props);
   },

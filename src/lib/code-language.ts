@@ -84,6 +84,36 @@ export function normalizeLanguage(lang: string | null | undefined): string {
   return CODE_LANGUAGES.some((l) => l.value === name) ? name : "plaintext";
 }
 
+/**
+ * 저장 값 → 저장할 값. 자동 감지(빈 값·`auto`)는 null, 나머지는 목록 이름으로 바꾼다.
+ * 문서를 읽을 때(불러오기·파싱) 미리 적용해, 여는 중에 언어 이름을 고치는 트랜잭션이 생기지 않게 한다 (SYS-11).
+ */
+export function storedLanguage(lang: unknown): string | null {
+  if (typeof lang !== "string" || !lang) return null;
+  const name = normalizeLanguage(lang);
+  return name === AUTO_LANGUAGE ? null : name;
+}
+
+type DocNode = { type?: string; attrs?: Record<string, unknown>; content?: DocNode[] };
+
+/**
+ * 문서 JSON의 코드 블록 언어를 저장 형식으로 바꾼다. 바뀔 것이 없으면 같은 객체를 돌려준다.
+ * 입력 객체는 고치지 않는다.
+ */
+export function normalizeDocCodeLanguages<T extends DocNode>(node: T): T {
+  let content = node.content;
+  if (content) {
+    const next = content.map((child) => normalizeDocCodeLanguages(child));
+    if (next.some((child, i) => child !== content![i])) content = next;
+  }
+  if (node.type === "codeBlock" && node.attrs && "language" in node.attrs) {
+    const language = storedLanguage(node.attrs.language);
+    if (language !== node.attrs.language)
+      return { ...node, content, attrs: { ...node.attrs, language } };
+  }
+  return content === node.content ? node : { ...node, content };
+}
+
 /** 이 정도 관련도보다 낮으면 "모르겠다"로 본다 — 짧은 글이 엉뚱한 언어로 잡히는 것을 막는다 */
 const MIN_RELEVANCE = 5;
 

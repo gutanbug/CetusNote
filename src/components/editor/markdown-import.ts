@@ -1,6 +1,6 @@
 import { getSchema, type JSONContent } from "@tiptap/core";
 import { DOMParser as PMDOMParser, type Schema } from "@tiptap/pm/model";
-import { normalizeLanguage } from "./code-block";
+import { normalizeDocCodeLanguages } from "@/lib/code-language";
 import { createExtensions } from "./extensions";
 import { markdownToDom } from "./markdown-paste";
 import { imagesToFigures } from "./remote-images";
@@ -101,13 +101,6 @@ async function bodyToDoc(body: HTMLElement, resolveImage?: ImageResolver): Promi
   for (const p of body.querySelectorAll("p"))
     if (!p.textContent?.trim() && !p.querySelector("img, br")) p.remove();
   const doc = PMDOMParser.fromSchema(editorSchema()).parse(body).toJSON() as JSONContent;
-  normalizeCode(doc);
-  return doc;
-}
-
-/** 코드 블록 언어 별칭(`ts` → `typescript`) — 붙여넣기와 같은 이름으로 저장한다 */
-function normalizeCode(node: JSONContent) {
-  if (node.type === "codeBlock" && node.attrs?.language)
-    node.attrs = { ...node.attrs, language: normalizeLanguage(String(node.attrs.language)) };
-  node.content?.forEach(normalizeCode);
+  // 코드 블록 언어 별칭(`ts` → `typescript`)은 붙여넣기와 같은 이름으로 저장한다
+  return normalizeDocCodeLanguages(doc);
 }
