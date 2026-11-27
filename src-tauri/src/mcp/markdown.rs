@@ -160,6 +160,9 @@ fn starts_block(line: &str) -> bool {
         || is_hr(line)
         || quote_line(line).is_some()
         || list_marker(line).is_some()
+        || details_open(line)
+        || line.trim() == COLUMNS_OPEN
+        || line.trim() == "$$"
 }
 
 /// `[ ] 할 일` / `[x] 끝남` → (체크 여부, 나머지)
@@ -189,6 +192,32 @@ fn parse_blocks(lines: &[&str]) -> Vec<Value> {
             }
             i += 1; // 닫는 울타리 (없으면 끝까지)
             out.push(code_block(&info, &code));
+        } else if details_open(line) {
+            let end = matching_close(lines, i, details_open, is_details_close);
+            out.push(details_node(&lines[i..end.min(lines.len())]));
+            i = end + 1;
+        } else if line.trim() == COLUMNS_OPEN {
+            let end = matching_close(
+                lines,
+                i,
+                |l| l.trim() == COLUMNS_OPEN,
+                |l| l.trim() == COLUMNS_CLOSE,
+            );
+            out.push(columns_node(&lines[i + 1..end.min(lines.len())]));
+            i = end + 1;
+        } else if line.trim() == "$$" {
+            let end = (i + 1..lines.len())
+                .find(|&j| lines[j].trim() == "$$")
+                .unwrap_or(lines.len());
+            let latex = lines[i + 1..end].join("\n");
+            out.push(json!({ "type": "blockMath", "attrs": { "latex": latex } }));
+            i = end + 1;
+        } else if is_table_row(line) && lines.get(i + 1).is_some_and(|l| is_table_sep(l)) {
+            let end = (i..lines.len())
+                .find(|&j| !is_table_row(lines[j]))
+                .unwrap_or(lines.len());
+            out.push(table_node(&lines[i..end]));
+            i = end;
         } else if let Some((level, text)) = heading(line) {
             let mut node = json!({ "type": "heading", "attrs": { "level": level } });
             let inline = inline_nodes(text);
@@ -209,7 +238,7 @@ fn parse_blocks(lines: &[&str]) -> Vec<Value> {
                 }
                 i += 1;
             }
-            out.push(json!({ "type": "blockquote", "content": non_empty_blocks(&inner) }));
+            out.push(callout_or_quote(&inner));
         } else if list_marker(line).is_some() {
             let (nodes, next) = parse_list(lines, i);
             out.extend(nodes);
@@ -245,8 +274,36 @@ fn paragraph(text: &str) -> Value {
     node
 }
 
+/// 코드 블록 언어 줄임말 → 목록 이름 (모르는 이름은 그대로 둔다)
+fn canonical_language(lang: &str) -> String {
+    let name = match lang {
+        "ts" | "tsx" => "typescript",
+        "js" | "jsx" | "mjs" => "javascript",
+        "sh" | "zsh" => "bash",
+        "console" => "shell",
+        "py" => "python",
+        "rs" => "rust",
+        "golang" => "go",
+        "kt" => "kotlin",
+        "c++" => "cpp",
+        "cs" => "csharp",
+        "rb" => "ruby",
+        "html" | "svg" => "xml",
+        "yml" => "yaml",
+        "toml" => "ini",
+        "md" => "markdown",
+        "text" | "txt" => "plaintext",
+        other => other,
+    };
+    name.to_string()
+}
+
 fn code_block(info: &str, lines: &[&str]) -> Value {
-    let language = info.split_whitespace().next().map(str::to_string);
+    // 줄임말(`ts`)은 목록 이름으로 저장한다 — src/lib/code-language.ts의 LANGUAGE_ALIASES와 같은 표
+    let language = info
+        .split_whitespace()
+        .next()
+        .map(|l| canonical_language(&l.to_ascii_lowercase()));
     let mut node = json!({ "type": "codeBlock", "attrs": { "language": language } });
     let text = lines.join("\n");
     if !text.is_empty() {
@@ -547,6 +604,31 @@ fn parse_inline(chars: &[char], marks: &[Value], out: &mut Vec<Value>) {
                     }
                 }
             }
+            '@' => match date_chip_at(chars, i) {
+                Some(date) => {
+                    flush(&mut buf, marks, out);
+                    out.push(json!({ "type": "dateChip", "attrs": { "date": date } }));
+                    i += 11;
+                }
+                None => {
+                    buf.push(c);
+                    i += 1;
+                }
+            },
+            '$' if next.is_some_and(|n| n != '$' && !n.is_whitespace()) => {
+                match find_single(chars, i, '$') {
+                    Some(close) if !chars[close - 1].is_whitespace() => {
+                        flush(&mut buf, marks, out);
+                        let latex: String = chars[i + 1..close].iter().collect();
+                        out.push(json!({ "type": "inlineMath", "attrs": { "latex": latex } }));
+                        i = close + 1;
+                    }
+                    _ => {
+                        buf.push(c);
+                        i += 1;
+                    }
+                }
+            }
             '~' if next == Some('~') => match find_pair(chars, i + 2, &['~', '~']) {
                 Some(close) if close > i + 2 => {
                     flush(&mut buf, marks, out);
@@ -685,9 +767,10 @@ fn render_block(node: &Value) -> String {
         "blockquote" => prefix_lines(&render_blocks(children(node), "\n\n"), "> ", "> "),
         "callout" => {
             let emoji = str_attr(node, "emoji").unwrap_or("💡");
+            let kind = callout_type(str_attr(node, "color").unwrap_or("blue"));
             prefix_lines(
                 &render_blocks(children(node), "\n\n"),
-                &format!("> {emoji} "),
+                &format!("> [!{kind}] {emoji} "),
                 "> ",
             )
         }
@@ -704,21 +787,114 @@ fn render_block(node: &Value) -> String {
         "horizontalRule" => "---".to_string(),
         "image" => {
             let src = str_attr(node, "src")
-                .or_else(|| str_attr(node, "remote"))
+                .or_else(|| {
+                    str_attr(node, "remote")
+                        .filter(|r| r.starts_with("http://") || r.starts_with("https://"))
+                })
                 .unwrap_or("");
             format!("![{}]({src})", escape_text(&plain_text(node)))
         }
-        "table" => children(node)
-            .iter()
-            .map(|row| {
-                let cells: Vec<String> = children(row)
-                    .iter()
-                    .map(|cell| inline_or_blocks(cell).replace('\n', " "))
+        "table" => {
+            let rows: Vec<Vec<String>> = children(node)
+                .iter()
+                .map(|row| {
+                    children(row)
+                        .iter()
+                        .map(table_cell_text)
+                        .collect::<Vec<String>>()
+                })
+                .collect();
+            let Some(header) = rows.first() else {
+                return String::new();
+            };
+            let cols = rows.iter().map(Vec::len).max().unwrap_or(0);
+            let line = |cells: &[String]| {
+                let padded: Vec<String> = (0..cols)
+                    .map(|i| cells.get(i).cloned().unwrap_or_default())
                     .collect();
-                format!("| {} |", cells.join(" | "))
-            })
-            .collect::<Vec<_>>()
-            .join("\n"),
+                format!("| {} |", padded.join(" | "))
+            };
+            let sep = vec!["---".to_string(); cols];
+            let mut out = vec![line(header), line(&sep)];
+            out.extend(rows[1..].iter().map(|r| line(r)));
+            out.join("\n")
+        }
+        "details" => {
+            let summary = children(node)
+                .iter()
+                .find(|c| node_type(c) == "detailsSummary");
+            let content = children(node)
+                .iter()
+                .find(|c| node_type(c) == "detailsContent");
+            details_block(
+                is_open(node, false),
+                &summary.map(|s| inline(children(s))).unwrap_or_default(),
+                &content
+                    .map(|c| render_blocks(children(c), "\n\n"))
+                    .unwrap_or_default(),
+            )
+        }
+        "toggleHeading" => {
+            let kids = children(node);
+            let summary = match kids.first() {
+                Some(h) if node_type(h) == "heading" => {
+                    let level = h
+                        .get("attrs")
+                        .and_then(|a| a.get("level"))
+                        .and_then(Value::as_u64)
+                        .unwrap_or(1)
+                        .clamp(1, 3);
+                    format!("<h{level}>{}</h{level}>", inline(children(h)))
+                }
+                _ => String::new(),
+            };
+            let rest = if summary.is_empty() {
+                kids
+            } else {
+                kids.get(1..).unwrap_or(&[])
+            };
+            details_block(is_open(node, true), &summary, &render_blocks(rest, "\n\n"))
+        }
+        "columns" => {
+            let mut parts = vec!["<!-- cetusnote:columns -->".to_string()];
+            for col in children(node) {
+                let width = col
+                    .get("attrs")
+                    .and_then(|a| a.get("width"))
+                    .and_then(Value::as_f64)
+                    .filter(|w| *w > 0.0)
+                    .unwrap_or(1.0);
+                let mut col_parts = vec![format!("<!-- cetusnote:column width={width} -->")];
+                let body = render_blocks(children(col), "\n\n");
+                if !body.is_empty() {
+                    col_parts.push(body);
+                }
+                col_parts.push("<!-- /cetusnote:column -->".to_string());
+                parts.push(col_parts.join("\n\n"));
+            }
+            parts.push("<!-- /cetusnote:columns -->".to_string());
+            parts.join("\n\n")
+        }
+        "blockMath" => format!("$$\n{}\n$$", str_attr(node, "latex").unwrap_or("")),
+        "attachment" => {
+            let name = str_attr(node, "name")
+                .filter(|n| !n.is_empty())
+                .unwrap_or("첨부");
+            format!(
+                "[{}]({})",
+                escape_text(name),
+                str_attr(node, "path").unwrap_or("")
+            )
+        }
+        "subpage" => {
+            let id = str_attr(node, "pageId").unwrap_or("");
+            let title = str_attr(node, "title")
+                .filter(|t| !t.is_empty())
+                .unwrap_or("하위 페이지");
+            format!("[{}](cetusnote://page/{id})", escape_text(title))
+        }
+        // 경로 표시는 문서 밖(페이지 경로)을 몰라서 빈 블록이 된다 — 앱의 복사와 같다
+        "breadcrumb" => String::new(),
         "hardBreak" => "\n".to_string(),
         _ => {
             if children(node).is_empty() {
@@ -787,6 +963,17 @@ fn inline(nodes: &[Value]) -> String {
         .map(|node| match node_type(node) {
             "text" => marked_text(node),
             "hardBreak" => "\n".to_string(),
+            "pageMention" => {
+                let id = str_attr(node, "id").unwrap_or("");
+                let label = str_attr(node, "label")
+                    .filter(|l| !l.is_empty())
+                    .unwrap_or("제목 없음");
+                format!("[{}](cetusnote://page/{id})", escape_text(label))
+            }
+            "dateChip" => str_attr(node, "date")
+                .map(|d| format!("@{d}"))
+                .unwrap_or_default(),
+            "inlineMath" => format!("${}$", str_attr(node, "latex").unwrap_or("")),
             _ if !children(node).is_empty() => inline(children(node)),
             _ => str_attr(node, "label")
                 .or_else(|| str_attr(node, "title"))
@@ -886,6 +1073,355 @@ fn collect_text(node: &Value, out: &mut String) {
     }
 }
 
+// ── 앱 내보내기와 같은 확장 형식 (토글·열·콜아웃·수식·날짜 칩·표) ──
+
+const COLUMNS_OPEN: &str = "<!-- cetusnote:columns -->";
+const COLUMNS_CLOSE: &str = "<!-- /cetusnote:columns -->";
+const COLUMN_CLOSE: &str = "<!-- /cetusnote:column -->";
+
+/// 콜아웃 색 → 종류 이름. 표준이 없는 색은 `CETUS-<색>` (lib/callout-type.ts와 같은 규칙)
+fn callout_type(color: &str) -> String {
+    match color {
+        "blue" => "NOTE".to_string(),
+        "green" => "TIP".to_string(),
+        "yellow" => "WARNING".to_string(),
+        "red" => "CAUTION".to_string(),
+        "purple" => "IMPORTANT".to_string(),
+        other => format!("CETUS-{other}"),
+    }
+}
+
+/// 콜아웃 종류 이름 → 색. 모르는 종류는 파란색 (가져오기 규칙)
+fn callout_color(kind: &str) -> String {
+    if let Some(color) = kind.strip_prefix("CETUS-") {
+        return color.to_ascii_lowercase();
+    }
+    let name: &str = match kind.to_ascii_uppercase().as_str() {
+        "TIP" | "HINT" | "SUCCESS" | "CHECK" | "DONE" => "green",
+        "WARNING" | "QUESTION" => "yellow",
+        "CAUTION" | "DANGER" | "ERROR" | "FAILURE" => "red",
+        "IMPORTANT" => "purple",
+        _ => "blue",
+    };
+    name.to_string()
+}
+
+fn is_open(node: &Value, default: bool) -> bool {
+    node.get("attrs")
+        .and_then(|a| a.get("open"))
+        .and_then(Value::as_bool)
+        .unwrap_or(default)
+}
+
+fn details_block(open: bool, summary: &str, body: &str) -> String {
+    let mut lines = vec![
+        if open {
+            "<details open>".to_string()
+        } else {
+            "<details>".to_string()
+        },
+        format!("<summary>{summary}</summary>"),
+    ];
+    if !body.is_empty() {
+        lines.push(String::new());
+        lines.push(body.to_string());
+        lines.push(String::new());
+    }
+    lines.push("</details>".to_string());
+    lines.join("\n")
+}
+
+/// 표 칸: 문단은 `<br>`로 잇고, `|`는 이스케이프한다
+fn table_cell_text(cell: &Value) -> String {
+    children(cell)
+        .iter()
+        .map(|p| inline(children(p)))
+        .collect::<Vec<_>>()
+        .join("<br>")
+        .replace('|', "\\|")
+        .replace('\n', " ")
+        .trim()
+        .to_string()
+}
+
+/// `@YYYY-MM-DD` 날짜 칩 (앞뒤가 글자가 아닐 때만)
+fn date_chip_at(chars: &[char], i: usize) -> Option<String> {
+    let s: String = chars.get(i + 1..i + 11)?.iter().collect();
+    let bytes = s.as_bytes();
+    let shape_ok = bytes.iter().enumerate().all(|(k, &ch)| {
+        if k == 4 || k == 7 {
+            ch == b'-'
+        } else {
+            ch.is_ascii_digit()
+        }
+    });
+    if !shape_ok {
+        return None;
+    }
+    let month: u32 = s[5..7].parse().ok()?;
+    let day: u32 = s[8..10].parse().ok()?;
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    if i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == '@' || chars[i - 1] == '_') {
+        return None;
+    }
+    if chars
+        .get(i + 11)
+        .is_some_and(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+    {
+        return None;
+    }
+    Some(s)
+}
+
+/// `<details>` 여닫기 짝 찾기 (중첩 허용). 짝이 없으면 줄 수를 돌려준다
+fn matching_close(
+    lines: &[&str],
+    start: usize,
+    open: impl Fn(&str) -> bool,
+    close: impl Fn(&str) -> bool,
+) -> usize {
+    let mut depth = 0usize;
+    for (j, line) in lines.iter().enumerate().skip(start) {
+        if open(line) {
+            depth += 1;
+        } else if close(line) {
+            depth = depth.saturating_sub(1);
+            if depth == 0 {
+                return j;
+            }
+        }
+    }
+    lines.len()
+}
+
+fn details_open(line: &str) -> bool {
+    let t = line.trim();
+    t == "<details>" || t.starts_with("<details ")
+}
+
+fn is_details_close(line: &str) -> bool {
+    line.trim() == "</details>"
+}
+
+fn summary_text(line: &str) -> Option<&str> {
+    line.trim()
+        .strip_prefix("<summary>")?
+        .strip_suffix("</summary>")
+}
+
+/// `<h2>제목</h2>` 요약 → (단계, 제목)
+fn heading_summary(summary: &str) -> Option<(u64, &str)> {
+    let rest = summary.strip_prefix("<h")?;
+    let level = rest.chars().next()?.to_digit(10)?;
+    if !(1..=3).contains(&level) {
+        return None;
+    }
+    let body = rest
+        .get(1..)?
+        .strip_prefix('>')?
+        .strip_suffix(format!("</h{level}>").as_str())?;
+    Some((u64::from(level), body))
+}
+
+fn trim_blank<'a, 'b>(lines: &'b [&'a str]) -> &'b [&'a str] {
+    let start = lines
+        .iter()
+        .position(|l| !l.trim().is_empty())
+        .unwrap_or(lines.len());
+    let end = lines
+        .iter()
+        .rposition(|l| !l.trim().is_empty())
+        .map_or(start, |e| e + 1);
+    &lines[start..end.max(start)]
+}
+
+/// `<details>` 블록 한 덩이 → 토글(details) 또는 제목 토글(toggleHeading)
+fn details_node(block: &[&str]) -> Value {
+    let open = block[0].contains(" open");
+    let inner_end = if block.len() > 1 && is_details_close(block[block.len() - 1]) {
+        block.len() - 1
+    } else {
+        block.len()
+    };
+    let inner = &block[1..inner_end];
+    let mut summary = "";
+    let mut rest: &[&str] = inner;
+    if let Some(first) = inner.iter().position(|l| !l.trim().is_empty()) {
+        if let Some(text) = summary_text(inner[first]) {
+            summary = text;
+            rest = &inner[first + 1..];
+        }
+    }
+    let body = trim_blank(rest);
+    if let Some((level, text)) = heading_summary(summary) {
+        let mut heading = json!({ "type": "heading", "attrs": { "level": level } });
+        let inl = inline_nodes(text);
+        if !inl.is_empty() {
+            heading["content"] = Value::Array(inl);
+        }
+        let mut kids = vec![heading];
+        kids.extend(parse_blocks(body));
+        return json!({ "type": "toggleHeading", "attrs": { "open": open }, "content": kids });
+    }
+    let mut summary_node = json!({ "type": "detailsSummary" });
+    let inl = inline_nodes(summary);
+    if !inl.is_empty() {
+        summary_node["content"] = Value::Array(inl);
+    }
+    json!({
+        "type": "details",
+        "attrs": { "open": open },
+        "content": [
+            summary_node,
+            { "type": "detailsContent", "content": non_empty_blocks(body) }
+        ]
+    })
+}
+
+/// `<!-- cetusnote:column width=N -->` 표지 → 열 너비 (표지가 아니면 None)
+fn column_width(line: &str) -> Option<f64> {
+    let inner = line
+        .trim()
+        .strip_prefix("<!-- cetusnote:column")?
+        .strip_suffix("-->")?
+        .trim();
+    if inner.is_empty() {
+        return Some(1.0);
+    }
+    inner.strip_prefix("width=")?.parse::<f64>().ok()
+}
+
+fn columns_node(lines: &[&str]) -> Value {
+    let mut cols = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        match column_width(lines[i]) {
+            Some(width) => {
+                let end = matching_close(
+                    lines,
+                    i,
+                    |l| column_width(l).is_some(),
+                    |l| l.trim() == COLUMN_CLOSE,
+                );
+                let width_val = if width.fract() == 0.0 {
+                    json!(width as u64)
+                } else {
+                    json!(width)
+                };
+                let body = non_empty_blocks(&lines[i + 1..end.min(lines.len())]);
+                cols.push(
+                    json!({ "type": "column", "attrs": { "width": width_val }, "content": body }),
+                );
+                i = end + 1;
+            }
+            None => i += 1,
+        }
+    }
+    json!({ "type": "columns", "content": cols })
+}
+
+/// `[!TYPE] 이모지 …` 머리 → (종류, 나머지)
+fn callout_head(line: &str) -> Option<(&str, &str)> {
+    let rest = line.trim_start().strip_prefix("[!")?;
+    let end = rest.find(']')?;
+    let kind = &rest[..end];
+    let first = kind.chars().next()?;
+    if !first.is_ascii_alphabetic()
+        || !kind
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return None;
+    }
+    Some((kind, rest[end + 1..].trim_start()))
+}
+
+/// 머리 글의 첫 낱말이 이모지면 떼어낸다 (없으면 기본 💡)
+fn split_emoji(text: &str) -> (String, &str) {
+    let (head, tail) = text.split_once(' ').unwrap_or((text, ""));
+    let is_emoji =
+        !head.is_empty() && !head.chars().any(|c| c.is_ascii_alphanumeric()) && !head.is_ascii();
+    if is_emoji {
+        (head.to_string(), tail.trim_start())
+    } else {
+        ("💡".to_string(), text)
+    }
+}
+
+fn callout_or_quote(inner: &[&str]) -> Value {
+    let Some((kind, rest)) = inner.first().and_then(|l| callout_head(l)) else {
+        return json!({ "type": "blockquote", "content": non_empty_blocks(inner) });
+    };
+    let (emoji, text) = split_emoji(rest);
+    let mut body: Vec<&str> = Vec::new();
+    if !text.is_empty() {
+        body.push(text);
+    }
+    body.extend_from_slice(&inner[1..]);
+    json!({
+        "type": "callout",
+        "attrs": { "color": callout_color(kind), "emoji": emoji },
+        "content": non_empty_blocks(&body)
+    })
+}
+
+fn is_table_row(line: &str) -> bool {
+    line.trim().starts_with('|')
+}
+
+fn is_table_sep(line: &str) -> bool {
+    let t = line.trim();
+    t.starts_with('|') && t.contains('-') && t.chars().all(|c| matches!(c, '|' | '-' | ':' | ' '))
+}
+
+/// 표 한 줄 → 칸 글자. `\|`는 `|` 글자로 본다
+fn split_row(line: &str) -> Vec<String> {
+    let t = line.trim();
+    let t = t.strip_prefix('|').unwrap_or(t);
+    let t = t.strip_suffix('|').unwrap_or(t);
+    let mut cells = Vec::new();
+    let mut cur = String::new();
+    let mut chars = t.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' && chars.peek() == Some(&'|') {
+            cur.push('|');
+            chars.next();
+        } else if c == '|' {
+            cells.push(cur.trim().to_string());
+            cur.clear();
+        } else {
+            cur.push(c);
+        }
+    }
+    cells.push(cur.trim().to_string());
+    cells
+}
+
+/// 표 블록 (첫 줄은 머리, 둘째 줄은 구분선). `<br>`는 칸 안의 문단 나눔
+fn table_node(lines: &[&str]) -> Value {
+    let mut rows = Vec::new();
+    for (k, line) in lines.iter().enumerate() {
+        if k == 1 {
+            continue;
+        }
+        let cell_type = if k == 0 { "tableHeader" } else { "tableCell" };
+        let cells: Vec<Value> = split_row(line)
+            .iter()
+            .map(|cell| {
+                let paragraphs: Vec<Value> = cell
+                    .split("<br>")
+                    .map(|piece| paragraph(piece.trim()))
+                    .collect();
+                json!({ "type": cell_type, "content": paragraphs })
+            })
+            .collect();
+        rows.push(json!({ "type": "tableRow", "content": cells }));
+    }
+    json!({ "type": "table", "content": rows })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -947,6 +1483,16 @@ mod tests {
     }
 
     #[test]
+    fn code_block_maps_language_abbreviations_to_list_names() {
+        let doc = markdown_to_doc(
+            "```TS\nlet a = 1;\n```\n\n```yml\na: 1\n```\n\n```brainfuck\n+\n```\n",
+        );
+        assert_eq!(doc["content"][0]["attrs"]["language"], "typescript");
+        assert_eq!(doc["content"][1]["attrs"]["language"], "yaml");
+        assert_eq!(doc["content"][2]["attrs"]["language"], "brainfuck");
+    }
+
+    #[test]
     fn code_block_keeps_language_and_text_verbatim() {
         let doc = markdown_to_doc("```rust\nfn main() {}\n  - not a list\n```\n뒤");
         let c = children(&doc);
@@ -1004,7 +1550,8 @@ mod tests {
         assert!(back.contains("**굵게**"));
         assert!(back.contains("- [ ] b"));
         assert!(back.contains("2. 둘째"));
-        assert!(back.contains("```ts\nconst a = 1;\n```"));
+        // 줄임말은 목록 이름으로 저장된다 (ts → typescript)
+        assert!(back.contains("```typescript\nconst a = 1;\n```"));
     }
 
     #[test]
@@ -1020,6 +1567,122 @@ mod tests {
         let doc = json!({"type":"doc","content":[{"type":"codeBlock","attrs":{"language":null},"content":[{"type":"text","text":"a ``` b"}]}]});
         let md = doc_to_markdown(&doc);
         assert!(md.starts_with("````\n"));
+    }
+
+    fn render(node: Value) -> String {
+        render_block(&node)
+    }
+
+    #[test]
+    fn details_toggle_round_trips_closed_and_open() {
+        let md = "<details>\n<summary>요약</summary>\n\n본문\n\n</details>\n";
+        let doc = markdown_to_doc(md);
+        assert_eq!(doc["content"][0]["type"], "details");
+        assert_eq!(doc["content"][0]["content"][0]["type"], "detailsSummary");
+        assert_eq!(doc["content"][0]["content"][1]["type"], "detailsContent");
+        assert_eq!(doc["content"][0]["attrs"]["open"], false);
+        assert_eq!(doc_to_markdown(&doc), md);
+        let open = "<details open>\n<summary>열림</summary>\n\n내용\n\n</details>\n";
+        assert_eq!(doc_to_markdown(&markdown_to_doc(open)), open);
+    }
+
+    #[test]
+    fn toggle_heading_round_trips_as_heading_summary() {
+        let md = "<details open>\n<summary><h2>제목</h2></summary>\n\n본문\n\n</details>\n";
+        let doc = markdown_to_doc(md);
+        assert_eq!(doc["content"][0]["type"], "toggleHeading");
+        assert_eq!(doc["content"][0]["content"][0]["attrs"]["level"], 2);
+        assert_eq!(doc_to_markdown(&doc), md);
+    }
+
+    #[test]
+    fn columns_round_trip_with_widths() {
+        let md = "<!-- cetusnote:columns -->\n\n<!-- cetusnote:column width=2 -->\n\n왼쪽\n\n<!-- /cetusnote:column -->\n\n<!-- cetusnote:column width=1 -->\n\n오른쪽\n\n<!-- /cetusnote:column -->\n\n<!-- /cetusnote:columns -->\n";
+        let doc = markdown_to_doc(md);
+        assert_eq!(doc["content"][0]["type"], "columns");
+        assert_eq!(doc["content"][0]["content"][0]["attrs"]["width"], 2);
+        assert_eq!(doc["content"][0]["content"][1]["attrs"]["width"], 1);
+        assert_eq!(doc_to_markdown(&doc), md);
+    }
+
+    #[test]
+    fn callout_maps_color_to_standard_or_custom_type() {
+        let blue = json!({ "type": "callout", "attrs": { "color": "blue", "emoji": "💡" },
+            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "주의" }] }] });
+        assert_eq!(render(blue), "> [!NOTE] 💡 주의");
+        let pink = json!({ "type": "callout", "attrs": { "color": "pink", "emoji": "🌸" },
+            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "꽃" }] }] });
+        assert_eq!(render(pink), "> [!CETUS-pink] 🌸 꽃");
+        let doc = markdown_to_doc("> [!WARNING] 🔥 조심\n> 물을 마세요\n");
+        assert_eq!(doc["content"][0]["type"], "callout");
+        assert_eq!(doc["content"][0]["attrs"]["color"], "yellow");
+        assert_eq!(doc["content"][0]["attrs"]["emoji"], "🔥");
+        assert_eq!(
+            doc_to_markdown(&doc),
+            "> [!WARNING] 🔥 조심\n> 물을 마세요\n"
+        );
+        // 종류 표지가 없는 인용은 그대로 인용이다
+        assert_eq!(
+            markdown_to_doc("> 그냥 글\n")["content"][0]["type"],
+            "blockquote"
+        );
+    }
+
+    #[test]
+    fn table_round_trips_header_separator_and_pipes() {
+        let md = "| 이름 | 값 |\n| --- | --- |\n| a \\| b | 1 |\n";
+        let doc = markdown_to_doc(md);
+        assert_eq!(doc["content"][0]["type"], "table");
+        assert_eq!(
+            doc["content"][0]["content"][0]["content"][0]["type"],
+            "tableHeader"
+        );
+        assert_eq!(
+            doc["content"][0]["content"][1]["content"][0]["type"],
+            "tableCell"
+        );
+        assert_eq!(doc_to_markdown(&doc), md);
+    }
+
+    #[test]
+    fn math_block_and_inline_round_trip() {
+        let md = "$$\nE = mc^2\n$$\n\n본문 $x^2$ 끝\n";
+        let doc = markdown_to_doc(md);
+        assert_eq!(doc["content"][0]["type"], "blockMath");
+        assert_eq!(doc["content"][0]["attrs"]["latex"], "E = mc^2");
+        assert_eq!(doc["content"][1]["content"][1]["type"], "inlineMath");
+        assert_eq!(doc_to_markdown(&doc), md);
+    }
+
+    #[test]
+    fn date_chip_round_trips_and_rejects_invalid_dates() {
+        let doc = markdown_to_doc("마감 @2026-11-30 입니다\n");
+        assert_eq!(doc["content"][0]["content"][1]["type"], "dateChip");
+        assert_eq!(
+            doc["content"][0]["content"][1]["attrs"]["date"],
+            "2026-11-30"
+        );
+        assert_eq!(doc_to_markdown(&doc), "마감 @2026-11-30 입니다\n");
+        let bad = markdown_to_doc("@2026-13-01\n");
+        assert_eq!(bad["content"][0]["content"][0]["type"], "text");
+    }
+
+    #[test]
+    fn page_mention_subpage_attachment_breadcrumb_render_like_export() {
+        let mention = json!({ "type": "paragraph", "content": [
+            { "type": "pageMention", "attrs": { "id": "p1", "label": "목표" } }] });
+        assert_eq!(render(mention), "[목표](cetusnote://page/p1)");
+        assert_eq!(
+            render(json!({ "type": "subpage", "attrs": { "pageId": "p2" } })),
+            "[하위 페이지](cetusnote://page/p2)"
+        );
+        assert_eq!(
+            render(
+                json!({ "type": "attachment", "attrs": { "name": "a.pdf", "path": "assets/a.pdf" } })
+            ),
+            "[a.pdf](assets/a.pdf)"
+        );
+        assert_eq!(render(json!({ "type": "breadcrumb" })), "");
     }
 
     #[test]
