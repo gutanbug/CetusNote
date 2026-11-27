@@ -2,7 +2,7 @@
 //! (원자적 쓰기, id 검사, 버전 기록). 여기서는 목록·검색·변경 규칙만 다룬다.
 //! 오류는 모델이 읽을 한국어 문장(`Err(String)`)으로 돌려주고, 도구 결과의 `isError`가 된다.
 
-use crate::mcp::markdown::{doc_text, doc_to_markdown, markdown_to_doc};
+use crate::mcp::markdown::{Refs, doc_text, doc_to_markdown_with, markdown_to_doc_with};
 use crate::storage::{LoadError, StorageError, Workspace, is_valid_id};
 use rmcp::schemars::{self, JsonSchema};
 use serde::{Deserialize, Serialize};
@@ -505,6 +505,18 @@ pub struct WriteOut {
 // 작업
 // ---------------------------------------------------------------------------
 
+/// 페이지 제목 (없는 페이지·잘못된 id는 None). 하위 페이지·멘션을 풀 때 쓴다
+fn page_title(ws: &Workspace, id: &str) -> Option<String> {
+    check_page_id(id).ok()?;
+    let page = ws.read_page(id).ok()??;
+    Some(
+        page.get("title")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+    )
+}
+
 fn check_page_id(id: &str) -> Res<()> {
     if is_valid_id(id) {
         Ok(())
@@ -790,7 +802,10 @@ pub fn read(ws: &Workspace, args: ReadArgs) -> Res<ReadOut> {
         .cloned()
         .unwrap_or_else(|| json!({ "type": "doc", "content": [] }));
     let (markdown, content) = match format {
-        ReadFormat::Markdown => (Some(doc_to_markdown(&content)), None),
+        ReadFormat::Markdown => {
+            let title_of = |pid: &str| page_title(ws, pid);
+            (Some(doc_to_markdown_with(&content, &title_of)), None)
+        }
         ReadFormat::TiptapJson => (None, Some(content)),
     };
     Ok(ReadOut {
@@ -850,7 +865,12 @@ pub fn create(ws: &Workspace, args: CreateArgs) -> Res<WriteOut> {
     if ws.read_page(&id).map_err(storage_err)?.is_some() {
         return Err("새 id가 이미 있어요. 다시 시도해 주세요".into());
     }
-    let content = markdown_to_doc(&md);
+    let title_of = |pid: &str| page_title(ws, pid);
+    let refs = Refs {
+        page_id: Some(&id),
+        title_of: &title_of,
+    };
+    let content = markdown_to_doc_with(&md, &refs);
     let page = new_page_value(
         &id,
         "page",
@@ -872,7 +892,12 @@ pub fn append(ws: &Workspace, args: AppendArgs) -> Res<WriteOut> {
     check_markdown(&args.markdown)?;
     let before = load_live_page(ws, &args.page_id)?;
     let mut after = before.clone();
-    let addition = markdown_to_doc(&args.markdown);
+    let title_of = |pid: &str| page_title(ws, pid);
+    let refs = Refs {
+        page_id: before.get("id").and_then(Value::as_str),
+        title_of: &title_of,
+    };
+    let addition = markdown_to_doc_with(&args.markdown, &refs);
     let added = addition
         .get("content")
         .and_then(Value::as_array)
@@ -913,7 +938,12 @@ pub fn update(ws: &Workspace, args: UpdateArgs) -> Res<WriteOut> {
         after["title"] = json!(t);
     }
     if let Some(md) = args.markdown.as_deref() {
-        after["content"] = markdown_to_doc(md);
+        let title_of = |pid: &str| page_title(ws, pid);
+        let refs = Refs {
+            page_id: before.get("id").and_then(Value::as_str),
+            title_of: &title_of,
+        };
+        after["content"] = markdown_to_doc_with(md, &refs);
     }
     after["updatedAt"] = json!(now_iso());
     Ok(write_out(save_changes(ws, &before, after)?))
@@ -980,7 +1010,8 @@ pub fn page_resource_text(ws: &Workspace, id: &str) -> Res<String> {
     if !e.tags.is_empty() {
         meta.push(format!("tags: {}", e.tags.join(", ")));
     }
-    let body = doc_to_markdown(page.get("content").unwrap_or(&Value::Null));
+    let title_of = |pid: &str| page_title(ws, pid);
+    let body = doc_to_markdown_with(page.get("content").unwrap_or(&Value::Null), &title_of);
     Ok(format!(
         "# {}\n\n> {}\n\n{}",
         e.title,

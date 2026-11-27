@@ -1,31 +1,357 @@
 //! Markdown ↔ Tiptap JSON 변환 (MCP 서버, DATA-12).
 //!
 //! 앱의 TS 변환(`features/export/markdown.ts`, 붙여넣기 `markdown-paste.ts`)과 같은 노드 이름을 쓴다.
-//! 다루는 것: 제목, 문단(줄바꿈은 hardBreak, 붙여넣기의 `breaks: true`와 같다), 글머리·번호·할 일 목록(중첩 포함),
-//! 인용, 코드 블록(언어), 구분선, 굵게·기울임·취소선·인라인 코드·링크.
-//! 다루지 않는 것(글로 옮기면 손실): 표(행 단위 텍스트로 남는다), 그림(링크 텍스트로 남는다), 접기·열·수식·멘션·
-//! 콜아웃 만들기(읽기에서는 안쪽 글만 살린다), HTML 태그, 참조 링크, 줄 끝 두 칸 줄바꿈.
+//! 다루는 것(쓰기·읽기): 제목, 문단(줄바꿈은 hardBreak), 글머리·번호·할 일 목록(중첩 포함), 인용, 코드 블록(언어 정식 이름),
+//! 구분선, 굵게·기울임·취소선·인라인 코드·링크, 표, 수식, 토글·토글 제목, 다단, 콜아웃, 날짜 칩, 페이지 멘션·하위 페이지,
+//! 이 페이지 assets의 그림·첨부. 쓰기만: 목차(제목 목록), 이모지(`:name:`). 자세한 표는 docs/dev/mcp.md 「Markdown 변환」.
+//! 다루지 않는 것: 글자 색, HTML 태그, 참조 링크, 줄 끝 두 칸 줄바꿈.
 
+use crate::storage::attachments::{kind_of, mime_of};
+use crate::storage::parse_asset_path;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 
-/// Markdown 한 덩어리 → `{ "type": "doc", "content": [...] }`
+/// 페이지 참조를 워크스페이스에 맞춰 풀 때 쓰는 정보 (MCP 도구가 채운다)
+pub struct Refs<'a> {
+    /// 이 페이지 id. `assets/<id>/<파일>` 그림·첨부를 이 페이지 것으로만 받는다. None이면 그림·첨부 링크는 글로 남는다
+    pub page_id: Option<&'a str>,
+    /// 페이지 id → 제목. None이면 없는 페이지로 보고, 멘션·하위 페이지는 링크로 남는다
+    pub title_of: &'a dyn Fn(&str) -> Option<String>,
+}
+
+fn no_title(_: &str) -> Option<String> {
+    None
+}
+
+/// 워크스페이스를 모를 때(테스트, 순수 변환): 그림·첨부·멘션은 바꾸지 않는다
+pub fn plain_refs() -> Refs<'static> {
+    Refs {
+        page_id: None,
+        title_of: &no_title,
+    }
+}
+
+/// Markdown 한 덩어리 → `{ "type": "doc", "content": [...] }` (워크스페이스 정보 없이)
 pub fn markdown_to_doc(md: &str) -> Value {
+    markdown_to_doc_with(md, &plain_refs())
+}
+
+/// Markdown → 문서. 그림·첨부·하위 페이지·페이지 멘션을 `refs`로 워크스페이스에 맞춘다
+pub fn markdown_to_doc_with(md: &str, refs: &Refs) -> Value {
     let normalized = md
         .replace("\r\n", "\n")
         .replace('\r', "\n")
         .replace('\t', "    ");
     let lines: Vec<&str> = normalized.split('\n').collect();
-    json!({ "type": "doc", "content": parse_blocks(&lines) })
+    let blocks = resolve_nodes(parse_blocks(&lines), refs);
+    json!({ "type": "doc", "content": blocks })
 }
 
-/// Tiptap 문서 → Markdown (읽기 도구·리소스용)
+/// Tiptap 문서 → Markdown (읽기 도구·리소스용, 제목 정보 없이)
 pub fn doc_to_markdown(doc: &Value) -> String {
-    let body = render_blocks(children(doc), "\n\n");
+    doc_to_markdown_with(doc, &no_title)
+}
+
+/// 문서 → Markdown. 하위 페이지·멘션은 `title_of`의 실제 제목을 쓰고, 목차는 본문 제목으로 만든다 (앱 내보내기와 같다)
+pub fn doc_to_markdown_with(doc: &Value, title_of: &dyn Fn(&str) -> Option<String>) -> String {
+    let toc = toc_items(doc);
+    let doc = enrich(doc, &toc, title_of);
+    let body = render_blocks(children(&doc), "\n\n");
     if body.is_empty() {
         body
     } else {
         format!("{body}\n")
     }
+}
+
+// ---------------------------------------------------------------------------
+// 워크스페이스 참조 (그림·첨부·페이지 링크)
+// ---------------------------------------------------------------------------
+
+const PAGE_LINK: &str = "cetusnote://page/";
+
+fn link_href(node: &Value) -> Option<&str> {
+    node.get("marks")?
+        .as_array()?
+        .iter()
+        .find(|m| m.get("type").and_then(Value::as_str) == Some("link"))?
+        .get("attrs")?
+        .get("href")?
+        .as_str()
+}
+
+fn is_http(src: &str) -> bool {
+    src.starts_with("http://") || src.starts_with("https://")
+}
+
+/// `assets/<이 페이지 id>/<파일>`만 받는다. 저장 계층과 같은 검사(`parse_asset_path`)를 거치므로
+/// `..`, 절대 경로, 다른 페이지의 폴더는 모두 거절된다
+fn page_asset(path: &str, refs: &Refs) -> bool {
+    let Some(page) = refs.page_id else {
+        return false;
+    };
+    matches!(parse_asset_path(path), Ok((id, _)) if id == page)
+}
+
+/// `![설명](주소)` 한 줄짜리 문단 → (설명, 주소). 그림 후보만 가린다
+fn standalone_image(text: &str) -> Option<(&str, &str)> {
+    let t = text.trim();
+    if t.contains('\n') {
+        return None;
+    }
+    let inner = t.strip_prefix("![")?.strip_suffix(')')?;
+    let at = inner.find("](")?;
+    let (alt, src) = (&inner[..at], &inner[at + 2..]);
+    (!src.is_empty() && !src.contains(char::is_whitespace)).then_some((alt, src))
+}
+
+/// 그림 후보를 그림 노드로 바꾼다. 워크스페이스 밖 경로는 원래처럼 설명 글자로 남긴다
+fn resolve_image(node: &Value, refs: &Refs) -> Vec<Value> {
+    let src = node.get("_md_src").and_then(Value::as_str).unwrap_or("");
+    let alt = node.get("_md_alt").and_then(Value::as_str).unwrap_or("");
+    let mut attrs = serde_json::Map::new();
+    if page_asset(src, refs) {
+        attrs.insert("src".into(), json!(src));
+    } else if is_http(src) {
+        attrs.insert("remote".into(), json!(src));
+    } else {
+        let fallback = node.get("_md_fallback").cloned().unwrap_or(Value::Null);
+        return resolve_nodes(vec![fallback], refs);
+    }
+    let mut image = json!({ "type": "image", "attrs": attrs });
+    if !alt.is_empty() {
+        image["content"] = json!([{ "type": "text", "text": alt }]);
+    }
+    vec![image]
+}
+
+/// 문단이 링크 하나뿐이면: 하위 페이지(`cetusnote://page/<id>`, 있는 페이지) 또는 첨부(이 페이지의 `assets/`)
+fn standalone_ref(node: &Value, refs: &Refs) -> Option<Value> {
+    let kids = node.get("content")?.as_array()?;
+    let [only] = kids.as_slice() else {
+        return None;
+    };
+    if only.get("type").and_then(Value::as_str) != Some("text") {
+        return None;
+    }
+    let href = link_href(only)?;
+    let text = only.get("text").and_then(Value::as_str).unwrap_or("");
+    if let Some(id) = href.strip_prefix(PAGE_LINK) {
+        let exists = !id.is_empty() && (refs.title_of)(id).is_some();
+        return exists.then(|| json!({ "type": "subpage", "attrs": { "pageId": id } }));
+    }
+    if !page_asset(href, refs) {
+        return None;
+    }
+    let (_, file) = parse_asset_path(href).ok()?;
+    let name = if text.is_empty() { file } else { text };
+    let kind = serde_json::to_value(kind_of(name, None)).ok()?;
+    Some(json!({
+        "type": "attachment",
+        "attrs": { "path": href, "name": name, "size": 0, "mime": mime_of(name), "kind": kind }
+    }))
+}
+
+/// 글줄 안의 `cetusnote://page/<id>` 링크(있는 페이지) → 페이지 멘션. 같은 링크의 글자 덩어리는 하나로 합친다
+fn convert_mentions(content: Vec<Value>, refs: &Refs) -> Vec<Value> {
+    let mut out: Vec<Value> = Vec::with_capacity(content.len());
+    let mut iter = content.into_iter().peekable();
+    while let Some(node) = iter.next() {
+        let target = link_href(&node)
+            .filter(|h| h.starts_with(PAGE_LINK))
+            .map(str::to_string);
+        let id = target.as_deref().and_then(|h| h.strip_prefix(PAGE_LINK));
+        let exists = id.is_some_and(|id| !id.is_empty() && (refs.title_of)(id).is_some());
+        if !(node.get("type").and_then(Value::as_str) == Some("text") && exists) {
+            out.push(node);
+            continue;
+        }
+        let mut label = node
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        while let Some(next) = iter.peek() {
+            if link_href(next) != target.as_deref() {
+                break;
+            }
+            label.push_str(next.get("text").and_then(Value::as_str).unwrap_or(""));
+            iter.next();
+        }
+        out.push(json!({
+            "type": "pageMention",
+            "attrs": { "id": id.unwrap_or(""), "label": label }
+        }));
+    }
+    out
+}
+
+/// 노드 목록을 한 번 훑어 그림 후보·첨부·하위 페이지·멘션을 바꾼다
+fn resolve_nodes(nodes: Vec<Value>, refs: &Refs) -> Vec<Value> {
+    let mut out = Vec::with_capacity(nodes.len());
+    for mut node in nodes {
+        if node.get("_md_src").is_some() {
+            out.extend(resolve_image(&node, refs));
+            continue;
+        }
+        if node.get("type").and_then(Value::as_str) == Some("paragraph") {
+            if let Some(block) = standalone_ref(&node, refs) {
+                out.push(block);
+                continue;
+            }
+        }
+        if let Some(kids) = node.get_mut("content").and_then(Value::as_array_mut) {
+            let taken = std::mem::take(kids);
+            let resolved = convert_mentions(resolve_nodes(taken, refs), refs);
+            *kids = resolved;
+        }
+        out.push(node);
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// 목차 (앱의 `lib/toc.ts`와 같은 규칙: H1–H3, 글자 블록 안은 들어가지 않는다)
+// ---------------------------------------------------------------------------
+
+struct TocItem {
+    depth: usize,
+    slug: String,
+    heading: Value,
+}
+
+fn toc_text(node: &Value) -> String {
+    if let Some(t) = node.get("text").and_then(Value::as_str) {
+        return t.to_string();
+    }
+    let kids = children(node);
+    if !kids.is_empty() {
+        return kids.iter().map(toc_text).collect();
+    }
+    str_attr(node, "label").unwrap_or("").to_string()
+}
+
+fn is_mark(c: char) -> bool {
+    matches!(c as u32, 0x0300..=0x036F | 0x1AB0..=0x1AFF | 0x1DC0..=0x1DFF | 0x20D0..=0x20FF | 0xFE20..=0xFE2F)
+}
+
+/// GitHub 방식 앵커 글자 (`lib/toc.ts`의 slugOf와 같다)
+fn slug_base(text: &str) -> String {
+    let kept: String = text
+        .to_lowercase()
+        .chars()
+        .filter(|&c| c.is_alphanumeric() || c.is_whitespace() || c == '_' || c == '-' || is_mark(c))
+        .collect();
+    let joined = kept.split_whitespace().collect::<Vec<_>>().join("-");
+    if joined.is_empty() {
+        "heading".to_string()
+    } else {
+        joined
+    }
+}
+
+fn toc_items(doc: &Value) -> Vec<TocItem> {
+    fn walk(node: &Value, found: &mut Vec<(u64, String, Value)>) {
+        match node_type(node) {
+            "heading" => {
+                let level = node
+                    .get("attrs")
+                    .and_then(|a| a.get("level"))
+                    .and_then(Value::as_u64)
+                    .filter(|l| *l > 0)
+                    .unwrap_or(1);
+                let label = toc_text(node).trim().to_string();
+                let has_inline = children(node).iter().any(|c| c.get("text").is_none());
+                if level <= 3 && (!label.is_empty() || has_inline) {
+                    let text = if label.is_empty() {
+                        "제목 없음".to_string()
+                    } else {
+                        label
+                    };
+                    found.push((level, text, node.clone()));
+                }
+            }
+            "paragraph" | "codeBlock" => {}
+            _ => children(node).iter().for_each(|c| walk(c, found)),
+        }
+    }
+    let mut found = Vec::new();
+    walk(doc, &mut found);
+
+    let mut stack: Vec<u64> = Vec::new();
+    let mut used: HashMap<String, usize> = HashMap::new();
+    found
+        .into_iter()
+        .map(|(level, text, heading)| {
+            while stack.last().is_some_and(|top| *top >= level) {
+                stack.pop();
+            }
+            let depth = stack.len();
+            stack.push(level);
+            let base = slug_base(&text);
+            let seen = used.get(&base).copied().unwrap_or(0);
+            used.insert(base.clone(), seen + 1);
+            let slug = if seen == 0 {
+                base
+            } else {
+                format!("{base}-{seen}")
+            };
+            TocItem {
+                depth,
+                slug,
+                heading,
+            }
+        })
+        .collect()
+}
+
+fn toc_markdown(items: &[TocItem]) -> String {
+    items
+        .iter()
+        .map(|it| {
+            format!(
+                "{}- [{}](#{})",
+                "  ".repeat(it.depth),
+                inline(children(&it.heading)),
+                it.slug
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// 내보내기 전에 하위 페이지·멘션에 실제 제목을 넣고, 목차 블록은 목차 글을 담은 원시 블록으로 바꾼다
+fn enrich(node: &Value, toc: &[TocItem], title_of: &dyn Fn(&str) -> Option<String>) -> Value {
+    let mut out = node.clone();
+    match node_type(node) {
+        "subpage" => {
+            let id = str_attr(node, "pageId").unwrap_or("");
+            if let Some(t) = (!id.is_empty()).then(|| title_of(id)).flatten() {
+                let title = if t.is_empty() {
+                    "제목 없음".to_string()
+                } else {
+                    t
+                };
+                out["attrs"]["title"] = json!(title);
+            }
+        }
+        "pageMention" => {
+            let id = str_attr(node, "id").unwrap_or("");
+            if let Some(t) = (!id.is_empty()).then(|| title_of(id)).flatten() {
+                out["attrs"]["label"] = json!(t);
+            }
+        }
+        "tableOfContents" => {
+            return json!({ "type": "rawMarkdown", "attrs": { "text": toc_markdown(toc) } });
+        }
+        _ => {}
+    }
+    if let Some(kids) = out.get_mut("content").and_then(Value::as_array_mut) {
+        for kid in kids.iter_mut() {
+            *kid = enrich(kid, toc, title_of);
+        }
+    }
+    out
 }
 
 /// 검색용 평문: 글자 노드를 이어 붙이고 블록 끝마다 줄바꿈
@@ -270,6 +596,15 @@ fn paragraph(text: &str) -> Value {
     let inline = inline_nodes(text);
     if !inline.is_empty() {
         node["content"] = Value::Array(inline);
+    }
+    // 그림만 있는 문단은 그림 후보로 둔다. 경로 검사(resolve_nodes)에서 그림 노드나 원래 문단으로 바뀐다
+    if let Some((alt, src)) = standalone_image(text) {
+        return json!({
+            "type": "image",
+            "_md_alt": alt,
+            "_md_src": src,
+            "_md_fallback": node
+        });
     }
     node
 }
@@ -895,6 +1230,8 @@ fn render_block(node: &Value) -> String {
         }
         // 경로 표시는 문서 밖(페이지 경로)을 몰라서 빈 블록이 된다 — 앱의 복사와 같다
         "breadcrumb" => String::new(),
+        // 목차 블록은 `enrich`에서 목차 글로 바뀌어 들어온다
+        "rawMarkdown" => str_attr(node, "text").unwrap_or("").to_string(),
         "hardBreak" => "\n".to_string(),
         _ => {
             if children(node).is_empty() {
@@ -970,6 +1307,10 @@ fn inline(nodes: &[Value]) -> String {
                     .unwrap_or("제목 없음");
                 format!("[{}](cetusnote://page/{id})", escape_text(label))
             }
+            // 이모지 노드는 이름만 가진다. 글자 표는 서버에 없어서 `:이름:`으로 쓴다
+            "emoji" => str_attr(node, "name")
+                .map(|n| format!(":{n}:"))
+                .unwrap_or_default(),
             "dateChip" => str_attr(node, "date")
                 .map(|d| format!("@{d}"))
                 .unwrap_or_default(),
@@ -1690,5 +2031,216 @@ mod tests {
         let doc = markdown_to_doc("   \n\n");
         assert_eq!(children(&doc).len(), 0);
         assert_eq!(doc_to_markdown(&doc), "");
+    }
+}
+
+#[cfg(test)]
+mod ref_tests {
+    use super::*;
+
+    const PID: &str = "01JD0000000000000000000000";
+    const OTHER: &str = "01JD0000000000000000000001";
+
+    fn titles(id: &str) -> Option<String> {
+        (id == OTHER).then(|| "대상 페이지".to_string())
+    }
+
+    fn refs() -> Refs<'static> {
+        Refs {
+            page_id: Some(PID),
+            title_of: &titles,
+        }
+    }
+
+    fn first(doc: &Value) -> Value {
+        doc["content"][0].clone()
+    }
+
+    #[test]
+    fn asset_image_becomes_image_node_with_caption() {
+        let md = format!("![그림 설명](assets/{PID}/img-1.png)");
+        let doc = markdown_to_doc_with(&md, &refs());
+        let img = first(&doc);
+        assert_eq!(img["type"], "image");
+        assert_eq!(img["attrs"]["src"], format!("assets/{PID}/img-1.png"));
+        assert!(img["attrs"].get("remote").is_none());
+        assert_eq!(img["content"][0]["text"], "그림 설명");
+    }
+
+    #[test]
+    fn web_image_becomes_remote_image() {
+        let doc = markdown_to_doc_with("![웹](https://example.com/a.png)", &refs());
+        let img = first(&doc);
+        assert_eq!(img["type"], "image");
+        assert_eq!(img["attrs"]["remote"], "https://example.com/a.png");
+        assert!(img["attrs"].get("src").is_none());
+    }
+
+    #[test]
+    fn image_paths_outside_the_page_assets_stay_text() {
+        for src in [
+            "../secret.png".to_string(),
+            "/etc/passwd.png".to_string(),
+            format!("assets/{PID}/../../workspace.json"),
+            format!("assets/{OTHER}/img.png"),
+            "file:///tmp/a.png".to_string(),
+        ] {
+            let doc = markdown_to_doc_with(&format!("![설명]({src})"), &refs());
+            let node = first(&doc);
+            assert_eq!(node["type"], "paragraph", "{src} must not become an image");
+            assert!(!doc.to_string().contains("\"image\""), "{src}");
+        }
+    }
+
+    #[test]
+    fn image_without_workspace_keeps_old_text_behaviour() {
+        let doc = markdown_to_doc(&format!("![설명](assets/{PID}/img-1.png)"));
+        assert_eq!(first(&doc)["type"], "paragraph");
+        assert!(!doc.to_string().contains("\"image\""));
+    }
+
+    #[test]
+    fn asset_attachment_becomes_attachment_node() {
+        let md = format!("[보고서.pdf](assets/{PID}/a-report.pdf)");
+        let doc = markdown_to_doc_with(&md, &refs());
+        let att = first(&doc);
+        assert_eq!(att["type"], "attachment");
+        assert_eq!(att["attrs"]["path"], format!("assets/{PID}/a-report.pdf"));
+        assert_eq!(att["attrs"]["name"], "보고서.pdf");
+        assert_eq!(att["attrs"]["kind"], "pdf");
+    }
+
+    #[test]
+    fn attachment_escape_and_other_links_stay_links() {
+        for href in [
+            format!("assets/{PID}/../../x.pdf"),
+            format!("assets/{OTHER}/a.pdf"),
+            "../x.pdf".to_string(),
+            "https://example.com".to_string(),
+        ] {
+            let doc = markdown_to_doc_with(&format!("[링크]({href})"), &refs());
+            assert_eq!(first(&doc)["type"], "paragraph", "{href}");
+            assert!(!doc.to_string().contains("\"attachment\""), "{href}");
+        }
+    }
+
+    #[test]
+    fn standalone_subpage_link_to_existing_page_becomes_subpage() {
+        let doc = markdown_to_doc_with(&format!("[아무 제목](cetusnote://page/{OTHER})"), &refs());
+        assert_eq!(
+            first(&doc),
+            json!({ "type": "subpage", "attrs": { "pageId": OTHER } })
+        );
+    }
+
+    #[test]
+    fn missing_page_link_stays_a_link() {
+        let missing = "01JD0000000000000000000002";
+        let doc = markdown_to_doc_with(&format!("[없음](cetusnote://page/{missing})"), &refs());
+        assert_eq!(first(&doc)["type"], "paragraph");
+        assert!(!doc.to_string().contains("\"subpage\""));
+        assert!(!doc.to_string().contains("\"pageMention\""));
+    }
+
+    #[test]
+    fn inline_page_link_becomes_mention_only_when_page_exists() {
+        let md = format!("본문 [대상](cetusnote://page/{OTHER}) 끝");
+        let doc = markdown_to_doc_with(&md, &refs());
+        let kids = first(&doc)["content"].clone();
+        let mention = kids
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["type"] == "pageMention")
+            .cloned()
+            .expect("mention");
+        assert_eq!(mention["attrs"], json!({ "id": OTHER, "label": "대상" }));
+
+        let missing = "01JD0000000000000000000002";
+        let doc = markdown_to_doc_with(&format!("[없음](cetusnote://page/{missing})"), &refs());
+        assert!(!doc.to_string().contains("\"pageMention\""));
+    }
+
+    #[test]
+    fn subpage_exports_real_title_and_round_trips() {
+        let doc = json!({ "type": "doc", "content": [
+            { "type": "subpage", "attrs": { "pageId": OTHER } }
+        ]});
+        let md = doc_to_markdown_with(&doc, &titles);
+        assert_eq!(md, format!("[대상 페이지](cetusnote://page/{OTHER})\n"));
+        let back = markdown_to_doc_with(&md, &refs());
+        assert_eq!(
+            first(&back),
+            json!({ "type": "subpage", "attrs": { "pageId": OTHER } })
+        );
+    }
+
+    #[test]
+    fn unknown_subpage_exports_fallback_title() {
+        let doc = json!({ "type": "doc", "content": [
+            { "type": "subpage", "attrs": { "pageId": "gone" } }
+        ]});
+        assert_eq!(
+            doc_to_markdown_with(&doc, &titles),
+            "[하위 페이지](cetusnote://page/gone)\n"
+        );
+    }
+
+    #[test]
+    fn mention_exports_current_title() {
+        let doc = json!({ "type": "doc", "content": [{ "type": "paragraph", "content": [
+            { "type": "pageMention", "attrs": { "id": OTHER, "label": "옛 제목" } }
+        ]}]});
+        assert_eq!(
+            doc_to_markdown_with(&doc, &titles),
+            format!("[대상 페이지](cetusnote://page/{OTHER})\n")
+        );
+    }
+
+    #[test]
+    fn image_and_attachment_export_round_trip() {
+        let md =
+            format!("![그림](assets/{PID}/img-1.png)\n\n[보고서.pdf](assets/{PID}/a-report.pdf)\n");
+        let doc = markdown_to_doc_with(&md, &refs());
+        assert_eq!(doc_to_markdown_with(&doc, &titles), md);
+    }
+
+    #[test]
+    fn table_of_contents_exports_linked_outline() {
+        let heading = |level: u64, text: &str| {
+            json!({ "type": "heading", "attrs": { "level": level },
+                    "content": [{ "type": "text", "text": text }] })
+        };
+        let doc = json!({ "type": "doc", "content": [
+            { "type": "tableOfContents" },
+            heading(1, "Intro"),
+            heading(2, "Intro"),
+            heading(3, "Next"),
+            heading(4, "Too deep"),
+        ]});
+        let md = doc_to_markdown_with(&doc, &titles);
+        assert_eq!(
+            md,
+            "- [Intro](#intro)\n  - [Intro](#intro-1)\n    - [Next](#next)\n\n# Intro\n\n## Intro\n\n### Next\n\n#### Too deep\n"
+        );
+    }
+
+    #[test]
+    fn emoji_exports_as_shortcode_without_a_char_table() {
+        let doc = json!({ "type": "doc", "content": [{ "type": "paragraph", "content": [
+            { "type": "text", "text": "좋아 " },
+            { "type": "emoji", "attrs": { "name": "smile" } }
+        ]}]});
+        assert_eq!(doc_to_markdown(&doc), "좋아 :smile:\n");
+    }
+
+    #[test]
+    fn asset_path_check_rejects_traversal_and_foreign_pages() {
+        assert!(page_asset(&format!("assets/{PID}/a.png"), &refs()));
+        assert!(!page_asset(&format!("assets/{PID}/../a.png"), &refs()));
+        assert!(!page_asset(&format!("assets/{PID}/sub/a.png"), &refs()));
+        assert!(!page_asset(&format!("assets/{OTHER}/a.png"), &refs()));
+        assert!(!page_asset(&format!("assets/{PID}/.hidden"), &refs()));
+        assert!(!page_asset(&format!("assets/{PID}/a.png"), &plain_refs()));
     }
 }
