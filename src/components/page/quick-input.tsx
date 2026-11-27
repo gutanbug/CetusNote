@@ -117,23 +117,21 @@ export function QuickInput(props: QuickInputProps) {
       closeMenu();
       return;
     }
-    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+    const forward = e.key === "ArrowDown" || e.key === "ArrowRight";
+    const back = e.key === "ArrowUp" || e.key === "ArrowLeft";
+    if (forward || back || e.key === "Home" || e.key === "End") {
       e.preventDefault();
       const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')];
       const i = items.indexOf(document.activeElement as HTMLElement);
       const n = items.length;
       const next =
-        e.key === "Home"
-          ? 0
-          : e.key === "End"
-            ? n - 1
-            : (i + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+        e.key === "Home" ? 0 : e.key === "End" ? n - 1 : (i + (forward ? 1 : -1) + n) % n;
       items[next]?.focus();
     }
   };
 
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-xl bg-elevated shadow-modal">
+    <div className="flex w-full flex-col overflow-hidden rounded-xl bg-elevated shadow-popover">
       <div className="flex h-18 items-center gap-3 rounded-xl px-4 has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-accent-soft has-[input:focus-visible]:ring-inset">
         <span aria-hidden className="size-5 shrink-0 rounded-full bg-accent" />
         <input
@@ -163,7 +161,7 @@ export function QuickInput(props: QuickInputProps) {
             </IconButton>
           </span>
         ) : null}
-        <div className="relative shrink-0">
+        <div className="shrink-0">
           <IconButton
             ref={bellRef}
             label={m.alarmButton}
@@ -174,32 +172,34 @@ export function QuickInput(props: QuickInputProps) {
           >
             <Bell className="size-4" strokeWidth={1.5} />
           </IconButton>
-          {menuOpen ? (
-            <div
-              ref={menuRef}
-              role="menu"
-              aria-label={m.menuLabel}
-              onKeyDown={onMenuKey}
-              className="absolute top-full right-0 z-10 mt-2 flex w-56 flex-col rounded-lg bg-elevated p-1 shadow-popover"
-            >
-              {props.presets.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    props.onPreset(p.id);
-                  }}
-                  className="flex h-8 items-center rounded-md px-2.5 text-left text-sm text-primary hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none force-hover:bg-hover"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
+
+      {menuOpen ? (
+        // 창 안에서 펼친다(떠 있는 메뉴는 창 밖으로 잘린다). 창 높이는 내용에 맞춰 늘어난다
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={m.menuLabel}
+          onKeyDown={onMenuKey}
+          className="flex flex-wrap gap-1.5 border-t border-subtle px-4 py-3"
+        >
+          {props.presets.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                props.onPreset(p.id);
+              }}
+              className="flex h-8 items-center rounded-pill border border-subtle px-3 text-sm text-primary hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none force-hover:bg-hover"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {showResults ? (
         // 알림 붙이기 버튼은 listbox 밖의 열로 둔다(listbox 자식은 option만 허용). 행 높이를 맞춘다

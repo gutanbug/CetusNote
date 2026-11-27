@@ -13,8 +13,9 @@ pub const LABEL: &str = "quick";
 /// 창이 떴을 때 프런트엔드에 알리는 이벤트 (포커스·목록 새로 읽기)
 pub const SHOWN_EVENT: &str = "quick://shown";
 /// 기본 크기 (논리 px). 결과가 나오면 프런트엔드가 높이를 늘린다
-pub const WIDTH: f64 = 680.0;
-pub const HEIGHT: f64 = 72.0;
+/// 카드(680×72)에 사방 16px 여백(그림자 자리, 프런트엔드 p-4)을 더한 크기
+pub const WIDTH: f64 = 712.0;
+pub const HEIGHT: f64 = 104.0;
 
 /// 입력 줄 아래 끝이 보이는 영역 바닥에서 올라가는 비율 (보이는 영역 높이의 25%)
 const BOTTOM_RATIO: f64 = 0.25;

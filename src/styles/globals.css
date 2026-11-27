@@ -273,6 +273,11 @@
   body {
     @apply bg-app text-ui text-primary;
   }
+  /* 빠른 입력 창(QN-03)은 투명한 패널이다. 카드 바깥(그림자 자리)은 바탕을 칠하지 않는다 */
+  html[data-window="quick"],
+  html[data-window="quick"] body {
+    background: transparent;
+  }
   ::selection {
     background: var(--selection-bg);
   }

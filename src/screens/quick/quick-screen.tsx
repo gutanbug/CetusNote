@@ -31,7 +31,8 @@ type TimeSpec =
 
 const RESULT_LIMIT = 6;
 const CONFIRM_MS = 800;
-const WINDOW_WIDTH = 680;
+// 카드 680 + 좌우 여백(p-4, 그림자 자리)
+const WINDOW_WIDTH = 712;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -184,7 +185,7 @@ export function QuickScreen() {
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const apply = () => void resizeCurrentWindow(WINDOW_WIDTH, Math.ceil(el.offsetHeight) + 16);
+    const apply = () => void resizeCurrentWindow(WINDOW_WIDTH, Math.ceil(el.offsetHeight));
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);
@@ -340,7 +341,7 @@ export function QuickScreen() {
   }
 
   return (
-    <div ref={rootRef} className="p-2">
+    <div ref={rootRef} className="p-4">
       <QuickInput
         value={value}
         onValueChange={(v) => {

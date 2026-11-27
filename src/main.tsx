@@ -15,6 +15,8 @@ applyCachedAppearance();
 
 // 빠른 입력 창(#/quick)은 앱 본체(저장·워크스페이스 훅) 없이 따로 그린다 (QN-03)
 const isQuickWindow = window.location.hash.startsWith("#/quick");
+// 투명한 패널 창: 둥근 카드 바깥은 비워 둔다
+if (isQuickWindow) document.documentElement.dataset.window = "quick";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
