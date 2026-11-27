@@ -1,6 +1,13 @@
-import { createPage, type Page } from "@/lib/storage";
+import { createPage, type CollectionFilter, type CollectionSort, type Page } from "@/lib/storage";
 import { describe, expect, it } from "vitest";
 import { cleanTagName, planTagChange, tagExists, tagUsage, undoTagChange } from "./manage";
+
+/** 세 보기에 같은 정렬·필터를 넣는다 (스키마 10 픽스처) */
+const everyView = (filters: CollectionFilter[], sort: CollectionSort | null = null) => ({
+  grid: { sort, filters },
+  board: { sort, filters },
+  calendar: { sort, filters },
+});
 
 const ID_PREFIX = "01ARZ3NDEKTSV4RRFFQ69G5F";
 const A_ID = ID_PREFIX + "AA";
@@ -118,10 +125,10 @@ describe("rename", () => {
     const coll = createPage({ title: "k", kind: "collection" });
     const collection = {
       ...coll.collection!,
-      filters: [
+      viewState: everyView([
         { field: "tags" as const, value: "old" },
         { field: "status" as const, value: "x" },
-      ],
+      ]),
       board: { ...coll.collection!.board, groupBy: "tags" as const, hidden: ["tags:old"] },
     };
     const pages = pagesOf({ ...page(K_ID, []), kind: "collection", collection });
@@ -129,7 +136,7 @@ describe("rename", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const next = r.plan.pages[K_ID]!.collection!;
-    expect(next.filters).toEqual([
+    expect(next.viewState.grid.filters).toEqual([
       { field: "tags", value: "new" },
       { field: "status", value: "x" },
     ]);
@@ -215,13 +222,13 @@ describe("delete", () => {
     const coll = createPage({ title: "k", kind: "collection" });
     const collection = {
       ...coll.collection!,
-      filters: [{ field: "tags" as const, value: "x" }],
+      viewState: everyView([{ field: "tags" as const, value: "x" }]),
       board: { ...coll.collection!.board, hidden: ["tags:x", "tags:y"] },
     };
     const pages = pagesOf({ ...page(K_ID, []), kind: "collection", collection });
     const r = planTagChange(pages, {}, { kind: "delete", name: "x" }, NOW);
     expect(r.ok && r.plan.pages[K_ID]!.collection).toMatchObject({
-      filters: [],
+      viewState: { grid: { sort: null, filters: [] } },
       board: { hidden: ["tags:y"] },
     });
   });
@@ -239,7 +246,7 @@ describe("undo", () => {
     const coll = createPage({ title: "k", kind: "collection" });
     const collection = {
       ...coll.collection!,
-      filters: [{ field: "tags" as const, value: "src" }],
+      viewState: everyView([{ field: "tags" as const, value: "src" }]),
       board: { ...coll.collection!.board, hidden: ["tags:src"] },
     };
     const pages = pagesOf(page(A_ID, ["src", "t"]), page(B_ID, ["src"]), {

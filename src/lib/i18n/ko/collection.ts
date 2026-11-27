@@ -117,6 +117,8 @@ export const collection = {
     option: "옵션",
     moveLeft: "왼쪽으로",
     moveRight: "오른쪽으로",
+    pinTo: "여기까지 고정",
+    unpin: "이 칸부터 고정 해제",
     moveUp: "위로",
     moveDown: "아래로",
     showOnCard: "보드 카드에 보이기",

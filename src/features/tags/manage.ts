@@ -78,26 +78,39 @@ function mapCollection(
   to: string | null,
 ): Page["collection"] {
   if (!collection) return collection;
-  const filters: CollectionFilter[] = [];
-  for (const f of collection.filters) {
-    const hit = f.field === "tags" && f.value === from;
-    const next = hit ? (to === null ? null : { field: f.field, value: to }) : f;
-    if (!next) continue;
-    if (!filters.some((x) => x.field === next.field && x.value === next.value)) filters.push(next);
-  }
+  // 태그 필터는 모든 보기에서 고친다 (스키마 10: 보기마다 필터가 따로 있다)
+  const mapFilters = (list: CollectionFilter[]): CollectionFilter[] => {
+    const filters: CollectionFilter[] = [];
+    for (const f of list) {
+      const hit = f.field === "tags" && f.value === from;
+      const next = hit ? (to === null ? null : { field: f.field, value: to }) : f;
+      if (!next) continue;
+      if (!filters.some((x) => x.field === next.field && x.value === next.value))
+        filters.push(next);
+    }
+    return filters;
+  };
   const hiddenFrom = `${TAG_KEY}${from}`;
   const hidden: string[] = [];
   for (const key of collection.board.hidden) {
     const next = key === hiddenFrom ? (to === null ? null : `${TAG_KEY}${to}`) : key;
     if (next !== null && !hidden.includes(next)) hidden.push(next);
   }
-  const same =
-    filters.length === collection.filters.length &&
-    filters.every((f, i) => f === collection.filters[i]) &&
+  const viewState = { ...collection.viewState };
+  let changed = false;
+  for (const view of ["grid", "board", "calendar"] as const) {
+    const q = collection.viewState[view];
+    const filters = mapFilters(q.filters);
+    if (filters.length === q.filters.length && filters.every((f, i) => f === q.filters[i]))
+      continue;
+    viewState[view] = { ...q, filters };
+    changed = true;
+  }
+  const sameHidden =
     hidden.length === collection.board.hidden.length &&
     hidden.every((k, i) => k === collection.board.hidden[i]);
-  if (same) return collection;
-  return { ...collection, filters, board: { ...collection.board, hidden } };
+  if (!changed && sameHidden) return collection;
+  return { ...collection, viewState, board: { ...collection.board, hidden } };
 }
 
 /**

@@ -116,6 +116,8 @@ export const collection: Messages["collection"] = {
     option: "Option",
     moveLeft: "Left",
     moveRight: "Right",
+    pinTo: "Pin up to here",
+    unpin: "Unpin from here",
     moveUp: "Up",
     moveDown: "Down",
     showOnCard: "Show on board card",

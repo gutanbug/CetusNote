@@ -29,6 +29,7 @@ import {
   setPropertySlot,
   valueOf,
   withValue,
+  mapViewQueries,
 } from "@/features/collection/model";
 import { pagesStore } from "@/features/pages";
 import {
@@ -194,10 +195,13 @@ export function collectionProperties({
         : field.options.map((o) => (o.name === from ? { ...o, name: to } : o));
     setSettings({
       ...setFieldOptions(settings, field.id, options),
-      // 그 옵션으로 건 필터도 함께
-      filters: settings.filters.flatMap((f) =>
-        f.field === field.id && f.value === from ? (to ? [{ ...f, value: to }] : []) : [f],
-      ),
+      // 그 옵션으로 건 필터도 함께 (모든 보기)
+      ...mapViewQueries(settings, (q) => ({
+        ...q,
+        filters: q.filters.flatMap((f) =>
+          f.field === field.id && f.value === from ? (to ? [{ ...f, value: to }] : []) : [f],
+        ),
+      })),
     });
   };
   const remove = (id: FieldId) => {
@@ -207,7 +211,7 @@ export function collectionProperties({
 
   /** 속성 메뉴로 트리거를 감싼다 */
   const menu =
-    (e: PropertyEntry, axis: "x" | "y") =>
+    (e: PropertyEntry, axis: "x" | "y", pin?: { pinned: boolean; onToggle: () => void }) =>
     (trigger: React.ReactElement): React.ReactNode => {
       const def = isFieldId(e.key) ? fieldOf(settings.fields, e.key) : undefined;
       return (
@@ -230,6 +234,7 @@ export function collectionProperties({
           onDelete={def ? () => remove(def.id) : undefined}
           onRenameOption={def ? (from, to) => replaceOption(def, from, to) : undefined}
           onDeleteOption={def ? (name) => replaceOption(def, name, null) : undefined}
+          pin={pin}
         >
           {trigger}
         </PropertyMenu>
@@ -248,11 +253,15 @@ export function collectionProperties({
 
   /** 표 열 */
   const columns = (getPage: (id: string) => Page): GridColumn[] =>
-    visible.map((e) => ({
+    visible.map((e, i) => ({
       key: e.key,
       name: e.name,
       kind: e.kind,
-      menu: menu(e, "x"),
+      // 표 고정 (COLL-02): 보이는 속성 앞에서 몇 칸까지 붙일지. 이미 고정 안이면 이 칸 앞까지로 줄인다
+      menu: menu(e, "x", {
+        pinned: i < settings.pinned,
+        onToggle: () => setSettings({ pinned: i < settings.pinned ? i : i + 1 }),
+      }),
       cell: e.builtin ? undefined : (item) => cellFor(e.key, getPage(item.id), undefined, true),
     }));
 

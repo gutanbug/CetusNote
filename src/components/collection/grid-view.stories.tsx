@@ -143,6 +143,35 @@ export const TitleColumnWidth: Story = {
 };
 
 /**
+ * 고정 칸 (COLL-02): 제목 뒤 앞 두 칸(상태·담당)을 왼쪽에 붙인다. 가로로 끝까지 밀어도 고정 칸은 제자리에 쌓이고, 그 뒤 칸은 밀려 나간다.
+ */
+export const PinnedColumns: Story = {
+  args: { items: SHORT_TITLES, pinned: 2 },
+  render: (args) => (
+    <div className="w-120">
+      <GridView {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const table = canvasElement.querySelector<HTMLTableElement>('table[role="grid"]');
+    await expect(table).not.toBeNull();
+    const scroller = table!.parentElement!;
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    scroller.scrollLeft = 200;
+    const heads = [...table!.querySelectorAll<HTMLElement>("thead th")];
+    const inner = scroller.getBoundingClientRect().left + scroller.clientLeft;
+    const rect = (i: number) => heads[i]!.getBoundingClientRect();
+    // 제목 → 상태 → 담당 순으로 앞 칸 너비만큼 밀려 붙는다
+    await expect(Math.abs(rect(0).left - inner)).toBeLessThan(2);
+    await expect(Math.abs(rect(1).left - inner - rect(0).width)).toBeLessThan(2);
+    await expect(Math.abs(rect(2).left - inner - rect(0).width - rect(1).width)).toBeLessThan(2);
+    // 고정하지 않은 칸에는 왼쪽 위치를 주지 않는다
+    await expect(heads[3]!.style.left).toBe("");
+    await expect(heads[2]!.style.left).not.toBe("");
+  },
+};
+
+/**
  * 1만 행: 화면에 보이는 행과 여유 행만 DOM에 그린다. aria-rowcount는 전체 수, 키보드로 멀리 내려가면 따라간다 (SYS-11)
  */
 export const TenThousandRows: Story = {

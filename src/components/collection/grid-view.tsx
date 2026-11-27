@@ -16,6 +16,7 @@ import {
 } from "./fields";
 import { PropertyIcon } from "./property";
 import { GRID_ROW_HEIGHT, gridRowRange } from "./grid-rows";
+import { clampPinned, isPinEdgeIndex, isPinnedIndex, stickyLeft } from "./grid-pin";
 import type { BuiltinKey, PropertyEntry } from "./property-types";
 import { valueButton } from "./styles";
 import type { Status, StatusOption } from "@/components/ui/status-chip";
@@ -93,6 +94,8 @@ type GridViewProps = {
   widths?: Record<string, number>;
   /** 열 너비를 바꾸면 알린다 — 끌기는 손을 뗄 때 한 번, 키보드는 한 칸마다 */
   onWidthsChange?: (widths: Record<string, number>) => void;
+  /** 제목 뒤 왼쪽에 붙여 둔 속성 칸 수 (COLL-02). 0이면 제목만 고정 */
+  pinned?: number;
   className?: string;
 };
 
@@ -105,9 +108,12 @@ const td = cn(
   focusRing,
   "focus-visible:-outline-offset-2",
 );
-/** 제목 열은 가로 스크롤 중에도 왼쪽에 붙는다 (배경을 줘서 뒤 칸이 비치지 않게) */
+/** 제목 열은 가로 스크롤 중에도 왼쪽에 붙는다 (배경을 줘서 뒤 칸이 비치지 않게). 고정한 속성 열도 같은 방식이다 (COLL-02) */
+const stickyCell = "sticky z-1 bg-app group-hover/row:bg-hover force-hover:bg-hover";
 const titleTh = "left-0 z-3";
-const titleTd = "sticky left-0 z-1 bg-app group-hover/row:bg-hover force-hover:bg-hover";
+const titleTd = cn("left-0", stickyCell);
+/** 고정한 속성 머리 칸은 제목 머리와 같은 층 */
+const pinnedTh = "z-3";
 /** 스크롤돼 제목 열 뒤 칸이 숨어 있을 때만 쓰는 가장자리 선 (그림자 토큰은 팝오버·모달용이라 쓰지 않는다) */
 const titleEdge = "border-r border-line";
 /** 열 너비 (COLL-02, px): 제목 기본 320(w-80), 다른 열 160, 최소 96(w-24), 최대 640. ←/→는 16씩(Shift면 64씩) */
@@ -228,6 +234,7 @@ function GridView({
   addColumn,
   widths = EMPTY_WIDTHS,
   onWidthsChange,
+  pinned = 0,
   className,
 }: GridViewProps) {
   const m = useMessages();
@@ -237,6 +244,13 @@ function GridView({
   const [drag, setDrag] = React.useState<{ key: string; width: number } | null>(null);
   const widthOf = (key: string) =>
     clampWidth(drag?.key === key ? drag.width : (widths[key] ?? defaultWidth(key)));
+  // 고정 칸의 sticky left — 제목부터 칸 너비 합으로 쌓는다. 너비 목록이 같으면 같은 배열을 쓴다 (SYS-11)
+  const pinCount = clampPinned(pinned, columns.length);
+  const widthKey = [widthOf("title"), ...columns.map((c) => widthOf(c.key))].join(",");
+  const lefts = React.useMemo(() => {
+    const w = widthKey.split(",").map(Number);
+    return w.map((_, i) => stickyLeft(w, i));
+  }, [widthKey]);
   const commitWidth = (key: string, w: number) => {
     setDrag(null);
     onWidthsChange?.({ ...widths, [key]: w });
@@ -509,13 +523,15 @@ function GridView({
                 scope="col"
                 role="columnheader"
                 aria-colindex={1}
-                className={cn(th, titleTh, scrolled && titleEdge)}
+                className={cn(th, titleTh, isPinEdgeIndex(0, pinCount) && scrolled && titleEdge)}
               >
                 <Type {...ic} />
                 {m.collection.grid.title}
                 {resizer("title", m.collection.grid.title)}
               </th>
               {columns.map((c, i) => {
+                const gi = i + 1;
+                const isPinned = isPinnedIndex(gi, pinCount);
                 const head = (
                   <button
                     type="button"
@@ -536,7 +552,12 @@ function GridView({
                     scope="col"
                     role="columnheader"
                     aria-colindex={i + 2}
-                    className={th}
+                    className={cn(
+                      th,
+                      isPinned && pinnedTh,
+                      isPinEdgeIndex(gi, pinCount) && scrolled && titleEdge,
+                    )}
+                    style={isPinned ? { left: lefts[gi] } : undefined}
                   >
                     {c.menu ? (
                       c.menu(head)
@@ -578,6 +599,8 @@ function GridView({
                 last={first + di === count - 1}
                 columns={columns}
                 scrolled={scrolled}
+                pinCount={pinCount}
+                lefts={lefts}
                 hasAdd={!!addColumn}
                 ctx={ctx}
               />
@@ -616,6 +639,8 @@ const GridRow = React.memo(function GridRow({
   last,
   columns,
   scrolled,
+  pinCount,
+  lefts,
   hasAdd,
   ctx,
 }: {
@@ -624,6 +649,10 @@ const GridRow = React.memo(function GridRow({
   last: boolean;
   columns: GridColumn[];
   scrolled: boolean;
+  /** 고정한 속성 칸 수 (제목 뒤 앞에서부터) */
+  pinCount: number;
+  /** 칸 색인별 sticky left(px) — 고정 칸만 쓴다 */
+  lefts: number[];
   hasAdd: boolean;
   ctx: GridRowCtx;
 }) {
@@ -675,7 +704,7 @@ const GridRow = React.memo(function GridRow({
         aria-colindex={1}
         data-row={ri}
         data-col={0}
-        className={cn(td, titleTd, scrolled && titleEdge)}
+        className={cn(td, titleTd, isPinEdgeIndex(0, pinCount) && scrolled && titleEdge)}
       >
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -707,18 +736,27 @@ const GridRow = React.memo(function GridRow({
           </IconButton>
         </div>
       </td>
-      {columns.map((c, ci) => (
-        <td
-          key={c.key}
-          role="gridcell"
-          aria-colindex={ci + 2}
-          data-row={ri}
-          data-col={ci + 1}
-          className={td}
-        >
-          {c.cell ? c.cell(r) : builtinCell(c.kind as BuiltinKey)}
-        </td>
-      ))}
+      {columns.map((c, ci) => {
+        const gi = ci + 1;
+        const isPinned = isPinnedIndex(gi, pinCount);
+        return (
+          <td
+            key={c.key}
+            role="gridcell"
+            aria-colindex={ci + 2}
+            data-row={ri}
+            data-col={ci + 1}
+            className={cn(
+              td,
+              isPinned && stickyCell,
+              isPinEdgeIndex(gi, pinCount) && scrolled && titleEdge,
+            )}
+            style={isPinned ? { left: lefts[gi] } : undefined}
+          >
+            {c.cell ? c.cell(r) : builtinCell(c.kind as BuiltinKey)}
+          </td>
+        );
+      })}
       {hasAdd ? <td role="gridcell" className={td} /> : null}
     </tr>
   );

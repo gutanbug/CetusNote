@@ -4,6 +4,7 @@ import type {
   CollectionSettings,
   CollectionSort,
   CollectionView,
+  CollectionViewQuery,
   DocJSON,
   Page,
   PageFont,
@@ -25,7 +26,7 @@ import type {
 } from "./types";
 import { isValidId, ulid } from "./ulid";
 
-export const PAGE_SCHEMA_VERSION = 9;
+export const PAGE_SCHEMA_VERSION = 10;
 export const WORKSPACE_SCHEMA_VERSION = 1;
 
 /** 기본 상태 4단계 — 일반 문서와 새 컬렉션이 쓴다 */
@@ -176,9 +177,11 @@ function normalizeValues(v: unknown): Record<FieldId, FieldValue> {
   return out;
 }
 
-/** 컬렉션 보기 설정을 맞춘다. 모르는 값은 기본값으로 */
-export function normalizeCollection(v: unknown): CollectionSettings {
-  const raw = isObj(v) ? v : {};
+/** 표에서 왼쪽에 붙일 속성 칸 수의 상한 (COLL-02). 실제 칸 수는 표가 보이는 속성 수에 맞춘다 */
+const PINNED_MAX = 16;
+
+/** 보기 하나의 정렬·필터를 맞춘다. 지운 사용자 속성을 가리키는 값은 버린다 (스키마 10) */
+function normalizeQuery(raw: Raw, fields: FieldDef[]): CollectionViewQuery {
   const sort = isObj(raw.sort) ? raw.sort : null;
   const filters: CollectionFilter[] = [];
   if (Array.isArray(raw.filters))
@@ -189,6 +192,23 @@ export function normalizeCollection(v: unknown): CollectionSettings {
       if (filters.some((x) => x.field === field && x.value === f.value)) continue;
       filters.push({ field, value: f.value });
     }
+  return {
+    sort:
+      sort &&
+      (SORT_FIELDS.includes(sort.field as CollectionSort["field"]) ||
+        fields.some((f) => f.id === sort.field))
+        ? {
+            field: sort.field as CollectionSort["field"],
+            dir: sort.dir === "desc" ? "desc" : "asc",
+          }
+        : null,
+    filters: filters.filter((f) => !isFieldId(f.field) || fields.some((x) => x.id === f.field)),
+  };
+}
+
+/** 컬렉션 보기 설정을 맞춘다. 모르는 값은 기본값으로 */
+export function normalizeCollection(v: unknown): CollectionSettings {
+  const raw = isObj(v) ? v : {};
   // 상태 목록: 없으면(스키마 3 이하) 기본 4단계. 빈 목록은 사용자가 다 지운 것이라 그대로 둔다
   let statuses: StatusOption[] = DEFAULT_STATUSES.map((o) => ({ ...o }));
   if (Array.isArray(raw.statuses)) {
@@ -210,6 +230,19 @@ export function normalizeCollection(v: unknown): CollectionSettings {
     calc: CALCS.includes(b.calc as BoardCalc) ? (b.calc as BoardCalc) : "count",
   };
   const fields = normalizeFields(raw.fields);
+  // 보기마다 정렬·필터 (스키마 10). 보기 칸이 없으면(스키마 9 이하) 예전 최상위 정렬·필터를 세 보기 모두에 쓴다
+  const legacy = { sort: raw.sort, filters: raw.filters };
+  const perView = isObj(raw.viewState) ? raw.viewState : {};
+  const viewState = Object.fromEntries(
+    VIEWS.map((view) => [
+      view,
+      normalizeQuery(isObj(perView[view]) ? (perView[view] as Raw) : legacy, fields),
+    ]),
+  ) as Record<CollectionView, CollectionViewQuery>;
+  const pinned =
+    typeof raw.pinned === "number" && Number.isInteger(raw.pinned) && raw.pinned > 0
+      ? Math.min(raw.pinned, PINNED_MAX)
+      : 0;
   // 표 열 너비(px): 키는 "title"·기본 속성·사용자 속성 id, 값은 40~2000 사이 정수만 남긴다 (스키마 9)
   const widths: Record<string, number> = {};
   if (isObj(raw.widths))
@@ -229,17 +262,8 @@ export function normalizeCollection(v: unknown): CollectionSettings {
       ? (raw.openMode as RecordOpenMode)
       : null,
     view: VIEWS.includes(raw.view as CollectionView) ? (raw.view as CollectionView) : "grid",
-    sort:
-      sort &&
-      (SORT_FIELDS.includes(sort.field as CollectionSort["field"]) ||
-        fields.some((f) => f.id === sort.field))
-        ? {
-            field: sort.field as CollectionSort["field"],
-            dir: sort.dir === "desc" ? "desc" : "asc",
-          }
-        : null,
-    // 지운 사용자 속성을 가리키는 필터는 버린다
-    filters: filters.filter((f) => !isFieldId(f.field) || fields.some((x) => x.id === f.field)),
+    viewState,
+    pinned,
   };
 }
 
@@ -276,6 +300,20 @@ const PAGE_MIGRATIONS: Record<number, (raw: Raw) => Raw> = {
   7: (raw) => raw,
   // 9: 표 열 너비(COLL-02) — collection.widths. 기존 파일은 그대로 읽고 빈 객체(기본 너비)로 채운다
   8: (raw) => raw,
+  // 10: 보기마다 정렬·필터(COLL-06)·표 고정 칸 수(COLL-02). 기존 정렬·필터는 표·보드·캘린더 모두에 복사하고 고정은 0
+  9: (raw) => {
+    if (!isObj(raw.collection)) return raw;
+    const { sort = null, filters = [], ...rest } = raw.collection;
+    const query = { sort, filters };
+    return {
+      ...raw,
+      collection: {
+        ...rest,
+        viewState: { grid: query, board: query, calendar: query },
+        pinned: 0,
+      },
+    };
+  },
 };
 
 const TEMPLATE_TEXT_MAX = 120;

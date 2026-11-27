@@ -76,11 +76,19 @@ export type BoardSettings = {
   colors: Record<string, string>;
   calc: BoardCalc;
 };
-/** 컬렉션 페이지의 보기 설정 (스키마 3, 4). 컬렉션이 아니면 null */
-export type CollectionSettings = {
-  view: CollectionView;
+/** 보기 하나의 정렬·필터 (스키마 10). 보기마다 따로 둔다 (COLL-06) */
+export type CollectionViewQuery = {
   sort: CollectionSort | null;
   filters: CollectionFilter[];
+};
+/** 컬렉션 페이지의 보기 설정 (스키마 3, 4, 10). 컬렉션이 아니면 null */
+export type CollectionSettings = {
+  /** 지금 보고 있는 보기 */
+  view: CollectionView;
+  /** 보기마다 정렬·필터 (스키마 10). 키는 보기 종류(grid = 표) */
+  viewState: Record<CollectionView, CollectionViewQuery>;
+  /** 표에서 제목 뒤 왼쪽에 붙여 두는 속성 칸 수 (스키마 10, COLL-02). 0이면 제목만 고정 */
+  pinned: number;
   /** 이 컬렉션의 상태 목록, 보드 칸 순서 (스키마 4) */
   statuses: StatusOption[];
   board: BoardSettings;

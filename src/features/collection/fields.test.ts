@@ -1,4 +1,11 @@
-import { createPage, normalizeCollection, normalizePage, type Page } from "@/lib/storage";
+import {
+  createPage,
+  normalizeCollection,
+  normalizePage,
+  type CollectionFilter,
+  type CollectionSort,
+  type Page,
+} from "@/lib/storage";
 import { describe, expect, it } from "vitest";
 import {
   addField,
@@ -20,6 +27,13 @@ const rec = (title: string, values: Page["props"]["values"] = {}, extra: Partial
   const p = createPage({ title, parentId: col.id });
   return { ...p, props: { ...p.props, values }, ...extra };
 };
+
+/** 세 보기에 같은 정렬·필터를 넣는다 (스키마 10 픽스처) */
+const everyView = (filters: CollectionFilter[], sort: CollectionSort | null = null) => ({
+  grid: { sort, filters },
+  board: { sort, filters },
+  calendar: { sort, filters },
+});
 
 describe("저장 형식 (스키마 5, COLL-07·08)", () => {
   it("옛 컬렉션은 속성 없음 + 기본 5개 순서 + 열기 방식은 기본값 따르기", () => {
@@ -61,8 +75,8 @@ describe("저장 형식 (스키마 5, COLL-07·08)", () => {
       "fwhat0001",
     ]);
     expect(s.openMode).toBe("side");
-    expect(s.filters).toEqual([{ field: "fsel00001", value: "A" }]);
-    expect(s.sort).toEqual({ field: "fabcd1234", dir: "desc" });
+    expect(s.viewState.grid.filters).toEqual([{ field: "fsel00001", value: "A" }]);
+    expect(s.viewState.grid.sort).toEqual({ field: "fabcd1234", dir: "desc" });
   });
 
   it("레코드 값은 사용자 속성 id 키와 맞는 모양만 남긴다 (스키마 4 파일은 빈 값)", () => {
@@ -122,17 +136,21 @@ describe("사용자 속성 (COLL-08)", () => {
     const s = {
       ...base,
       ...a.patch,
-      filters: [
-        { field: a.id, value: "A" },
-        { field: "status" as const, value: "할 일" },
-      ],
-      sort: { field: a.id, dir: "asc" as const },
+
+      viewState: everyView(
+        [
+          { field: a.id, value: "A" },
+          { field: "status" as const, value: "할 일" },
+        ],
+        { field: a.id, dir: "asc" as const },
+      ),
     };
     const out = deleteField(s, a.id);
     expect(out.fields).toEqual([]);
     expect(out.properties.some((p) => p.key === a.id)).toBe(false);
-    expect(out.filters).toEqual([{ field: "status", value: "할 일" }]);
-    expect(out.sort).toBeNull();
+    expect(out.viewState.grid.filters).toEqual([{ field: "status", value: "할 일" }]);
+    expect(out.viewState.grid.sort).toBeNull();
+    expect(out.viewState.calendar.filters).toEqual([{ field: "status", value: "할 일" }]);
   });
 
   it("순서 옮기기는 숨긴 속성을 건너뛴다", () => {

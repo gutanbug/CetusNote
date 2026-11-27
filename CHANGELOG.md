@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Collection tables can pin columns: the column header menu has 「Pin up to here」 and 「Unpin」, so the title and the first N property columns stay visible while scrolling sideways. (COLL-02)
 - Reminders view: a 「Reminders」 sidebar item (badge = today's and overdue reminders) opens a list grouped into running timers, overdue, today, tomorrow, this week, later, repeating and recently done. Each row opens its page or quick note and can be snoozed (10 min, 1 hour, tomorrow 9:00), completed, stopped (timers) or deleted. Arrow keys move between rows. The command palette has 「Show reminders」. (SYS-16)
 - Quick-note reminders: each quick note has a bell to set a reminder, and its next reminder time shows under the note. The page menu has a 「Reminder…」 item that opens the same picker as the top-bar bell. A reminder that fires while the window is in use opens the due dialog (snooze, done, open) instead of an OS notification. Opening a quick-note reminder from the dialog reveals and highlights that note. (SYS-16, QN-03)
 - Fixed: saving the main window no longer overwrites quick notes added by the quick-input window, and notes deleted in the main window stay deleted. (QN-03)
@@ -33,12 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The quick input bar now appears over whatever app is in front, without bringing CetusNote or its main window forward (macOS: a non-activating panel). It shows on the screen with the cursor, centered horizontally, with its input line a quarter of the screen height above the bottom edge of the usable area. It also shows over full-screen apps and on every Space. (QN-03)
 - Board cards keep their property row on one line. Chips that do not fit collapse into a "+N" chip whose tooltip lists the hidden values, and the date always stays visible. (COLL-03)
 - Startup loads about 500 kB less: the full emoji list is now fetched the first time emoji are needed (`:` menu, typed emoji, export) instead of at launch. Saved pages and emoji output are unchanged.
 - MCP Markdown now also handles images, attachments, subpages, table of contents and emoji like the app. Workspace images and attachments come back as image and attachment blocks, and page links become subpages or mentions when the page exists.
 - MCP Markdown now matches the app export for toggles, toggle headings, columns, callouts, tables, math, date chips and page links, both when reading pages and when writing them.
 - The math renderer (KaTeX) loads only when a page with equations is shown, so the app starts with less code. Equations show their LaTeX source in a muted style for a moment until it loads.
 - Property list: reorder properties by dragging the grip handle, or focus it and press Alt+Up or Alt+Down; the ▲/▼ buttons are gone.
+
+- Sort and filter are now saved per view (table, board, calendar), and the toolbar shows the current view's settings. Existing settings are copied to all three views. (COLL-06)
+- Page files now use schema 10. Versions of Cetus Note before this one cannot open pages saved by this version.
 
 ### Fixed
 

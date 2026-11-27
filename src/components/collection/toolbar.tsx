@@ -268,7 +268,7 @@ function Toolbar({
                 aria-label={m.collection.toolbar.removeFilter(chipLabel(f))}
                 onClick={() => onToggleFilter(f)}
                 className={cn(
-                  "grid size-4.5 shrink-0 place-items-center rounded-pill text-tertiary [&_svg]:size-3",
+                  "grid size-4.5 shrink-0 place-items-center rounded-pill text-tertiary [&_svg]:size-3.5",
                   "hover:bg-active hover:text-primary force-hover:bg-active force-hover:text-primary",
                   focusRing,
                 )}

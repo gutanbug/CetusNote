@@ -38,6 +38,9 @@ import {
   nextColor,
   queryRecords,
   reorder,
+  viewQuery,
+  withViewQuery,
+  mapViewQueries,
 } from "@/features/collection/model";
 import { metaStore, useMeta } from "@/features/meta";
 import { pagesStore, usePages } from "@/features/pages";
@@ -48,6 +51,8 @@ import {
   type BoardSettings,
   type CollectionFilter,
   type CollectionSettings,
+  type CollectionSort,
+  type CollectionViewQuery,
   type FieldValue,
   type Page,
   isFieldId,
@@ -154,6 +159,10 @@ export function CollectionView({ page }: { page: Page }) {
   );
   const setSettings = (patch: Partial<CollectionSettings>) =>
     update(page.id, { collection: { ...settings, ...patch } });
+  /** 지금 보기의 정렬·필터 (COLL-06: 보기마다 따로 저장) */
+  const query = viewQuery(settings);
+  const setQuery = (patch: Partial<CollectionViewQuery>) =>
+    setSettings(withViewQuery(settings, patch));
 
   /* ---------- 레코드 열기 (COLL-07): 모달 · 사이드 패널 · 새 탭 ---------- */
   const defaultMode = useSession((s) => s.recordOpen);
@@ -184,8 +193,13 @@ export function CollectionView({ page }: { page: Page }) {
   // 검색어 입력은 바로 보이고, 목록 거르기는 입력이 잠잠해진 뒤(늦은 값) 한다 — 키를 칠 때마다 1만 건을 다시 거르지 않게 (SYS-11)
   const deferredSearch = React.useDeferredValue(search);
   const shown = React.useMemo(
-    () => queryRecords(records, settings, deferredSearch),
-    [records, settings, deferredSearch],
+    () =>
+      queryRecords(
+        records,
+        { ...query, statuses: settings.statuses, fields: settings.fields },
+        deferredSearch,
+      ),
+    [records, query, settings.statuses, settings.fields, deferredSearch],
   );
   const statuses = settings.statuses;
   const items = React.useMemo(
@@ -228,11 +242,11 @@ export function CollectionView({ page }: { page: Page }) {
     const rec = pagesStore.getState().create({ title: "", parentId: page.id });
     // 필터가 걸려 있으면 그 값을 채워 새 레코드가 바로 보이게
     const pick = (field: CollectionFilter["field"]) =>
-      settings.filters.find((f) => f.field === field)?.value;
+      query.filters.find((f) => f.field === field)?.value;
     const tag = pick("tags");
     // 사용자 속성 필터(선택·다중 선택·체크박스)도 채운다
     const values: Record<string, FieldValue> = {};
-    for (const f of settings.filters) {
+    for (const f of query.filters) {
       if (!isFieldId(f.field) || f.field in values) continue;
       const def = settings.fields.find((x) => x.id === f.field);
       if (def?.type === "select") values[f.field] = f.value;
@@ -334,7 +348,7 @@ export function CollectionView({ page }: { page: Page }) {
     );
     if (patch) setRecordProps(id, patch);
     // 직접 정한 순서 (정렬이 없을 때만) — workspace.json order[컬렉션 id]
-    if (!settings.sort)
+    if (!query.sort)
       metaStore.getState().setOrder(
         page.id,
         reorder(
@@ -352,9 +366,12 @@ export function CollectionView({ page }: { page: Page }) {
     const toKey = to === null ? null : groupKey("status", to);
     setSettings({
       statuses: next,
-      filters: settings.filters.flatMap((f) =>
-        f.field === "status" && f.value === from ? (to ? [{ ...f, value: to }] : []) : [f],
-      ),
+      ...mapViewQueries(settings, (q) => ({
+        ...q,
+        filters: q.filters.flatMap((f) =>
+          f.field === "status" && f.value === from ? (to ? [{ ...f, value: to }] : []) : [f],
+        ),
+      })),
       board: {
         ...board,
         hidden: board.hidden.flatMap((k) => (k === fromKey ? (toKey ? [toKey] : []) : [k])),
@@ -404,7 +421,7 @@ export function CollectionView({ page }: { page: Page }) {
     else setBoard({ colors: { ...board.colors, [key]: color } });
   };
 
-  const narrowed = settings.filters.length > 0 || search.trim() !== "";
+  const narrowed = query.filters.length > 0 || search.trim() !== "";
   const empty = (
     <div className="grid justify-items-center gap-3 text-center">
       <p className="text-ui text-secondary">
@@ -420,7 +437,7 @@ export function CollectionView({ page }: { page: Page }) {
           size="sm"
           onClick={() => {
             setSearch("");
-            setSettings({ filters: [] });
+            setQuery({ filters: [] });
           }}
         >
           {m.screens.collectionView.clearFilters}
@@ -438,11 +455,11 @@ export function CollectionView({ page }: { page: Page }) {
   );
 
   const toggleFilter = (f: CollectionFilter | ToolbarFilter) => {
-    const has = settings.filters.some((x) => x.field === f.field && x.value === f.value);
-    setSettings({
+    const has = query.filters.some((x) => x.field === f.field && x.value === f.value);
+    setQuery({
       filters: has
-        ? settings.filters.filter((x) => !(x.field === f.field && x.value === f.value))
-        : [...settings.filters, f as CollectionFilter],
+        ? query.filters.filter((x) => !(x.field === f.field && x.value === f.value))
+        : [...query.filters, f as CollectionFilter],
     });
   };
 
@@ -648,13 +665,13 @@ export function CollectionView({ page }: { page: Page }) {
           <Toolbar
             view={settings.view}
             onViewChange={(view) => setSettings({ view })}
-            filters={settings.filters}
+            filters={query.filters}
             filterGroups={filterGroups}
             onToggleFilter={toggleFilter}
-            onClearFilters={() => setSettings({ filters: [] })}
-            sort={settings.sort}
+            onClearFilters={() => setQuery({ filters: [] })}
+            sort={query.sort}
             sortFields={sortFields}
-            onSortChange={(sort) => setSettings({ sort: sort as CollectionSettings["sort"] })}
+            onSortChange={(sort) => setQuery({ sort: sort as CollectionSort | null })}
             search={search}
             onSearchChange={setSearch}
             shown={shown.length}
@@ -693,6 +710,9 @@ export function CollectionView({ page }: { page: Page }) {
                 empty={empty}
                 columns={gridColumns}
                 addColumn={props.addColumn}
+                pinned={settings.pinned}
+                widths={settings.widths}
+                onWidthsChange={(widths) => setSettings({ widths })}
               />
             ) : settings.view === "board" ? (
               <BoardView
@@ -702,7 +722,7 @@ export function CollectionView({ page }: { page: Page }) {
                 onOpenPage={openPage}
                 onTrash={moveToTrash}
                 onMove={moveCard}
-                reorderable={!settings.sort}
+                reorderable={!query.sort}
                 onNew={(key) => {
                   const g = groupOf(key);
                   createRecord(

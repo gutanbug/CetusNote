@@ -9,6 +9,7 @@ import {
   type BuiltinProperty,
   type CollectionFilter,
   type CollectionSettings,
+  type CollectionViewQuery,
   type CollectionSort,
   type FieldDef,
   type FieldId,
@@ -196,12 +197,50 @@ export function renameField(
 export function deleteField(
   settings: CollectionSettings,
   id: FieldId,
-): Pick<CollectionSettings, "fields" | "properties" | "filters" | "sort"> {
+): Pick<CollectionSettings, "fields" | "properties" | "viewState"> {
+  // 모든 보기의 정렬·필터에서 뺀다 (스키마 10)
+  const viewState = { ...settings.viewState };
+  for (const view of Object.keys(viewState) as CollectionSettings["view"][]) {
+    const q = viewState[view];
+    viewState[view] = {
+      filters: q.filters.filter((f) => f.field !== id),
+      sort: q.sort?.field === id ? null : q.sort,
+    };
+  }
   return {
     fields: settings.fields.filter((f) => f.id !== id),
     properties: settings.properties.filter((p) => p.key !== id),
-    filters: settings.filters.filter((f) => f.field !== id),
-    sort: settings.sort?.field === id ? null : settings.sort,
+    viewState,
+  };
+}
+
+/** 보기 하나의 정렬·필터 — 지금 보기 또는 지정한 보기 (COLL-06, 스키마 10) */
+export function viewQuery(
+  settings: Pick<CollectionSettings, "view" | "viewState">,
+  view: CollectionSettings["view"] = settings.view,
+): CollectionViewQuery {
+  return settings.viewState[view];
+}
+
+/** 모든 보기의 정렬·필터를 같은 규칙으로 고친다 — 이름 바꾸기·지우기처럼 값이 여러 보기에 걸칠 때 (COLL-06) */
+export function mapViewQueries(
+  settings: Pick<CollectionSettings, "viewState">,
+  fn: (q: CollectionViewQuery) => CollectionViewQuery,
+): Pick<CollectionSettings, "viewState"> {
+  const viewState = {} as CollectionSettings["viewState"];
+  for (const view of ["grid", "board", "calendar"] as const)
+    viewState[view] = fn(settings.viewState[view]);
+  return { viewState };
+}
+
+/** 보기 하나의 정렬·필터만 바꾼 설정 조각 (다른 보기는 그대로) */
+export function withViewQuery(
+  settings: Pick<CollectionSettings, "view" | "viewState">,
+  patch: Partial<CollectionViewQuery>,
+  view: CollectionSettings["view"] = settings.view,
+): Pick<CollectionSettings, "viewState"> {
+  return {
+    viewState: { ...settings.viewState, [view]: { ...settings.viewState[view], ...patch } },
   };
 }
 
@@ -393,7 +432,8 @@ const koCollator = new Intl.Collator("ko");
 /** 필터 → 검색(제목·담당·태그·글로 된 사용자 속성) → 정렬 */
 export function queryRecords(
   records: Page[],
-  settings: Pick<CollectionSettings, "sort" | "filters"> & {
+  /** 거를 보기의 정렬·필터 (지금 보기는 viewQuery로) */
+  settings: CollectionViewQuery & {
     statuses?: StatusOption[];
     fields?: FieldDef[];
   },

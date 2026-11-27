@@ -272,7 +272,13 @@ describe("SYS-11 컬렉션 성능 측정 (1만 건, 표)", () => {
       "sort-change",
       () =>
         pagesStore.getState().update(collectionId, {
-          collection: { ...col().collection!, sort: { field: "due", dir: "asc" } },
+          collection: {
+            ...col().collection!,
+            viewState: {
+              ...col().collection!.viewState,
+              grid: { ...col().collection!.viewState.grid, sort: { field: "due", dir: "asc" } },
+            },
+          },
         }),
       () => firstTitle() !== before,
       false,
@@ -281,7 +287,13 @@ describe("SYS-11 컬렉션 성능 측정 (1만 건, 표)", () => {
       "sort-clear",
       () =>
         pagesStore.getState().update(collectionId, {
-          collection: { ...col().collection!, sort: null },
+          collection: {
+            ...col().collection!,
+            viewState: {
+              ...col().collection!.viewState,
+              grid: { ...col().collection!.viewState.grid, sort: null },
+            },
+          },
         }),
       () => firstTitle() === before,
       false,

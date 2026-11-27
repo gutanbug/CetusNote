@@ -106,7 +106,7 @@ describe("normalizePage", () => {
       layout: { fullWidth: false, font: "default" },
     });
     expect(plain.layout).toEqual({ font: "default" });
-    expect(plain.schemaVersion).toBe(9);
+    expect(plain.schemaVersion).toBe(10);
   });
 
   it("올바른 값은 그대로 둔다", () => {
@@ -168,13 +168,17 @@ describe("normalizePage", () => {
     });
     expect(col.collection).toMatchObject({
       view: "board",
-      sort: { field: "due", dir: "desc" },
-      filters: [{ field: "status", value: "진행 중" }],
+      viewState: {
+        grid: {
+          sort: { field: "due", dir: "desc" },
+          filters: [{ field: "status", value: "진행 중" }],
+        },
+      },
     });
     expect(
       normalizePage({ schemaVersion: 3, id: ID, kind: "collection", collection: { view: "x" } })
         .collection,
-    ).toMatchObject({ view: "grid", sort: null, filters: [] });
+    ).toMatchObject({ view: "grid", viewState: { grid: { sort: null, filters: [] } }, pinned: 0 });
     const rec = normalizePage({
       schemaVersion: 3,
       id: ID,
@@ -262,6 +266,61 @@ describe("normalizePage", () => {
         },
       })?.widths,
     ).toEqual({ title: 320, status: 200, flink0001: 150 });
+  });
+
+  it("스키마 10: 예전 정렬·필터는 표·보드·캘린더에 모두 복사되고 고정은 0이다 (COLL-06)", () => {
+    const page = normalizePage({
+      schemaVersion: 9,
+      id: ID,
+      kind: "collection",
+      collection: {
+        view: "board",
+        sort: { field: "due", dir: "desc" },
+        filters: [{ field: "status", value: "검토" }],
+        widths: { title: 300 },
+      },
+    });
+    const c = page.collection!;
+    expect(page.schemaVersion).toBe(PAGE_SCHEMA_VERSION);
+    expect(c.view).toBe("board");
+    const query = {
+      sort: { field: "due", dir: "desc" },
+      filters: [{ field: "status", value: "검토" }],
+    };
+    expect(c.viewState).toEqual({ grid: query, board: query, calendar: query });
+    expect(c.pinned).toBe(0);
+    expect(c.widths).toEqual({ title: 300 });
+  });
+
+  it("스키마 10: 보기마다 따로 읽고, 모르는 값·지운 속성 필터는 버리며, 고정 칸 수는 정수 0~16", () => {
+    const col = (collection: unknown) =>
+      normalizePage({ schemaVersion: 10, id: ID, kind: "collection", collection }).collection!;
+    const c = col({
+      view: "grid",
+      viewState: {
+        grid: { sort: null, filters: [{ field: "status", value: "완료" }] },
+        board: {
+          sort: { field: "title", dir: "asc" },
+          filters: [{ field: "flink0001", value: "x" }],
+        },
+      },
+      pinned: 2,
+    });
+    expect(c.viewState.grid).toEqual({ sort: null, filters: [{ field: "status", value: "완료" }] });
+    expect(c.viewState.board).toEqual({ sort: { field: "title", dir: "asc" }, filters: [] });
+    expect(c.viewState.calendar).toEqual({ sort: null, filters: [] });
+    expect(c.pinned).toBe(2);
+    expect(col({ view: "grid", pinned: 2.5 }).pinned).toBe(0);
+    expect(col({ view: "grid", pinned: -1 }).pinned).toBe(0);
+    expect(col({ view: "grid", pinned: "3" }).pinned).toBe(0);
+    expect(col({ view: "grid", pinned: 99 }).pinned).toBe(16);
+    // 칸이 없는 예전 값은 최상위 정렬·필터를 세 보기에 쓴다 (읽기 허용)
+    expect(
+      col({ view: "grid", sort: { field: "title", dir: "desc" } }).viewState.calendar.sort,
+    ).toEqual({
+      field: "title",
+      dir: "desc",
+    });
   });
 
   it("루트·폴더·문서 아래에는 무엇이든, 컬렉션 아래에는 문서만", () => {

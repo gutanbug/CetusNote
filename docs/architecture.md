@@ -100,7 +100,7 @@ src-tauri/
   "updatedAt": "2026-11-19T09:12:00Z",
   "trashedAt": null,
   "template": null, // 템플릿 문서(PAGE-14)면 { category, description, pageTitle, builtin }, 아니면 null (ADR-012)
-  "schemaVersion": 9, // 8 → 9: collection.widths(표 열 너비, 값 없으면 {}). 7 → 8: props.start(시작일)를 더한다. 없거나 잘못되면 null(identity migration). 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
+  "schemaVersion": 10, // 9 → 10: collection.viewState(보기마다 정렬·필터 — 표·보드·캘린더 키; 예전 값은 세 보기에 복사), collection.pinned(표 고정 칸 수, 0). 8 → 9: collection.widths(표 열 너비, 값 없으면 {}). 7 → 8: props.start(시작일)를 더한다. 없거나 잘못되면 null(identity migration). 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
 }
 ```
 
@@ -284,6 +284,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 | 028 | 본문 폭은 세 값이다(SHELL-14·SET-03, 2026-11-26): 페이지 `layout.width`가 있으면 그 값, 없으면 가까운 상위 폴더의 값, 없으면 전체 설정(`appearance.defaultWide`). 만들 때 굳히지 않고 상속하므로 폴더 설정이 나중에 바뀌어도 따라간다. 해석은 `features/pages/body-width.ts` 한 곳에서 한다. 스키마 6 → 7 마이그레이션: `fullWidth: true` → `"wide"`, `false` → 없음                                                                                                                                    |
 | 029 | 문서 아래 폴더(SHELL-14, 2026-11-26 사용자 결정): 폴더는 루트·폴더·문서 아래에 둘 수 있다(문서 아래 폴더·컬렉션은 2026-11-20부터 코드가 허용했고, 설명과 가져오기·사이드바 메뉴를 이 규칙에 맞췄다). 컬렉션 아래에는 문서만. 순환은 막는다. 내보내기는 `문서.md` + `문서/` 디렉터리 안에 폴더를 디렉터리로 쓴다.                                                                                                                                                                                        |
 | 030 | 알림 저장(SYS-16, 2026-11-27): 알림은 워크스페이스 루트의 `reminders.json` 한 파일에 둔다(페이지 형식은 그대로, DB 없음). `{ schemaVersion: 1, reminders: [...] }`, 쓰기는 원자적 쓰기, 크기 1MB 이하. 읽기에 실패하면 빈 목록으로 덮어쓰지 않는다. 알람 항목의 시각은 지역 「YYYY-MM-DDTHH:mm」, 타이머는 `createdAt + durationSec`에 울린다. 반복 알람은 `anchor`(처음 정한 시각)로 다음 날짜를 계산해 월말 날짜가 밀리지 않게 한다. 백업 zip에 `reminders.json`을 함께 넣고 복원한다(내보내기 제외). |
+| 031 | 컬렉션 보기 설정(정렬·필터)은 보기마다 따로 둔다(`collection.viewState`, 스키마 10). 표 고정 칸 수는 `collection.pinned`. 이 형식을 쓰는 페이지는 이전 앱이 열지 못한다 (2026-11-27, COLL-02·06)                                                                                                                                                                                                                                                                                                        |
 
 ### ADR-022 — 본문 지연 로딩 (상태: 확정, 2026-11-24 구현)
 
@@ -380,7 +381,10 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 ### ADR-028 — 메뉴 막대 상주 · 전역 단축키 · 빠른 입력 창 (SYS-15, QN-03, 상태: 확정, 2026-11-27 구현 · 실제 앱 확인 필요)
 
 - **결정:** 앱은 메뉴 막대(트레이) 아이콘에 상주할 수 있다(기본 켬). 메인 창을 닫으면 숨기고, ⌘Q·트레이 「종료」만 앱을 끝낸다(저장 확인 흐름 그대로). 전역 단축키 ⌥⇧Space(Alt+Shift+Space)가 빠른 입력 창을 여닫는다. ⌘Space·⌥Space는 조합으로도 받지 않는다(`shortcut.rs::validate`).
-- **창:** 두 번째 웹뷰 창 `quick`을 처음 열 때 만든다. 테두리 없음·투명·항상 위·작업 표시줄 숨김, 680×72 논리 px, 커서가 있는 화면의 위쪽 가운데(높이의 20%). 같은 프런트엔드를 `#/quick` 해시로 연다(`main.tsx`가 앱 본체 훅 없이 그린다). 포커스를 잃으면 Rust가 숨긴다(`lib.rs::on_window_event`). macOS는 `canJoinAllSpaces`·`fullScreenAuxiliary`로 전체 화면 앱 위에 뜬다(`quick.rs`).
+- **창:** 두 번째 웹뷰 창 `quick`을 처음 열 때 만든다. 테두리 없음·투명·항상 위·작업 표시줄 숨김, 680×72 논리 px. 같은 프런트엔드를 `#/quick` 해시로 연다(`main.tsx`가 앱 본체 훅 없이 그린다). 포커스를 잃으면 Rust가 숨긴다(`lib.rs::on_window_event`).
+- **macOS 비활성 패널 (2026-11-27 결정):** 일반 창을 `show()`+`set_focus()`로 띄우면 앱이 활성화되어 숨겨 둔 메인 창이 함께 앞으로 나온다. 그래서 `quick` 창은 `tauri-nspanel` 2.1.1(`=` 고정, macOS 전용)로 `NSPanel`로 바꾼다(`quick.rs::setup_panel`). 스타일 `nonactivatingPanel`(앱을 활성화하지 않고 키 입력은 받는다), 레벨 `PopUpMenu`, 컬렉션 `canJoinAllSpaces`·`fullScreenAuxiliary`·`stationary`·`ignoresCycle`, `hidesOnDeactivate` 끔. 띄울 때는 `show_and_make_key`(orderFrontRegardless + makeKeyWindow)만 쓰고 `set_focus`는 부르지 않는다. 숨기면 이전 앱으로 포커스가 자연스럽게 돌아간다. 패널 전환 뒤에도 창의 tao 델리게이트가 남아 `Focused(false)`가 계속 와서 숨김 경로는 그대로다. 입력 포커스는 `focus` 창 이벤트에 기대지 않고 Rust가 띄울 때마다 보내는 `quick://shown`으로 입력 칸에 준다. Windows·Linux는 일반 창을 그대로 쓴다(위치 규칙만 같다).
+- **위치 규칙 (2026-11-27):** 기준 화면은 커서가 있는 화면의 보이는 영역(`Monitor::work_area`, 메뉴 막대·Dock·작업 표시줄 제외). 가로는 가운데. 세로는 입력 줄(기본 높이 72) 아래 끝이 보이는 영역 바닥에서 높이의 25% 위에 온다. 창의 위쪽 끝은 입력 줄 위치에 고정되어 결과가 늘면 아래로 자라고, 창 아래 끝이 보이는 영역을 넘으면 그만큼 위로 민다(`quick.rs::origin`, 단위 테스트). 높이 변경은 `setSize`를 직접 쓰지 않고 `quick_resize` 커맨드로 보내 같은 규칙을 다시 적용한다(`window.ts::resizeCurrentWindow`). 창을 띄우고 바꾸는 작업은 메인 스레드에서 한다(`run_on_main_thread`).
+- **투명 창 (미결):** `transparent(true)`는 macOS에서 `tauri` 기능 `macos-private-api`와 `app.macOSPrivateApi: true`가 있어야 실제로 투명하다. 이 둘은 App Store 배포를 막으므로 이번에는 넣지 않았다. 실제 앱에서 모서리 바깥이 흰색으로 보이면 그때 결정한다.
 - **권한:** 메인 창은 `app-prefs`(설정 적용 · 창 닫기 마무리)와 `core:window:allow-hide`. 빠른 입력 창은 `capabilities/quick.json`의 `quick` 세트(현재 워크스페이스 확인, 페이지 메타 목록·쓰기)만 받는다. 전역 단축키·자동 시작 등록은 Rust에서 하므로 플러그인의 JS 권한은 열지 않는다.
 - **로그인할 때 시작:** `tauri-plugin-autostart` 2.7.0(2026-10-01 공개), 기본 끔. 실패하면 `autostart_failed`.
 - **전역 단축키:** `tauri-plugin-global-shortcut` 2.4.1(2026-10-10 공개). 설정을 바꾸면 `app_prefs_apply`가 다시 등록한다. 실패(다른 앱이 씀)하면 이전 단축키를 되살리고 `shortcut_unavailable`을 돌려준다.

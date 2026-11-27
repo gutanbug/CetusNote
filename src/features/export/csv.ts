@@ -148,9 +148,9 @@ export function viewRecords(
   const base = orderedRecords(all as Record<string, Page>, collection.id, order);
   const s = collection.collection;
   if (!s) return base;
+  // 내보내기는 지금 보고 있는 보기의 정렬·필터를 따른다 (COLL-06)
   return queryRecords(base, {
-    sort: s.sort,
-    filters: s.filters,
+    ...s.viewState[s.view],
     statuses: s.statuses,
     fields: s.fields,
   });

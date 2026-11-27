@@ -106,8 +106,12 @@ describe("지금 보기 CSV (DATA-13 · scope view)", () => {
         { key: "assignee", hidden: true, card: false },
         { key: "fdone", hidden: false, card: false },
       ],
-      filters: [{ field: "fdone", value: "true" }],
-      sort: null,
+      view: "grid",
+      viewState: {
+        grid: { filters: [{ field: "fdone", value: "true" }], sort: null },
+        board: { filters: [], sort: null },
+        calendar: { filters: [], sort: null },
+      },
       statuses: [],
     },
   } as unknown as Page;

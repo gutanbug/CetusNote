@@ -1,4 +1,4 @@
-import { createPage, type Page } from "@/lib/storage";
+import { createPage, normalizeCollection, type CollectionSettings, type Page } from "@/lib/storage";
 import { describe, expect, it } from "vitest";
 import {
   boardGroups,
@@ -14,6 +14,10 @@ import {
   formatDue,
   monthGrid,
   queryRecords,
+  deleteField,
+  mapViewQueries,
+  viewQuery,
+  withViewQuery,
 } from "./model";
 
 const col = createPage({ kind: "collection", title: "업무" });
@@ -154,5 +158,64 @@ describe("컬렉션 (COLL-01~06)", () => {
       }),
     ).toEqual({ done: 2, total: 4 });
     expect(checklistProgress({ type: "doc", content: [] })).toEqual({ done: 0, total: 0 });
+  });
+});
+
+describe("보기마다 정렬·필터 (COLL-06, 스키마 10)", () => {
+  const base = normalizeCollection(null);
+  const settings: CollectionSettings = {
+    ...base,
+    view: "grid",
+    viewState: {
+      ...base.viewState,
+      board: { sort: null, filters: [{ field: "status", value: "검토" }] },
+    },
+  };
+
+  it("viewQuery는 지금 보기 또는 지정한 보기의 정렬·필터를 준다", () => {
+    expect(viewQuery(settings)).toEqual(base.viewState.grid);
+    expect(viewQuery(settings, "board").filters).toEqual([{ field: "status", value: "검토" }]);
+  });
+
+  it("withViewQuery는 그 보기만 바꾸고 다른 보기는 그대로 둔다", () => {
+    const next = {
+      ...settings,
+      ...withViewQuery(settings, { sort: { field: "due", dir: "asc" } }),
+    };
+    expect(next.viewState.grid.sort).toEqual({ field: "due", dir: "asc" });
+    expect(next.viewState.board).toEqual(settings.viewState.board);
+    expect(next.viewState.calendar).toEqual(settings.viewState.calendar);
+    expect(withViewQuery(settings, { filters: [] }, "calendar").viewState.calendar.filters).toEqual(
+      [],
+    );
+  });
+
+  it("mapViewQueries는 세 보기 모두에 같은 규칙을 건다", () => {
+    const out = mapViewQueries(settings, (q) => ({ ...q, filters: [] }));
+    expect(Object.keys(out.viewState).sort()).toEqual(["board", "calendar", "grid"]);
+    expect(Object.values(out.viewState).every((q) => q.filters.length === 0)).toBe(true);
+  });
+
+  it("deleteField는 모든 보기의 필터·정렬에서 그 속성을 뺀다", () => {
+    const id = "fabcd1234" as const;
+    const field = { id, name: "금액", type: "number" as const, options: [] };
+    const withField: CollectionSettings = {
+      ...settings,
+      fields: [field],
+      viewState: {
+        grid: { sort: { field: id, dir: "asc" }, filters: [{ field: id, value: "A" }] },
+        board: {
+          sort: null,
+          filters: [
+            { field: id, value: "A" },
+            { field: "status", value: "검토" },
+          ],
+        },
+        calendar: { sort: null, filters: [] },
+      },
+    };
+    const out = deleteField(withField, id);
+    expect(out.viewState.grid).toEqual({ sort: null, filters: [] });
+    expect(out.viewState.board.filters).toEqual([{ field: "status", value: "검토" }]);
   });
 });

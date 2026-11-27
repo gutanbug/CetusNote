@@ -22,6 +22,8 @@ import {
   EyeOff,
   GripVertical,
   Link,
+  Pin,
+  PinOff,
   Plus,
   Trash2,
   X,
@@ -445,6 +447,8 @@ type PropertyMenuProps = {
   onDelete?: () => void;
   onRenameOption?: (from: string, to: string) => void;
   onDeleteOption?: (name: string) => void;
+  /** 표 머리에서만: 이 칸까지 왼쪽에 고정하거나 고정을 푼다 (COLL-02). pinned는 지금 고정 안인지 */
+  pin?: { pinned: boolean; onToggle: () => void };
   /** 트리거 — 표 머리 버튼이나 상세 행 이름 */
   children: React.ReactElement;
   /** 앞·뒤로 옮기는 말 — 표는 왼쪽·오른쪽, 상세는 위·아래 */
@@ -466,6 +470,7 @@ export function PropertyMenu({
   onDelete,
   onRenameOption,
   onDeleteOption,
+  pin,
   children,
   axis = "x",
   align = "start",
@@ -565,6 +570,19 @@ export function PropertyMenu({
                 {axis === "x" ? m.collection.property.moveRight : m.collection.property.moveDown}
               </button>
             </>
+          ) : null}
+          {pin && axis === "x" ? (
+            <button
+              type="button"
+              className={cn(menuItem, focusRing)}
+              onClick={() => {
+                pin.onToggle();
+                close();
+              }}
+            >
+              {pin.pinned ? <PinOff {...ic} /> : <Pin {...ic} />}
+              {pin.pinned ? m.collection.property.unpin : m.collection.property.pinTo}
+            </button>
           ) : null}
           <button
             type="button"

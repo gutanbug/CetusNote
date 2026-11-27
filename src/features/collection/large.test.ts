@@ -6,7 +6,11 @@ import { collectionRecords, queryRecords } from "./model";
 describe("큰 컬렉션 거르기·정렬 (1만 건)", () => {
   const { collection, pages, settings } = makePerfCollection(10_000);
   const records = collectionRecords(pages, collection.id, []);
-  const s = { ...settings, fields: PERF_FIELDS };
+  const s = {
+    ...settings.viewState[settings.view],
+    statuses: settings.statuses,
+    fields: PERF_FIELDS,
+  };
 
   it("모든 레코드가 빠짐없이 나온다", () => {
     expect(records).toHaveLength(10_000);
