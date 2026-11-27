@@ -1,6 +1,7 @@
 import type { EditorState } from "@tiptap/pm/state";
 import type { Range } from "@tiptap/core";
-import { EmojiSuggestionPluginKey } from "@tiptap/extension-emoji";
+import { EmojiSuggestionPluginKey } from "./emoji-node";
+import { prefetchEmojiTable } from "@/lib/emoji/table";
 import type { SuggestionOptions } from "@tiptap/suggestion";
 import { matchShortcodes, type ShortcodeItem } from "@/lib/emoji/shortcodes";
 
@@ -68,7 +69,11 @@ export function emojiShortcodeSuggestion(
     // 줄 처음이나 공백 뒤에서만 연다 (startOfLine은 줄 처음만 허용하므로 쓰지 않는다 — 슬래시 메뉴와 같은 방식)
     allowedPrefixes: [" "],
     allow: ({ state, range }) => shortcodeTriggerAllowed(state, range),
-    items: ({ query }) => shortcodeItems(query),
+    items: ({ query }) => {
+      // `:` 목록을 열면 전체 이모지 표를 미리 가져온다 (SYS-11)
+      prefetchEmojiTable();
+      return shortcodeItems(query);
+    },
     command: ({ editor, range, props }) => {
       editor.chain().focus().insertContentAt(range, props.emoji).run();
     },

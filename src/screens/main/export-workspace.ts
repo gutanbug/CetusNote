@@ -2,6 +2,7 @@ import { toast } from "@/components/ui/toast";
 import { frontMatterPref } from "@/features/export/prefs";
 import { buildWorkspaceExport } from "@/features/export/workspace";
 import { metaStore } from "@/features/meta";
+import { loadEmojiTable } from "@/lib/emoji/table";
 import { pagesStore } from "@/features/pages";
 import { StorageError, type Storage } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
@@ -19,6 +20,8 @@ function todayKey(now = new Date()): string {
 export async function exportWorkspaceMarkdown(storage: Storage = getStorage()): Promise<void> {
   // 모든 문서의 본문을 써야 한다 (SYS-10, ADR-022)
   await pagesStore.getState().ensureAllBodies();
+  // 이모지 노드를 글자로 쓰려면 이모지 표가 있어야 한다 (지연 로딩, SYS-11)
+  await loadEmojiTable().catch(() => null);
   const meta = metaStore.getState().meta;
   const plan = buildWorkspaceExport({
     pages: Object.values(pagesStore.getState().pages),

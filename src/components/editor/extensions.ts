@@ -1,9 +1,9 @@
 import { TabIndent } from "./tab-indent";
+import { Emoji } from "./emoji-node";
 import { CalcLine } from "./calc-line";
 import { TableSelectAll } from "./table-select-all";
 import { TextAlignment } from "./text-align";
 import type { AnyExtension } from "@tiptap/core";
-import Emoji, { emojis } from "@tiptap/extension-emoji";
 import Highlight from "@tiptap/extension-highlight";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Subscript from "@tiptap/extension-subscript";
@@ -66,7 +66,6 @@ export type EditorExtensionOptions = {
 };
 
 /** 이모지가 아니라 글자 기호로 남길 것 (EDIT-18: (c)→© · (r)→® · (tm)→™) */
-const TEXT_SYMBOLS = new Set(["copyright", "registered", "tm"]);
 
 /**
  * ED-Editor가 쓰는 확장 묶음 — 모두 Tiptap 오픈소스(MIT) 확장이다.
@@ -183,11 +182,9 @@ export function createExtensions({
       superscriptTwo: false,
       superscriptThree: false,
     }),
-    // ©®™는 글자로 둔다 — 이모지 확장은 입력된 이모지 문자를 노드로 바꾸는데, Typography의 (c)→©까지 이모지가 된다
+    // ©®™는 글자로 둔다 — 이모지 노드는 입력된 이모지 문자를 노드로 바꾸는데, Typography의 (c)→©까지 이모지가 된다
+    // (목록에서 뺀다: lib/emoji/table의 TEXT_SYMBOLS, SYS-11 자체 이모지 노드)
     Emoji.configure({
-      emojis: emojis.filter((e) => !TEXT_SYMBOLS.has(e.name)),
-      enableEmoticons: false,
-      forceFallbackImages: false,
       // `:` 목록(EDIT-35). 콜백이 없으면 목록 없이 입력 규칙만 남는다
       suggestion: emojiShortcodeSuggestion(
         emojiShortcode ?? { onChange: () => {}, onKeyDown: () => false },

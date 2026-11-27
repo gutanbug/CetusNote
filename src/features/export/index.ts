@@ -3,6 +3,7 @@ import { getStorage } from "@/lib/storage/default";
 import { pageAssets } from "./assets";
 import { collectionRecords, collectionToCsv, type CsvScope, viewRecords } from "./csv";
 import { markdownFileName, pageToMarkdown } from "./markdown";
+import { loadEmojiTable } from "@/lib/emoji/table";
 import { capUtf8Bytes } from "@/lib/utf8-cap";
 import { frontMatterPref } from "./prefs";
 
@@ -13,7 +14,7 @@ export { docToMarkdown, markdownFileName, pageToMarkdown, type MdNode } from "./
  * 페이지를 Markdown 파일로 내보낸다 (DATA-04). 저장 대화상자에서 위치를 고른다.
  * 취소하면 null, 저장하면 파일 이름과 건너뛴 이미지 수. 이미지는 저장 위치 옆 `assets/`에 복사한다.
  */
-export function exportPageMarkdown(
+export async function exportPageMarkdown(
   page: Page,
   {
     storage = getStorage(),
@@ -28,6 +29,8 @@ export function exportPageMarkdown(
     frontMatter?: boolean;
   } = {},
 ) {
+  // 이모지 노드를 글자로 바꾸려면 전체 이모지 표가 필요하다 (SYS-11). 가져온 뒤에 쓴다
+  await loadEmojiTable();
   // 페이지가 쓰는 이미지·첨부는 저장 위치 옆 assets/ 로 복사하고, 링크를 assets/<이름>으로 맞춘다
   const assets = pageAssets(page);
   const hrefs = new Map(assets.map((a) => [a.src, `assets/${a.name}`]));

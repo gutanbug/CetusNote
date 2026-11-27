@@ -4,7 +4,7 @@ import { detectLanguage } from "@/lib/code-language";
 import { calloutTypeOf } from "@/lib/callout-type";
 import { collectHeadings } from "@/lib/toc";
 import { capUtf8Bytes } from "@/lib/utf8-cap";
-import { emojis, shortcodeToEmoji } from "@tiptap/extension-emoji";
+import { findEmoji } from "@/lib/emoji/table";
 
 /**
  * Tiptap JSON → Markdown (DATA-04). GitHub 호환(2026-11-19 사용자 결정):
@@ -154,7 +154,7 @@ function inline(nodes: MdNode[] = [], mode: InlineMode = "block"): string {
       text = node.attrs?.date ? `@${String(node.attrs.date)}` : "";
     } else if (node.type === "emoji") {
       const name = String(node.attrs?.name ?? "");
-      text = shortcodeToEmoji(name, emojis)?.emoji ?? `:${name}:`;
+      text = findEmoji(name, "all")?.emoji ?? `:${name}:`;
     } else {
       text = inline(node.content, mode);
     }
