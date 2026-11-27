@@ -23,6 +23,7 @@ import { openPageFrom } from "./tabs";
 const PAGES = 2000;
 const BLOCKS = 2000;
 const KEYS = 40;
+const MIXED = 5000;
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -36,6 +37,61 @@ const frames = () =>
 const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
 const para = (t: string) => ({ type: "paragraph", content: [{ type: "text", text: t }] });
+
+function mixedBlock(b: number) {
+  const text = (t: string) => [{ type: "text", text: t }];
+  switch (b % 6) {
+    case 0:
+      return { type: "heading", attrs: { level: 2 }, content: text(`섹션 ${b}`) };
+    case 1:
+      return {
+        type: "bulletList",
+        content: [{ type: "listItem", content: [para(`항목 ${b}`)] }],
+      };
+    case 2:
+      return {
+        type: "taskList",
+        content: [
+          { type: "taskItem", attrs: { checked: b % 4 === 0 }, content: [para(`할 일 ${b}`)] },
+        ],
+      };
+    case 3:
+      return { type: "codeBlock", attrs: { language: "ts" }, content: text(`const v${b} = ${b};`) };
+    case 4:
+      return { type: "blockquote", content: [para(`인용 ${b}`)] };
+    default:
+      return para(`블록 ${b} 본문 텍스트 입니다`);
+  }
+}
+
+/** 페이지를 열고 에디터가 모든 블록을 그린 뒤 두 프레임까지 걸린 시간 */
+const phases: string[] = [];
+async function openTime(id: string, blocks: number): Promise<number> {
+  const t0 = performance.now();
+  openPageFrom(id, null);
+  await vi.waitFor(() => editorOf(), { timeout: 120000, interval: 5 });
+  const tEditor = performance.now() - t0;
+  const longs: number[] = [];
+  const obs = new PerformanceObserver((l) =>
+    l.getEntries().forEach((e) => longs.push(Math.round(e.duration))),
+  );
+  obs.observe({ type: "longtask" });
+  await vi.waitFor(
+    () => {
+      const e = editorOf();
+      if (e.state.doc.childCount < blocks) throw new Error("블록 대기");
+    },
+    { timeout: 120000, interval: 5 },
+  );
+  await frames();
+  const total = performance.now() - t0;
+  await new Promise((r) => setTimeout(r, 1500));
+  obs.disconnect();
+  phases.push(
+    `${blocks}: editor ${tEditor.toFixed(0)} total ${total.toFixed(0)} longtasks ${JSON.stringify(longs.slice(0, 12))}`,
+  );
+  return total;
+}
 
 function editorOf(): Editor {
   const dom = document.querySelector<HTMLElement & { editor?: Editor }>(
@@ -113,7 +169,17 @@ describe.skipIf(!import.meta.env.VITE_PERF)("입력 지연 (SYS-11)", () => {
         content: Array.from({ length: BLOCKS }, (_, b) => para(`블록 ${b} 본문 텍스트 입니다`)),
       } as never,
     });
-    (globalThis as Record<string, unknown>).__perfIds = { small: small.id, long: long.id };
+    // 여러 종류가 섞인 긴 문서 — 제목·목록·할 일·코드·인용 (열기 측정용)
+    const mixedBlocks = Array.from({ length: MIXED }, (_, b) => mixedBlock(b));
+    const mixed = create({
+      title: "섞인 긴 페이지",
+      content: { type: "doc", content: mixedBlocks } as never,
+    });
+    (globalThis as Record<string, unknown>).__perfIds = {
+      small: small.id,
+      long: long.id,
+      mixed: mixed.id,
+    };
   }, 120_000);
 
   afterAll(() => {
@@ -157,6 +223,27 @@ describe.skipIf(!import.meta.env.VITE_PERF)("입력 지연 (SYS-11)", () => {
       small: string;
       long: string;
     };
+    const ids2 = ids as typeof ids & { mixed: string };
+    // 열기: 짧은 페이지를 거쳐 매번 새로 연다
+    const opens: Record<string, number[]> = { long: [], mixed: [] };
+    for (let r = 0; r < 3; r++) {
+      await openTime(ids.small, 1);
+      opens.long!.push(await openTime(ids.long, BLOCKS));
+      await openTime(ids.small, 1);
+      // n번째 열기의 CPU 프로파일을 남긴다 (VITE_PERF_PROFILE=n)
+      const profile = import.meta.env.VITE_PERF_PROFILE === String(r + 1);
+      if (profile)
+        await (commands as unknown as Record<string, () => Promise<void>>).cpuProfileStart!();
+      opens.mixed!.push(await openTime(ids2.mixed, MIXED));
+      if (profile)
+        await (commands as unknown as Record<string, (p: string) => Promise<void>>).cpuProfileStop!(
+          ".vitest/open.cpuprofile",
+        );
+    }
+    lines.push(
+      `[SYS-11 open] ${JSON.stringify({ [`${BLOCKS}문단`]: stats(opens.long!), [`${MIXED}섞인블록`]: stats(opens.mixed!) })}`,
+    );
+    lines.push(...phases);
     const small = await typeOn(ids.small, `짧은 페이지 · 페이지 ${PAGES}개`);
     const long = await typeOn(ids.long, `${BLOCKS}블록 페이지 · 페이지 ${PAGES}개`);
     // 결과는 파일로 남긴다(브라우저 콘솔은 러너가 보여 주지 않는다)

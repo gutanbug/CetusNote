@@ -77,6 +77,44 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string) {
  * 언어 선택(목록은 처음 열 때 채운다), 복사, 자동 감지 표시를 DOM으로 직접 그린다.
  * 본문은 `code`가 맡고 하이라이트 장식(incrementalLowlight)은 그 안에 붙는다.
  */
+type LanguageFix = { pos: () => number | undefined; language: string | null };
+const pendingFixes = new WeakMap<NodeViewRendererProps["editor"], LanguageFix[]>();
+
+/** 저장된 언어 이름 고치기를 모아 다음 마이크로태스크에 한 트랜잭션으로 보낸다 */
+function queueLanguageFix(
+  editor: NodeViewRendererProps["editor"],
+  pos: () => number | undefined,
+  language: string | null,
+) {
+  const list = pendingFixes.get(editor);
+  if (list) {
+    list.push({ pos, language });
+    return;
+  }
+  pendingFixes.set(editor, [{ pos, language }]);
+  queueMicrotask(() => {
+    const fixes = pendingFixes.get(editor) ?? [];
+    pendingFixes.delete(editor);
+    if (editor.isDestroyed) return;
+    editor.commands.command(({ tr }) => {
+      let changed = false;
+      for (const fix of fixes) {
+        const at = fix.pos();
+        if (typeof at !== "number") continue;
+        // 속성만 바꾸므로 위치가 밀리지 않는다
+        const current = tr.doc.nodeAt(at);
+        if (!current || current.type.name !== "codeBlock") continue;
+        if (current.attrs.language === fix.language) continue;
+        tr.setNodeMarkup(at, undefined, { ...current.attrs, language: fix.language });
+        changed = true;
+      }
+      // 여는 중에 생기는 정리라 실행 취소 기록에 남기지 않는다
+      if (changed) tr.setMeta("addToHistory", false);
+      return changed;
+    });
+  });
+}
+
 function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps) {
   let node = initial;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -171,9 +209,9 @@ function codeBlockView({ node: initial, editor, getPos }: NodeViewRendererProps)
     const auto = language === AUTO_LANGUAGE;
     if (auto ? raw !== null : raw !== language) {
       // 줄임말·모르는 언어는 저장 값도 목록 이름으로 바꾼다 (자동 감지는 null로 둔다)
-      queueMicrotask(() => {
-        if (!destroyed) setLanguage(auto ? null : language);
-      });
+      // 열 때 여러 블록이 한꺼번에 고치므로 한 트랜잭션으로 모은다 (SYS-11).
+      // 블록마다 따로 보내면 블록 수만큼 하이라이트 전체 재계산·저장 비교가 돌아 큰 문서가 수십 초 멈춘다
+      queueLanguageFix(editor, () => (destroyed ? undefined : getPos()), auto ? null : language);
     }
   }
 

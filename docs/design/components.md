@@ -451,7 +451,7 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 고친 항목의 요약이다. 진행 상태(`Ready`·`감사 완료`)는 바꾸지 않았다. 이 문서에는 수정으로 상태를 되돌리는 규칙이 없다.
 
 - **ED-CodeBlock:** 코드 면 색 토큰을 `--color-code-surface`(`bg-code-surface`)로 바꿨다. `text-code`(13.5px)와 같은 이름이 겹쳐 코드가 16px로 그려지던 문제를 막는다. 언어 선택 칸은 고른 이름 길이에 맞추고, 화살표는 lucide chevron을 쓴다.
-- **ED-CodeBlock (SYS-11):** 하이라이트는 Tiptap 기본 lowlight 플러그인 대신 `editor/code-highlight.ts`의 증분 플러그인을 쓴다. 바뀐 범위와 겹치는 코드 블록만 다시 칠한다(`code-highlight.test.ts`가 전체 재계산과 같음을 확인). 노드 뷰(`CodeBlockView`)는 그대로다. 노드 뷰 생성은 블록당 약 1.6ms라 열기 비용의 주원인으로 남았다(10k 블록 열기 16초, 측정).
+- **ED-CodeBlock (SYS-11):** 하이라이트는 Tiptap 기본 lowlight 플러그인 대신 `editor/code-highlight.ts`의 증분 플러그인을 쓴다. 바뀐 범위와 겹치는 코드 블록만 다시 칠한다(`code-highlight.test.ts`가 전체 재계산과 같음을 확인). 노드 뷰(`CodeBlockView`)는 그대로다. 노드 뷰 생성은 블록당 약 1.6ms라 열기 비용의 주원인으로 남았다(10k 블록 열기 16초, 측정). 저장된 언어 줄임말(`ts`·`py`)을 목록 이름으로 고치는 정리는 블록마다 트랜잭션을 보내던 것을 한 트랜잭션으로 모은다(실행 취소 기록 없음, 2026-11-27). 블록마다 보내면 트랜잭션마다 하이라이트 전체 재계산·본문 비교가 돌아 O(n²)이 됐다: 코드 블록 833개가 든 5000블록 문서의 첫 열기가 프로덕션 20.7초 → 1.3초(`code-block-open.browser.spec.tsx`가 한 트랜잭션을 고정).
 - **ED-TableMenu · ED-FloatingToolbar:** 위치는 편집기 스크롤 영역(상단 바 아래) 안에서 기준 사각형에 붙이고, 자리가 없으면 뒤집고(flip) 가장자리에서 밀어낸다(shift). 계산은 공용 헬퍼 `src/components/editor/floating-bounds.ts`를 쓴다.
 - **ED-FindBar:** 찾기 줄과 바꾸기 줄이 같은 격자(shared grid)를 쓰고, 조작 칸은 28px다.
 - **CL-CalendarView:** 칩에 전체 제목을 title로 붙여 잘린 제목을 hover로 읽는다.

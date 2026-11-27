@@ -4,7 +4,7 @@ import process from "node:process";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
@@ -13,6 +13,24 @@ import { playwright } from "@vitest/browser-playwright";
 // OV-EmojiPicker(frimousse)는 이모지 데이터를 `${base}/ko/data.json`에서 받는다.
 // 오프라인 앱이므로 CDN 대신 emojibase-data 패키지의 파일을 앱이 직접 제공한다:
 // 개발 서버(앱·Storybook·테스트)는 미들웨어로, 빌드는 같은 경로의 에셋으로.
+/** CDP CPU 프로파일 (SYS-11 측정용). 결과는 .cpuprofile(JSON)로 저장한다 */
+type CdpSession = { send(method: string, params?: object): Promise<{ profile?: unknown }> };
+let cdp: CdpSession | null = null;
+const cpuProfileStart = async (ctx: unknown) => {
+  const page = (ctx as { page: { context(): { newCDPSession(p: unknown): Promise<CdpSession> } } })
+    .page;
+  cdp = await page.context().newCDPSession(page);
+  await cdp.send("Profiler.enable");
+  await cdp.send("Profiler.setSamplingInterval", { interval: 200 });
+  await cdp.send("Profiler.start");
+};
+const cpuProfileStop = async (_ctx: unknown, out: string) => {
+  if (!cdp) return;
+  const { profile } = await cdp.send("Profiler.stop");
+  writeFileSync(out, JSON.stringify(profile));
+  cdp = null;
+};
+
 const EMOJIBASE_FILES = ["ko/data.json", "ko/messages.json"];
 function emojibaseLocal(): Plugin {
   const require = createRequire(import.meta.url);
@@ -110,6 +128,8 @@ export default defineConfig(() => ({
             enabled: true,
             headless: true,
             provider: playwright({}),
+            // 성능 측정(SYS-11, typing-perf.browser.spec.tsx)용 CPU 프로파일 — 테스트가 부를 때만 켠다
+            commands: { cpuProfileStart, cpuProfileStop },
             instances: [
               {
                 browser: "chromium",

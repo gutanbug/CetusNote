@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Long pages with many code blocks open much faster the first time.
 - Faster MCP search on large workspaces.
 - Typing is faster, especially in long pages: the editor no longer re-renders the sidebar, dialogs and the whole document on every keystroke.
 - Folders can now be placed inside pages.
