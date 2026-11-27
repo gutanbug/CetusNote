@@ -12,4 +12,5 @@ permissions = [
   "allow-reminders-write",
   "allow-quick-note-append",
   "allow-main-window-show",
+  "allow-quick-resize",
 ]

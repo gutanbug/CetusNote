@@ -122,6 +122,7 @@ pub fn run() {
             tray::main_window_show,
             prefs::main_window_close,
             commands::quick_note_append,
+            quick::quick_resize,
         ]);
 
     // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다

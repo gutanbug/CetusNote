@@ -18,7 +18,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["image-png", "protocol-asset", "tray-icon"] }
+# macos-private-api: 빠른 입력 패널(QN-03)의 투명한 둥근 모서리. App Store 배포는 하지 않는다
+tauri = { version = "2", features = ["image-png", "protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 libc = "0.2"
 # 폴더 선택·저장 대화상자. Rust 커맨드 안에서만 띄운다(프론트엔드 권한 없음).
@@ -58,6 +59,8 @@ objc2-pdf-kit = { version = "=0.3.2", features = ["std", "PDFDocument", "PDFPage
 # 미리보기 쪽 그림(PNG, DATA-06): PDFKit 썸네일을 비트맵으로 바꾼다. objc2-web-kit이 쓰는 판과 같다
 objc2-app-kit = { version = "=0.3.2", features = ["std", "NSApplication", "NSImage", "NSBitmapImageRep", "NSWindow", "NSEvent", "block2"] }
 block2 = "=0.6.2"
+# 빠른 입력 창을 비활성 NSPanel로 바꾼다(QN-03): 앱을 활성화하지 않고 떠서 메인 창이 앞으로 나오지 않는다. 2.1.1은 tauri ^2.8 · objc2 0.6 · objc2-app-kit 0.3을 쓴다(잠긴 판과 호환)
+tauri-nspanel = "=2.1.1"
 
 # Windows PDF 내보내기(DATA-06·SYS-08): WebView2 PrintToPdf. wry·tauri가 쓰는 판과 같다
 [target.'cfg(windows)'.dependencies]

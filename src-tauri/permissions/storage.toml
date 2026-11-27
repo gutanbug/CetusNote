@@ -70,4 +70,5 @@ permissions = [
   "allow-tray-set-status",
   "allow-main-window-show",
   "allow-quick-note-append",
+  "allow-quick-resize",
 ]

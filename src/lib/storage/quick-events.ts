@@ -6,8 +6,10 @@ import { isTauri } from "./default";
  * - quick://open-page: 빠른 입력이 페이지를 열어 달라고 한다 ({ id })
  * - quick://changed: 메모·페이지가 바뀌었으니 메인 창이 워크스페이스 메타·페이지 목록을 다시 읽는다
  * - reminders://changed: 알림 파일이 바뀌었으니 메인 창이 알림 목록을 다시 읽는다
+ * - quick://shown: 빠른 입력 창이 떴다 (Rust → 빠른 입력 창). 입력 칸에 포커스를 준다
  */
-export type AppEventName = "quick://open-page" | "quick://changed" | "reminders://changed";
+export type AppEventName =
+  "quick://open-page" | "quick://changed" | "reminders://changed" | "quick://shown";
 
 export function emitAppEvent(name: AppEventName, payload?: unknown): Promise<void> {
   if (!isTauri()) return Promise.resolve();

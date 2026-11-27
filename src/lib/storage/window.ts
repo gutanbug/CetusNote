@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 /**
@@ -31,9 +30,12 @@ export async function hideCurrentWindow(): Promise<void> {
   await getCurrentWindow().hide();
 }
 
-/** 빠른 입력 창의 높이를 바꾼다 (결과가 나오면 늘린다). 권한: core:window:allow-set-size */
+/**
+ * 빠른 입력 창의 크기를 바꾼다 (결과가 나오면 늘린다). Rust(quick_resize)가 입력 줄 위치 규칙을 다시 적용한다.
+ * setSize를 직접 쓰면 창이 화면 아래로 자라므로 쓰지 않는다.
+ */
 export async function resizeCurrentWindow(width: number, height: number): Promise<void> {
-  await getCurrentWindow().setSize(new LogicalSize(width, height));
+  await invoke("quick_resize", { width, height });
 }
 
 /** 메뉴 막대 상주·로그인 시작·빠른 입력 단축키·두 번 누르기 설정을 Rust에 적용한다 (SYS-15, QN-03) */

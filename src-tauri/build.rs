@@ -68,6 +68,7 @@ const COMMANDS: &[&str] = &[
     "tray_set_status",
     "main_window_show",
     "quick_note_append",
+    "quick_resize",
 ];
 
 fn main() {

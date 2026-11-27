@@ -1,4 +1,4 @@
-import { emitAppEvent as emit } from "@/lib/storage/quick-events";
+import { emitAppEvent as emit, listenAppEvent } from "@/lib/storage/quick-events";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QuickInput, type QuickChip, type QuickResult } from "@/components/page/quick-input";
 import {
@@ -230,9 +230,12 @@ export function QuickScreen() {
     // 첫 읽기는 다음 턴에 한다(마운트 중 상태를 바로 바꾸지 않는다)
     const first = window.setTimeout(refresh, 0);
     window.addEventListener("focus", refresh);
+    // 비활성 패널은 focus 이벤트가 오지 않을 수 있어 Rust가 띄울 때마다 알린다
+    const unlisten = listenAppEvent("quick://shown", refresh);
     return () => {
       window.clearTimeout(first);
       window.removeEventListener("focus", refresh);
+      void unlisten.then((off) => off());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

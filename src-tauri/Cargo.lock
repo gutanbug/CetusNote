@@ -505,6 +505,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-nspanel",
  "tauri-plugin-autostart",
  "tauri-plugin-dialog",
  "tauri-plugin-global-shortcut",
@@ -4646,6 +4647,19 @@ dependencies = [
  "syn 2.0.119",
  "tauri-codegen",
  "tauri-utils",
+]
+
+[[package]]
+name = "tauri-nspanel"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46152b976f2cf82dc8ea0b942bbe2d9caee100b944529b7ed9c3ab048fc2637d"
+dependencies = [
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "pastey",
+ "tauri",
 ]
 
 [[package]]
