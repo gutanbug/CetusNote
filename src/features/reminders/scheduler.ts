@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { formatDateTimeLabel } from "../../lib/dates/date-label";
 import type { DateReminder } from "../../lib/dates/collect-reminders";
 import { computeReminderAt } from "../../lib/dates/reminder";
@@ -169,7 +170,7 @@ export class ReminderScheduler {
   private fire(p: Pending, now: Date): void {
     // 먼저 보낸 표시를 남겨 두 번 울리지 않게 한다
     this.deps.fired.add(p.key);
-    const title = this.deps.pageTitle(p.item.pageId).trim() || "제목 없음";
+    const title = this.deps.pageTitle(p.item.pageId).trim() || msg().features.untitled;
     const body = formatDateTimeLabel(p.item.date, p.item.time, now);
     void this.deliver(p, { pageId: p.item.pageId, title, body });
   }
@@ -195,7 +196,7 @@ export class ReminderScheduler {
     return {
       key,
       pageId: item.pageId,
-      title: this.deps.pageTitle(item.pageId).trim() || "제목 없음",
+      title: this.deps.pageTitle(item.pageId).trim() || msg().features.untitled,
       label: formatDateTimeLabel(item.date, item.time, at),
       at,
     };

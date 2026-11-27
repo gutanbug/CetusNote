@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { extensionOf } from "./limits";
 
 /** 사람이 읽는 크기: 512 B · 3.4 KB · 12 MB · 1.2 GB (10 미만은 소수 한 자리) */
@@ -46,5 +47,5 @@ export function formatTime(seconds: number): string {
 /** 카드에 쓰는 형식 표시: 확장자를 대문자로(PDF · DOCX). 없으면 "파일" */
 export function formatLabel(name: string): string {
   const ext = extensionOf(name);
-  return ext ? ext.toUpperCase() : "파일";
+  return ext ? ext.toUpperCase() : msg().features.attachments.fileFallback;
 }

@@ -1,3 +1,4 @@
+import { msg, useMessages } from "@/lib/i18n";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,12 +23,15 @@ export type DetailRow = {
   content?: React.ReactNode;
 };
 
-const BUILTIN_ROWS: DetailRow[] = [
-  { key: "status", name: "상태", kind: "status" },
-  { key: "assignee", name: "담당", kind: "assignee" },
-  { key: "due", name: "마감", kind: "due" },
-  { key: "tags", name: "태그", kind: "tags" },
-];
+const builtinRows = (): DetailRow[] => {
+  const b = msg().collection.model.builtin;
+  return [
+    { key: "status", name: b.status, kind: "status" },
+    { key: "assignee", name: b.assignee, kind: "assignee" },
+    { key: "due", name: b.due, kind: "due" },
+    { key: "tags", name: b.tags, kind: "tags" },
+  ];
+};
 import { valueButton } from "./styles";
 import { PageIcon } from "@/components/ui/page-icon";
 
@@ -77,6 +81,7 @@ function Row({
   menu?: DetailRow["menu"];
   children: React.ReactNode;
 }) {
+  const m = useMessages();
   const label = (
     <>
       <PropertyIcon kind={kind} />
@@ -90,7 +95,7 @@ function Row({
           menu(
             <button
               type="button"
-              aria-label={`${name} 속성 메뉴`}
+              aria-label={m.collection.recordDetail.propertyMenu(name)}
               className={cn(
                 rowHead,
                 "transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
@@ -164,12 +169,13 @@ function SidePanel({
 
 /** 체크리스트 진행률 (프로토타입 §15 `.todo-progress`) */
 function ChecklistProgress({ done, total }: { done: number; total: number }) {
+  const m = useMessages();
   const pct = total ? Math.round((done / total) * 100) : 0;
   const id = React.useId();
   return (
     <div className="mt-3 mb-1 flex items-center gap-3">
       <span id={id} className="shrink-0 text-label whitespace-nowrap text-secondary">
-        완료 {done}/{total}
+        {m.collection.recordDetail.done(done, total)}
       </span>
       <Progress value={pct} aria-labelledby={id} className="min-w-0 flex-1" />
       <span aria-hidden className="w-9 shrink-0 text-right text-label text-tertiary tabular-nums">
@@ -202,11 +208,12 @@ function RecordDetail({
   onRemoveTag,
   progress,
   children,
-  rows = BUILTIN_ROWS,
+  rows = builtinRows(),
   addProperty,
   className,
 }: RecordDetailProps) {
-  const name = item.title || "제목 없음";
+  const m = useMessages();
+  const name = item.title || m.collection.untitled;
   const chips = item.tags.length ? (
     // 다른 속성 값 칸과 같은 왼쪽 여백(px-2)으로 맞춘다
     <span className="flex flex-wrap items-center gap-1 px-2">
@@ -231,7 +238,10 @@ function RecordDetail({
       {item.tags.length ? chips : null}
       <Popover>
         <PopoverTrigger className={cn(valueButton, "min-h-7.5 min-w-8 flex-1 self-stretch px-2")}>
-          <span className="sr-only">태그 편집{item.tags.length ? "" : ": "}</span>
+          <span className="sr-only">
+            {m.collection.recordDetail.editTags}
+            {item.tags.length ? "" : ": "}
+          </span>
           {item.tags.length ? null : <EmptyValue />}
         </PopoverTrigger>
         <PopoverContent className="w-70 p-2">{tagEditor}</PopoverContent>
@@ -243,7 +253,7 @@ function RecordDetail({
   const builtin = (key: BuiltinKey) =>
     key === "status" ? (
       <StatusPicker
-        label="상태"
+        label={m.collection.model.builtin.status}
         value={item.status}
         color={item.statusColor}
         options={statusOptions}
@@ -252,32 +262,37 @@ function RecordDetail({
       />
     ) : key === "assignee" ? (
       <AssigneePicker
-        label="담당"
+        label={m.collection.model.builtin.assignee}
         value={item.assignee}
         choices={assigneeChoices}
         onChange={onAssigneeChange}
         className="px-2"
       />
     ) : key === "due" ? (
-      <DuePicker label="마감" value={item.due} onChange={onDueChange} className="px-2" />
+      <DuePicker
+        label={m.collection.model.builtin.due}
+        value={item.due}
+        onChange={onDueChange}
+        className="px-2"
+      />
     ) : (
       tagsCell
     );
   const header = (
     <div className="flex items-center gap-1 border-b border-line px-3 py-2">
-      <IconButton label="이전 레코드" disabled={!onPrev} onClick={onPrev}>
+      <IconButton label={m.collection.recordDetail.prevRecord} disabled={!onPrev} onClick={onPrev}>
         <ChevronLeft strokeWidth={1.5} />
       </IconButton>
-      <IconButton label="다음 레코드" disabled={!onNext} onClick={onNext}>
+      <IconButton label={m.collection.recordDetail.nextRecord} disabled={!onNext} onClick={onNext}>
         <ChevronRight strokeWidth={1.5} />
       </IconButton>
       <span className="flex-1 pl-2 text-label text-tertiary" aria-live="polite">
         {position.index} / {position.total}
       </span>
-      <IconButton label="페이지로 열기" onClick={onOpenPage}>
+      <IconButton label={m.collection.recordDetail.openAsPage} onClick={onOpenPage}>
         <Maximize2 strokeWidth={1.5} />
       </IconButton>
-      <IconButton label="닫기" onClick={() => onOpenChange(false)}>
+      <IconButton label={m.collection.recordDetail.close} onClick={() => onOpenChange(false)}>
         <X strokeWidth={1.5} />
       </IconButton>
     </div>
@@ -292,14 +307,18 @@ function RecordDetail({
       <input
         value={item.title}
         onChange={(e) => onTitleChange(e.target.value)}
-        aria-label="제목"
-        placeholder="제목 없음"
+        aria-label={m.collection.recordDetail.title}
+        placeholder={m.collection.untitled}
         className={cn(
           "mt-2 w-full rounded-md bg-transparent text-h1 font-bold tracking-(--tracking-display) text-primary placeholder:text-tertiary",
           focusRing,
         )}
       />
-      <div role="table" aria-label="속성" className="mt-4 grid gap-0.5">
+      <div
+        role="table"
+        aria-label={m.collection.recordDetail.properties}
+        className="mt-4 grid gap-0.5"
+      >
         {rows.map((row) => (
           <Row key={row.key} kind={row.kind} name={row.name} menu={row.menu}>
             {row.content ?? builtin(row.kind as BuiltinKey)}
@@ -315,7 +334,7 @@ function RecordDetail({
   if (variant === "side")
     return open ? (
       <SidePanel
-        label={`레코드: ${name}`}
+        label={m.collection.recordDetail.recordOf(name)}
         onClose={() => onOpenChange(false)}
         className={className}
       >
@@ -339,7 +358,7 @@ function RecordDetail({
           className,
         )}
       >
-        <DialogTitle className="sr-only">레코드: {name}</DialogTitle>
+        <DialogTitle className="sr-only">{m.collection.recordDetail.recordOf(name)}</DialogTitle>
         {header}
         {body}
       </DialogContent>

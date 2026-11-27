@@ -10,16 +10,18 @@ import {
 import { REMINDER_COPY } from "@/features/reminders";
 import { openPageLink } from "./actions";
 import { setMissedOpen, useMissed } from "./reminder-alerts";
+import { useMessages } from "@/lib/i18n";
 
 /** 놓친 알림 목록 (앱 시작 때 뜬 것). 항목을 누르면 그 페이지를 연다 */
 export function ReminderAlertsDialog() {
+  const m = useMessages();
   const { items, open } = useMissed();
   return (
     <Dialog open={open} onOpenChange={setMissedOpen}>
       <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{REMINDER_COPY.missedTitle(items.length)}</DialogTitle>
-          <DialogDescription>앱이 꺼져 있던 동안 지난 날짜 알림이에요.</DialogDescription>
+          <DialogDescription>{m.screens.reminders.missedDesc}</DialogDescription>
         </DialogHeader>
         <ul className="grid gap-1">
           {items.map((item) => (
@@ -40,7 +42,7 @@ export function ReminderAlertsDialog() {
         </ul>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => setMissedOpen(false)}>
-            닫기
+            {m.screens.dialogs.close}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -25,7 +25,7 @@ import { SlashLayer } from "./slash-layer";
 import { SubpageProvider, type SubpageSource } from "./subpage-block";
 import type { SlashItem } from "./slash-items";
 import { TableMenu } from "./table-menu";
-import { msg } from "@/lib/i18n";
+import { msg, useLocale } from "@/lib/i18n";
 
 export type NoteEditorProps = {
   /** Tiptap JSON(저장 형식) 또는 HTML(견본·붙여넣기용) */
@@ -231,6 +231,13 @@ export function NoteEditor({
     editorProps: { attributes: proseAttributes(label, spellCheck, dimChecked, calc, calcRight) },
     onUpdate: ({ editor: e }) => onChangeRef.current?.(e.getJSON()),
   });
+  // 언어가 바뀌면 안내 글(placeholder)·접근성 라벨을 새 언어로 다시 그린다 (SYS-14)
+  const locale = useLocale();
+  React.useEffect(() => {
+    if (editor && !editor.isDestroyed)
+      editor.view.dispatch(editor.state.tr.setMeta("locale", locale));
+  }, [editor, locale]);
+
   React.useLayoutEffect(() => {
     editorRef.current = editor;
   }, [editor]);

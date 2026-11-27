@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { UpdaterState } from "./store";
 
 /**
@@ -5,8 +6,10 @@ import type { UpdaterState } from "./store";
  * 내려받는 중 → 「내려받는 중 n%」, 내려받기가 끝나 저장·다시 여는 중 → 「설치하고 다시 여는 중이에요」
  */
 export function downloadMessage(progress: number | null, finishing: boolean): string {
-  if (finishing) return "설치하고 다시 여는 중이에요";
-  return progress === null ? "내려받는 중이에요" : `내려받는 중 ${progress}%`;
+  if (finishing) return msg().features.updater.finishing;
+  return progress === null
+    ? msg().features.updater.downloading
+    : msg().features.updater.downloadingPercent(progress);
 }
 
 /** 설정 › 일반 › 업데이트 행이 그릴 내용. 화면은 이 값을 그대로 쓴다 */
@@ -29,27 +32,32 @@ export function updateView(s: UpdaterState): UpdateView {
     case "checking":
       return {
         ...base,
-        message: "새 버전이 있는지 확인하고 있어요",
+        message: msg().features.updater.checking,
         action: "check",
-        actionLabel: "확인 중…",
+        actionLabel: msg().features.updater.checkingAction,
         busy: true,
         actionDisabled: true,
       };
     case "latest":
-      return { ...base, message: "최신 버전이에요", action: "check", actionLabel: "업데이트 확인" };
+      return {
+        ...base,
+        message: msg().features.updater.latest,
+        action: "check",
+        actionLabel: msg().features.updater.checkAction,
+      };
     case "available":
       return {
         ...base,
-        message: `새 버전 ${s.update?.version ?? ""}이 나왔어요`,
+        message: msg().features.updater.newVersion(s.update?.version ?? ""),
         action: "install",
-        actionLabel: "업데이트",
+        actionLabel: msg().features.updater.installAction,
       };
     case "downloading":
       return {
         ...base,
         message: downloadMessage(s.progress, s.finishing),
         action: "install",
-        actionLabel: "업데이트",
+        actionLabel: msg().features.updater.installAction,
         actionDisabled: true,
         busy: true,
         progress: s.progress,
@@ -61,12 +69,17 @@ export function updateView(s: UpdaterState): UpdateView {
       }
       return {
         ...base,
-        message: s.error ?? "업데이트를 확인하지 못했어요.",
+        message: s.error ?? msg().features.updater.checkFailed,
         action: "retry",
-        actionLabel: "다시 시도",
+        actionLabel: msg().features.updater.retryAction,
         error: true,
       };
     default:
-      return { ...base, message: "", action: "check", actionLabel: "업데이트 확인" };
+      return {
+        ...base,
+        message: "",
+        action: "check",
+        actionLabel: msg().features.updater.checkAction,
+      };
   }
 }

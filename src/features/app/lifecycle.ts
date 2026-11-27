@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { toast } from "@/components/ui/toast";
 import { metaStore } from "@/features/meta";
 import { onKeptExternal, pagesStore } from "@/features/pages";
@@ -67,8 +68,7 @@ export function useAutoBackupOnOpen() {
         delay: AUTO_BACKUP_DELAY_MS,
         isCurrent: () => workspaceStore.getState().workspace?.path === path,
         backup: () => runAutoBackup(getStorage()),
-        onFailed: () =>
-          toast.error("자동 백업을 만들지 못했어요. 설정 → 데이터에서 확인해 주세요."),
+        onFailed: () => toast.error(msg().features.app.autoBackupFailed),
       });
     };
     check();
@@ -92,8 +92,8 @@ export function useKeptExternalNotice(openHistory: (pageId: string) => void) {
   useEffect(
     () =>
       onKeptExternal((pageId) => {
-        toast("다른 곳에서 바뀐 내용을 버전 기록에 남겨 두었어요.", {
-          action: { label: "버전 기록 보기", onClick: () => openHistory(pageId) },
+        toast(msg().features.app.externalChangesKept, {
+          action: { label: msg().features.app.viewHistory, onClick: () => openHistory(pageId) },
         });
       }),
     [openHistory],
@@ -148,12 +148,8 @@ export async function checkExternalChanges(storage = getStorage()) {
     base,
   });
   if (changes.meta) await metaStore.getState().reloadExternal();
-  if (result.conflicts.length)
-    toast.error(
-      "다른 곳에서 바뀐 페이지가 있어요. 여기서 고친 내용을 지켰고, 바뀐 내용은 버전 기록에서 볼 수 있어요.",
-    );
-  if (read.errors.length)
-    toast.error(`바깥에서 바뀐 파일 ${read.errors.length}개를 읽지 못했어요.`);
+  if (result.conflicts.length) toast.error(msg().features.app.externalPagesChanged);
+  if (read.errors.length) toast.error(msg().features.app.externalReadErrors(read.errors.length));
   return { ...result, meta: changes.meta, errors: read.errors };
 }
 
@@ -175,15 +171,14 @@ export async function runQuitFlow({
   confirmQuit,
   notify,
 }: QuitFlowDeps): Promise<boolean> {
-  const quit = () =>
-    confirmQuit().catch(() => notify("앱을 종료하지 못했어요. 다시 시도해 주세요."));
+  const quit = () => confirmQuit().catch(() => notify(msg().features.app.quitFailed));
   const saved = await saveAll().catch(() => false);
   if (saved) {
     await quit();
     return true;
   }
-  notify("저장하지 못한 변경이 있어요. 앱을 종료하지 않았어요.", {
-    label: "그래도 종료",
+  notify(msg().features.app.quitBlockedUnsaved, {
+    label: msg().features.app.quitAnyway,
     onClick: () => void quit(),
   });
   return false;
@@ -233,8 +228,11 @@ export function useSaveOnClose() {
           return;
         }
         // 저장하지 못했으면 창을 열어 두고, 사용자가 고를 수 있게 한다
-        toast.error("저장하지 못한 변경이 있어요. 창을 닫지 않았어요.", {
-          action: { label: "그래도 닫기", onClick: () => void destroyCurrentWindow() },
+        toast.error(msg().features.app.closeBlockedUnsaved, {
+          action: {
+            label: msg().features.app.closeAnyway,
+            onClick: () => void destroyCurrentWindow(),
+          },
         });
       }),
     );

@@ -1,3 +1,4 @@
+import { intlLocale, msg } from "@/lib/i18n";
 import { docText } from "@/features/search/search-index";
 
 export type DocStats = {
@@ -29,10 +30,9 @@ export function docStats(doc: unknown): DocStats {
   return { chars, charsNoSpace, words, minutes };
 }
 
-const num = new Intl.NumberFormat("ko-KR");
-
 /** 페이지 메뉴에 보일 한 줄: "글자 1,234 · 단어 210 · 약 3분" */
 export function formatDocStats(s: DocStats): string {
-  if (!s.charsNoSpace) return "아직 글이 없어요";
-  return `글자 ${num.format(s.chars)} · 단어 ${num.format(s.words)} · 약 ${s.minutes}분`;
+  if (!s.charsNoSpace) return msg().features.pages.statsEmpty;
+  const num = new Intl.NumberFormat(intlLocale());
+  return msg().features.pages.statsSummary(num.format(s.chars), num.format(s.words), s.minutes);
 }

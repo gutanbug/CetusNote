@@ -1,3 +1,4 @@
+/* i18n-ignore-file — 브라우저 미리보기·스토리·테스트용 메모리 저장소. 실제 앱은 tauri.ts를 쓰고, 여기 오류 문구는 개발용 */
 import { normalizePage, normalizeWorkspace } from "./schema";
 import {
   attachmentKind,
@@ -382,6 +383,9 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
     },
     async writeSettings(next) {
       settings = clone(next);
+    },
+    async setLocale() {
+      // 브라우저 미리보기는 네이티브 메뉴가 없어 언어를 따로 저장하지 않는다
     },
     async setAppIcon() {
       // 브라우저 미리보기에는 Dock·창 아이콘이 없다

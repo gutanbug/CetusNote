@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { msg } from "../i18n";
 import { normalizePage, normalizeWorkspace, SchemaError } from "./schema";
 import {
   StorageError,
@@ -58,7 +59,7 @@ export function createTauriStorage(): Storage {
     args: Record<string, unknown> = {},
     options?: { headers: Record<string, string> },
   ) => {
-    if (token === null) throw new StorageError("no_workspace", "워크스페이스가 열려 있지 않아요");
+    if (token === null) throw new StorageError("no_workspace", msg().storage.noWorkspace);
     return call<T>(command, { ...args, wsToken: token }, options);
   };
   return {
@@ -94,6 +95,7 @@ export function createTauriStorage(): Storage {
     readSettings: () => call<Record<string, unknown> | null>("settings_read"),
     writeSettings: (value) => call("settings_write", { value }),
     setAppIcon: (theme) => call("app_icon_set", { theme }),
+    setLocale: (locale) => call("set_locale", { locale }),
     appExecutablePath: () => call<string>("app_executable_path"),
     mcpStatus: () => call<McpStatusInfo>("mcp_status"),
     exportCsv: (fileName, text) => call<string | null>("export_csv", { fileName, text }),
@@ -115,7 +117,7 @@ export function createTauriStorage(): Storage {
     // 바이트는 JSON 배열이 아니라 그대로 보낸다(큰 이미지도 빠르게)
     writeAsset: (pageId, bytes) => {
       if (token === null)
-        return Promise.reject(new StorageError("no_workspace", "워크스페이스가 열려 있지 않아요"));
+        return Promise.reject(new StorageError("no_workspace", msg().storage.noWorkspace));
       return call<string>("asset_write", bytes as unknown as Record<string, unknown>, {
         headers: { "x-page-id": pageId, "x-workspace-token": String(token) },
       });
@@ -129,7 +131,7 @@ export function createTauriStorage(): Storage {
     // 바이트는 그대로 보내고, 이름·종류는 헤더로 싣는다(이름은 비ASCII라 퍼센트 인코딩)
     importAttachmentBytes: (pageId, file, o) => {
       if (token === null)
-        return Promise.reject(new StorageError("no_workspace", "워크스페이스가 열려 있지 않아요"));
+        return Promise.reject(new StorageError("no_workspace", msg().storage.noWorkspace));
       return call<AttachmentInfo>(
         "asset_import_bytes",
         file.bytes as unknown as Record<string, unknown>,

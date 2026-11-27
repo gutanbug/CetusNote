@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { workspaceErrorMessage, workspaceStore } from "@/features/workspace";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 import { useRestoreFocus } from "./use-restore-focus";
 
 /**
@@ -26,6 +27,7 @@ export function CreateWorkspaceDialog({
   const [name, setName] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const m = useMessages();
   const errorId = React.useId();
   const trimmed = name.trim();
   // 워크스페이스 메뉴 항목에서 열면 닫을 때 그 버튼(스위처)으로 포커스를 돌린다
@@ -64,22 +66,20 @@ export function CreateWorkspaceDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>새 워크스페이스</DialogTitle>
-            <DialogDescription>
-              이름으로 새 폴더를 만들어 노트를 따로 모아요. 다음 단계에서 폴더를 둘 위치를 골라요.
-            </DialogDescription>
+            <DialogTitle>{m.screens.dialogs.createWorkspace.title}</DialogTitle>
+            <DialogDescription>{m.screens.dialogs.createWorkspace.description}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-1.5">
             <Input
               autoFocus
-              aria-label="워크스페이스 이름"
+              aria-label={m.screens.dialogs.createWorkspace.nameLabel}
               aria-invalid={!!error || undefined}
               aria-describedby={error ? errorId : undefined}
               value={name}
               maxLength={80}
               name="workspace-name"
               autoComplete="off"
-              placeholder="예: 업무 노트…"
+              placeholder={m.screens.dialogs.createWorkspace.namePlaceholder}
               onChange={(e) => {
                 setName(e.target.value);
                 setError(null);
@@ -98,10 +98,10 @@ export function CreateWorkspaceDialog({
               disabled={busy}
               onClick={() => onOpenChange(false)}
             >
-              취소
+              {m.screens.dialogs.cancel}
             </Button>
             <Button type="submit" disabled={!trimmed || busy}>
-              위치 고르기…
+              {m.screens.dialogs.createWorkspace.pickLocation}
             </Button>
           </DialogFooter>
         </form>

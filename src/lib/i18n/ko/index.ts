@@ -11,7 +11,19 @@ import { page } from "./page";
 import { settings } from "./settings";
 import { screens } from "./screens";
 import { features } from "./features";
+import { storage } from "./storage";
 
-export const ko = { common, ui, shell, editor, collection, page, settings, screens, features };
+export const ko = {
+  common,
+  ui,
+  shell,
+  editor,
+  collection,
+  page,
+  settings,
+  screens,
+  features,
+  storage,
+};
 
 export type Messages = typeof ko;

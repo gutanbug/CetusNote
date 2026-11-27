@@ -7,6 +7,8 @@
 //! 쪽 나누기(A4 높이 경계)는 프론트엔드가 정한다(pdf-layout.ts). 여기서는 각 쪽을 rect로 찍기만 한다.
 
 /// 찍을 영역(웹뷰 문서 좌표, pt = CSS px)
+use crate::i18n::{self, Text};
+
 #[derive(serde::Deserialize, Clone, Copy, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PageRect {
@@ -30,9 +32,9 @@ pub fn capture_page(
 
     let webview = webview.inner();
     if webview.is_null() {
-        return Err("미리보기를 만들 화면이 없어요".into());
+        return Err(i18n::text(Text::PdfNoScreen).into());
     }
-    let mtm = MainThreadMarker::new().ok_or("메인 스레드가 아니에요")?;
+    let mtm = MainThreadMarker::new().ok_or(i18n::text(Text::PdfNotMainThread))?;
     // SAFETY: wry가 준 WKWebView 포인터다. 메인 스레드에서 이 호출 동안만 쓴다.
     let wk: &WKWebView = unsafe { &*webview.cast::<WKWebView>() };
 
@@ -49,12 +51,12 @@ pub fn capture_page(
             Some(data) if error.is_null() => {
                 let bytes = data.to_vec();
                 if bytes.is_empty() {
-                    Err("빈 PDF가 만들어졌어요".to_string())
+                    Err(i18n::text(Text::PdfEmpty).to_string())
                 } else {
                     Ok(bytes)
                 }
             }
-            _ => Err("PDF 쪽을 만들지 못했어요".to_string()),
+            _ => Err(i18n::text(Text::PdfPageFailed).to_string()),
         };
         done(result);
     });
@@ -71,14 +73,14 @@ pub fn merge_pages(parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
 
     let merged = unsafe { PDFDocument::new() };
     for (index, part) in parts.iter().enumerate() {
-        let bytes = std::fs::read(part).map_err(|_| "쪽 PDF를 읽지 못했어요".to_string())?;
+        let bytes = std::fs::read(part).map_err(|_| i18n::text(Text::PdfPartRead).to_string())?;
         let data = NSData::with_bytes(&bytes);
         let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }
-            .ok_or("쪽 PDF를 열지 못했어요")?;
-        let page = unsafe { doc.pageAtIndex(0) }.ok_or("쪽 PDF에 쪽이 없어요")?;
+            .ok_or(i18n::text(Text::PdfPartOpen))?;
+        let page = unsafe { doc.pageAtIndex(0) }.ok_or(i18n::text(Text::PdfNoPages))?;
         unsafe { merged.insertPage_atIndex(&page, index) };
     }
-    let out = unsafe { merged.dataRepresentation() }.ok_or("PDF를 합치지 못했어요")?;
+    let out = unsafe { merged.dataRepresentation() }.ok_or(i18n::text(Text::PdfMergeFailed))?;
     Ok(out.to_vec())
 }
 
@@ -95,25 +97,26 @@ pub fn render_page_png(
     use objc2_foundation::{NSData, NSDictionary, NSSize};
     use objc2_pdf_kit::{PDFDisplayBox, PDFDocument};
 
-    let bytes = std::fs::read(path).map_err(|_| "미리보기 PDF를 읽지 못했어요".to_string())?;
+    let bytes = std::fs::read(path).map_err(|_| i18n::text(Text::PdfPreviewRead).to_string())?;
     let data = NSData::with_bytes(&bytes);
     let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }
-        .ok_or("미리보기 PDF를 열지 못했어요")?;
-    let page = unsafe { doc.pageAtIndex(index) }.ok_or("미리보기 쪽이 없어요")?;
+        .ok_or(i18n::text(Text::PdfPreviewOpen))?;
+    let page = unsafe { doc.pageAtIndex(index) }.ok_or(i18n::text(Text::PdfPreviewNoPage))?;
     let bounds = unsafe { page.boundsForBox(PDFDisplayBox::MediaBox) };
     if bounds.size.width <= 0.0 || bounds.size.height <= 0.0 {
-        return Err("쪽 크기를 알 수 없어요".into());
+        return Err(i18n::text(Text::PdfPageSize).into());
     }
     let height = width * bounds.size.height / bounds.size.width;
     let image =
         unsafe { page.thumbnailOfSize_forBox(NSSize::new(width, height), PDFDisplayBox::MediaBox) };
     let tiff = image
         .TIFFRepresentation()
-        .ok_or("쪽 그림을 만들지 못했어요")?;
-    let rep = NSBitmapImageRep::imageRepWithData(&tiff).ok_or("쪽 그림을 읽지 못했어요")?;
+        .ok_or(i18n::text(Text::PdfPageImage))?;
+    let rep =
+        NSBitmapImageRep::imageRepWithData(&tiff).ok_or(i18n::text(Text::PdfPageImageRead))?;
     let props = NSDictionary::new();
     let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &props) }
-        .ok_or("쪽 그림을 PNG로 바꾸지 못했어요")?;
+        .ok_or(i18n::text(Text::PdfPageImagePng))?;
     Ok(png.to_vec())
 }
 
@@ -123,7 +126,7 @@ pub fn render_page_png(
     _index: usize,
     _width: f64,
 ) -> Result<Vec<u8>, String> {
-    Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
+    Err(i18n::text(Text::PdfExportMacOnly).into())
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -132,12 +135,12 @@ pub fn capture_page(
     _rect: PageRect,
     _done: impl Fn(Result<Vec<u8>, String>) + 'static,
 ) -> Result<(), String> {
-    Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
+    Err(i18n::text(Text::PdfExportMacOnly).into())
 }
 
 #[cfg(not(target_os = "macos"))]
 pub fn merge_pages(_parts: &[std::path::PathBuf]) -> Result<Vec<u8>, String> {
-    Err("PDF 내보내기는 macOS 앱에서만 지원해요".into())
+    Err(i18n::text(Text::PdfExportMacOnly).into())
 }
 
 /// Windows·Linux 인쇄 엔진의 A4 용지와 여백(mm). 프론트엔드가 같은 값을 `@page` 규칙으로 깐다(pdf-export.ts)
@@ -171,15 +174,15 @@ pub fn print_document(
     let environment = webview.environment();
     let core: ICoreWebView2_7 = match unsafe { controller.CoreWebView2() }.and_then(|c| c.cast()) {
         Ok(core) => core,
-        Err(_) => return fail("인쇄 엔진을 찾지 못했어요"),
+        Err(_) => return fail(i18n::text(Text::PdfEngine)),
     };
     let env6: ICoreWebView2Environment6 = match environment.cast() {
         Ok(env) => env,
-        Err(_) => return fail("인쇄 엔진을 찾지 못했어요"),
+        Err(_) => return fail(i18n::text(Text::PdfEngine)),
     };
     let settings = match unsafe { env6.CreatePrintSettings() } {
         Ok(settings) => settings,
-        Err(_) => return fail("인쇄 설정을 만들지 못했어요"),
+        Err(_) => return fail(i18n::text(Text::PdfPrintSetup)),
     };
     let inch = |mm: f64| mm / MM_PER_INCH;
     unsafe {
@@ -197,13 +200,13 @@ pub fn print_document(
         let _ = done.send(if ok {
             Ok(())
         } else {
-            Err("PDF를 만들지 못했어요".to_string())
+            Err(i18n::text(Text::PdfMake).to_string())
         });
         Ok(())
     }));
     let target = HSTRING::from(path.to_string_lossy().as_ref());
     if unsafe { core.PrintToPdf(&target, &settings, &handler) }.is_err() {
-        fail("PDF를 만들지 못했어요");
+        fail(i18n::text(Text::PdfMake));
     }
 }
 
@@ -225,7 +228,7 @@ pub fn print_document(
     let uri = match url::Url::from_file_path(&path) {
         Ok(uri) => uri,
         Err(()) => {
-            let _ = done.send(Err("PDF 저장 위치를 만들지 못했어요".into()));
+            let _ = done.send(Err(i18n::text(Text::PdfSaveLocation).into()));
             return;
         }
     };
@@ -248,7 +251,7 @@ pub fn print_document(
     let fail_tx = done;
     operation.connect_failed(move |op, error| {
         RUNNING.with(|running| running.borrow_mut().retain(|x| x != op));
-        let _ = fail_tx.send(Err(format!("PDF를 만들지 못했어요: {error}")));
+        let _ = fail_tx.send(Err(format!("{}: {error}", i18n::text(Text::PdfMake))));
     });
     RUNNING.with(|running| running.borrow_mut().push(operation.clone()));
     operation.print();
@@ -261,7 +264,7 @@ pub fn print_document(
     _path: std::path::PathBuf,
     done: std::sync::mpsc::Sender<Result<(), String>>,
 ) {
-    let _ = done.send(Err("이 운영체제는 문서 인쇄를 쓰지 않아요".into()));
+    let _ = done.send(Err(i18n::text(Text::PdfOsUnsupported).into()));
 }
 
 /// 가져오기(DATA-08)용 PDF 글: 메타데이터 제목과 쪽마다 글자. 글자만 뽑는다(표·그림·서식은 잃는다)
@@ -281,7 +284,7 @@ pub fn extract_text(bytes: &[u8]) -> Result<PdfText, String> {
 
     let data = NSData::with_bytes(bytes);
     let doc = unsafe { PDFDocument::initWithData(PDFDocument::alloc(), &data) }
-        .ok_or("PDF를 열지 못했어요")?;
+        .ok_or(i18n::text(Text::PdfOpen))?;
 
     let attrs: Option<objc2::rc::Retained<NSDictionary>> = unsafe { doc.documentAttributes() };
     let title = attrs.and_then(|attrs| {
@@ -306,7 +309,7 @@ pub fn extract_text(bytes: &[u8]) -> Result<PdfText, String> {
 
 #[cfg(not(target_os = "macos"))]
 pub fn extract_text(_bytes: &[u8]) -> Result<PdfText, String> {
-    Err("PDF 가져오기는 macOS 앱에서만 돼요".into())
+    Err(i18n::text(Text::PdfImportMacOnly).into())
 }
 
 #[cfg(all(test, target_os = "macos"))]

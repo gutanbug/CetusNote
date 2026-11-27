@@ -15,6 +15,7 @@ permissions = [
   "allow-pages-load-all",
   "allow-app-executable-path",
   "allow-mcp-status",
+"allow-set-locale",
   "allow-pages-load-meta",
   "allow-page-write",
   "allow-page-purge",

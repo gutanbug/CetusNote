@@ -1,3 +1,4 @@
+import { msg } from "../i18n";
 import type {
   CollectionFilter,
   CollectionSettings,
@@ -29,10 +30,10 @@ export const WORKSPACE_SCHEMA_VERSION = 1;
 
 /** 기본 상태 4단계 — 일반 문서와 새 컬렉션이 쓴다 */
 export const DEFAULT_STATUSES: readonly StatusOption[] = [
-  { name: "할 일", color: "gray" },
-  { name: "진행 중", color: "blue" },
-  { name: "검토", color: "orange" },
-  { name: "완료", color: "green" },
+  { name: "할 일", color: "gray" }, // i18n-ignore — 저장되는 값
+  { name: "진행 중", color: "blue" }, // i18n-ignore — 저장되는 값
+  { name: "검토", color: "orange" }, // i18n-ignore — 저장되는 값
+  { name: "완료", color: "green" }, // i18n-ignore — 저장되는 값
 ];
 /** 소프트 컬러 이름 (UI-TagChip SOFT_COLORS와 같다) */
 export const COLOR_NAMES = [
@@ -116,7 +117,7 @@ function normalizeFields(v: unknown): FieldDef[] {
     const name = typeof f.name === "string" ? f.name.trim().slice(0, FIELD_NAME_MAX) : "";
     out.push({
       id: f.id,
-      name: name || "속성",
+      name: name || "속성", // i18n-ignore — 저장되는 기본 속성 이름
       type,
       options: type === "select" || type === "multi" ? normalizeOptions(f.options) : [],
     });
@@ -280,18 +281,17 @@ export class SchemaError extends Error {
  * 앱보다 새 버전의 파일이면 SchemaError — 덮어써서 정보를 잃지 않게 열지 않는다.
  */
 export function normalizePage(input: unknown): Page {
-  if (!isObj(input)) throw new SchemaError("페이지가 객체가 아니에요");
+  if (!isObj(input)) throw new SchemaError(msg().storage.schema.notObject);
   let raw = input;
   let version = typeof raw.schemaVersion === "number" ? raw.schemaVersion : 1;
-  if (version > PAGE_SCHEMA_VERSION)
-    throw new SchemaError(`더 새 버전(${version})의 앱에서 만든 페이지예요`);
+  if (version > PAGE_SCHEMA_VERSION) throw new SchemaError(msg().storage.schema.newerPage(version));
   while (version < PAGE_SCHEMA_VERSION) {
     const step = PAGE_MIGRATIONS[version];
-    if (!step) throw new SchemaError(`버전 ${version} 마이그레이션이 없어요`);
+    if (!step) throw new SchemaError(msg().storage.schema.noMigration(version));
     raw = step(raw);
     version++;
   }
-  if (!isValidId(raw.id)) throw new SchemaError("페이지 id가 올바르지 않아요");
+  if (!isValidId(raw.id)) throw new SchemaError(msg().storage.schema.invalidId);
 
   const props = isObj(raw.props) ? raw.props : {};
   const layout = isObj(raw.layout) ? raw.layout : {};
@@ -334,11 +334,13 @@ export function normalizePage(input: unknown): Page {
   };
 }
 
+// i18n-ignore — 저장되는 기본 워크스페이스 이름
 export function normalizeWorkspace(input: unknown, fallbackName = "내 노트"): WorkspaceMeta {
+  // i18n-ignore — 저장되는 기본 워크스페이스 이름
   const raw = isObj(input) ? input : {};
   const version = typeof raw.schemaVersion === "number" ? raw.schemaVersion : 1;
   if (version > WORKSPACE_SCHEMA_VERSION)
-    throw new SchemaError(`더 새 버전(${version})의 앱에서 만든 워크스페이스예요`);
+    throw new SchemaError(msg().storage.schema.newerWorkspace(version));
   const order: Record<string, string[]> = {};
   if (isObj(raw.order))
     for (const [key, ids] of Object.entries(raw.order)) {

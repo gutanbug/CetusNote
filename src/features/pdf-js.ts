@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { PdfText } from "@/lib/storage/types";
 
 /**
@@ -71,10 +72,10 @@ export async function renderPdfPreviewPngs(
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("미리보기 그림을 그릴 수 없어요");
+      if (!ctx) throw new Error(msg().features.pdf.noCanvas);
       await page.render({ canvas, canvasContext: ctx, viewport }).promise;
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-      if (!blob) throw new Error("쪽 그림을 PNG로 바꾸지 못했어요");
+      if (!blob) throw new Error(msg().features.pdf.pngFailed);
       out.push(await blob.arrayBuffer());
       page.cleanup();
     }

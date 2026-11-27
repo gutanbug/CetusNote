@@ -290,6 +290,8 @@ export interface Storage {
   writeSettings(settings: Record<string, unknown>): Promise<void>;
   /** 앱 아이콘 바꾸기(SET-07): 화이트("light")·블랙("dark"). 미리보기에서는 아무 일도 없다 */
   setAppIcon(theme: "light" | "dark"): Promise<void>;
+  /** 화면 언어를 네이티브 메뉴·대화상자·오류 문구에 알린다 (SYS-14) */
+  setLocale(locale: "ko" | "en"): Promise<void>;
   /** 이 앱 실행 파일 경로. 설정 「AI 연결(MCP)」의 `--mcp` 명령에 쓴다 (DATA-12). 미리보기에서는 예시 경로 */
   appExecutablePath(): Promise<string>;
   /** MCP 연결 상태 (DATA-12): 이 워크스페이스에 붙은 `--mcp` 서버와 Claude 설정 등록 여부. 미리보기는 가짜 값 */

@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { useEffect } from "react";
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
@@ -80,7 +81,7 @@ export async function openWhatsNewForCurrent(): Promise<void> {
     .catch(() => undefined);
   const current = updaterStore.getState().currentVersion;
   if (!current || extractSection(CHANGELOG_TEXT, current) === null) {
-    toast(`${current ?? "이"} 버전의 릴리스 노트가 없어요`);
+    toast(msg().features.releaseNotes.missing(current ?? null));
     return;
   }
   whatsNewStore.getState().open(current);

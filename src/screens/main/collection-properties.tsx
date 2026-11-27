@@ -42,6 +42,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import type * as React from "react";
+import { msg } from "@/lib/i18n";
 import { tagColor } from "./tag-colors";
 
 /** 사용자 속성 정의 → CL-* 모양 (색 이름을 칩 색으로) */
@@ -148,7 +149,7 @@ export function collectionProperties({
   const add = (type: PropertyType) => {
     const out = addField(settings, type);
     if (!out) {
-      toast.error(`속성은 컬렉션마다 ${FIELDS_MAX}개까지 만들 수 있어요.`);
+      toast.error(msg().screens.collectionProps.fieldsMax(FIELDS_MAX));
       return;
     }
     setSettings(out.patch);
@@ -177,7 +178,7 @@ export function collectionProperties({
   };
   const replaceOption = (field: FieldDef, from: string, to: string | null) => {
     if (to !== null && field.options.some((o) => o.name === to)) {
-      toast.error(`“${to}” 옵션이 이미 있어요.`);
+      toast.error(msg().screens.collectionProps.optionExists(to));
       return;
     }
     for (const { id, value } of remapOption(getRecords(), field, from, to))
@@ -214,7 +215,7 @@ export function collectionProperties({
               ? (name) => {
                   const patch = renameField(settings, def.id, name);
                   if (patch) setSettings(patch);
-                  else toast.error("같은 이름의 속성이 있어요. 다른 이름을 써 주세요.");
+                  else toast.error(msg().screens.collectionProps.renameClash);
                 }
               : undefined
           }
@@ -234,7 +235,7 @@ export function collectionProperties({
     const def = isFieldId(key) ? fieldOf(settings.fields, key) : undefined;
     if (!def || !page) return null;
     // 표 칸은 어느 레코드인지 이름에 넣는다 (기본 칸 "제목 상태"와 같게)
-    const label = inRow ? `${page.title || "제목 없음"} ${def.name}` : undefined;
+    const label = inRow ? `${page.title || msg().screens.untitled} ${def.name}` : undefined;
     // 표에서는 숫자를 오른쪽에 맞춘다
     const cls = inRow && def.type === "number" ? cn("justify-end", className) : className;
     return valueCell(def, page, today, addOption, cls, label);
@@ -305,7 +306,7 @@ export function collectionProperties({
 
   const addColumn = (
     <AddPropertyMenu onAdd={add} align="end">
-      <IconButton label="속성 추가">
+      <IconButton label={msg().screens.collectionProps.addProperty}>
         <Plus strokeWidth={1.5} />
       </IconButton>
     </AddPropertyMenu>
@@ -314,7 +315,7 @@ export function collectionProperties({
     <AddPropertyMenu onAdd={add}>
       <button type="button" className={cn(menuItem, focusRing, "w-auto text-tertiary")}>
         <Plus strokeWidth={1.5} aria-hidden />
-        속성 추가
+        {msg().screens.collectionProps.addProperty}
       </button>
     </AddPropertyMenu>
   );

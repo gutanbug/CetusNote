@@ -1,5 +1,6 @@
 import { usePagesWhile } from "@/features/pages";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 import { ParentPicker } from "./parent-picker";
 import { movePage, moveTargets } from "./actions";
 
@@ -11,6 +12,7 @@ export function MoveDialog({
   pageId: string | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const m = useMessages();
   const pages = usePagesWhile(pageId !== null);
   const targets = React.useMemo(
     () => (pageId ? moveTargets(pageId) : []),
@@ -23,10 +25,10 @@ export function MoveDialog({
     <ParentPicker
       open={!!pageId}
       onOpenChange={onOpenChange}
-      title="옮길 곳"
-      heading="옮길 곳"
-      placeholder="옮길 폴더나 페이지 검색"
-      emptyText="옮길 수 있는 곳이 없어요."
+      title={m.screens.dialogs.move.title}
+      heading={m.screens.dialogs.move.heading}
+      placeholder={m.screens.dialogs.move.placeholder}
+      emptyText={m.screens.dialogs.move.empty}
       pages={pages}
       targets={targets}
       onPick={(parentId) => {

@@ -4,6 +4,7 @@ import { displayTitle } from "@/features/pages/title";
 import type { Page } from "@/lib/storage";
 import type { PageMeta } from "@/features/pages";
 import { visibleIds } from "./palette-model";
+import { msg } from "@/lib/i18n";
 
 const LIMIT = 8;
 
@@ -69,6 +70,6 @@ export function resolveMention(pages: Record<string, PageMeta>, id: string): Men
 export function mentionTitleOf(pages: Record<string, Page>) {
   return (id: string) => {
     const t = resolveMention(pages, id);
-    return t ? t.title || "제목 없음" : undefined;
+    return t ? t.title || msg().screens.untitled : undefined;
   };
 }

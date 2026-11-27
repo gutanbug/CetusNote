@@ -1,13 +1,8 @@
+import { msg } from "@/lib/i18n";
 import { createFakeUpdater } from "@/lib/updater/fake";
 import { describe, expect, it, vi } from "vitest";
 import { createAutoChecker } from "./schedule";
-import {
-  CHECK_ERROR_MESSAGE,
-  INSTALL_ERROR_MESSAGE,
-  RELAUNCH_ERROR_MESSAGE,
-  SAVE_BEFORE_RESTART_MESSAGE,
-  createUpdaterStore,
-} from "./store";
+import { createUpdaterStore } from "./store";
 import { updateView } from "./view";
 import { CHECK_INTERVAL_MS } from "./version";
 
@@ -43,11 +38,11 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
   it("수동 확인이 실패하면 오류와 다시 시도를 보여 준다", async () => {
     const { store } = make({ checkError: "net down" });
     const r = await store.getState().check();
-    expect(r).toEqual({ kind: "error", message: CHECK_ERROR_MESSAGE });
+    expect(r).toEqual({ kind: "error", message: msg().features.updater.checkError });
     expect(store.getState()).toMatchObject({
       status: "error",
       errorStep: "check",
-      error: CHECK_ERROR_MESSAGE,
+      error: msg().features.updater.checkError,
     });
     expect(updateView(store.getState())).toMatchObject({ action: "retry", error: true });
   });
@@ -86,7 +81,7 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
     expect(store.getState()).toMatchObject({
       status: "error",
       errorStep: "install",
-      error: SAVE_BEFORE_RESTART_MESSAGE,
+      error: msg().features.updater.saveBeforeRestart,
     });
   });
 
@@ -97,7 +92,7 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
     expect(store.getState()).toMatchObject({
       status: "error",
       errorStep: "install",
-      error: INSTALL_ERROR_MESSAGE,
+      error: msg().features.updater.installError,
     });
     expect(updateView(store.getState())).toMatchObject({
       action: "retry",
@@ -125,11 +120,11 @@ describe("업데이트 상태 전이 (SYS-07)", () => {
     expect(store.getState()).toMatchObject({
       status: "error",
       errorStep: "relaunch",
-      error: RELAUNCH_ERROR_MESSAGE,
+      error: msg().features.updater.relaunchError,
     });
     expect(updateView(store.getState())).toMatchObject({
       action: "none",
-      message: RELAUNCH_ERROR_MESSAGE,
+      message: msg().features.updater.relaunchError,
       error: true,
     });
   });

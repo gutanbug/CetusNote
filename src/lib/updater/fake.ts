@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { UpdateInfo, Updater } from "./types";
 
 export type FakeUpdaterOptions = {
@@ -35,7 +36,7 @@ export function createFakeUpdater(options: FakeUpdaterOptions = {}): Updater & {
       return o.latest;
     },
     async downloadAndInstall(onProgress) {
-      if (!o.latest) throw new Error("확인된 업데이트가 없어요");
+      if (!o.latest) throw new Error(msg().features.updater.noUpdate);
       for (let i = 1; i <= o.steps; i++) {
         await wait(o.delayMs);
         onProgress(Math.round((i / o.steps) * 100));

@@ -1,3 +1,4 @@
+import { type Messages, useMessages } from "@/lib/i18n";
 import { IconButton } from "@/components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { focusRing } from "@/components/ui/styles";
@@ -31,12 +32,15 @@ export type GridColumn = {
   cell?: (item: RecordItem) => React.ReactNode;
 };
 
-const BUILTIN_COLUMNS: GridColumn[] = [
-  { key: "status", name: "상태", kind: "status" },
-  { key: "assignee", name: "담당", kind: "assignee" },
-  { key: "due", name: "마감", kind: "due" },
-  { key: "tags", name: "태그", kind: "tags" },
-];
+const builtinColumns = (msgs: Messages): GridColumn[] => {
+  const b = msgs.collection.model.builtin;
+  return [
+    { key: "status", name: b.status, kind: "status" },
+    { key: "assignee", name: b.assignee, kind: "assignee" },
+    { key: "due", name: b.due, kind: "due" },
+    { key: "tags", name: b.tags, kind: "tags" },
+  ];
+};
 
 /** 스크롤이 일어나는 가장 가까운 조상. 없으면 창(window) */
 function scrollParent(el: HTMLElement): HTMLElement | null {
@@ -116,10 +120,12 @@ function GridView({
   tagEditor,
   onNew,
   empty,
-  columns = BUILTIN_COLUMNS,
+  columns: columnsProp,
   addColumn,
   className,
 }: GridViewProps) {
+  const m = useMessages();
+  const columns = React.useMemo(() => columnsProp ?? builtinColumns(m), [columnsProp, m]);
   const [scrolled, setScrolled] = React.useState(false);
   const [active, setActive] = React.useState({ row: 0, col: 0 });
   const tableRef = React.useRef<HTMLTableElement>(null);
@@ -342,7 +348,7 @@ function GridView({
         <table
           ref={tableRef}
           role="grid"
-          aria-label="레코드 표"
+          aria-label={m.collection.grid.table}
           aria-rowcount={items.length + 1}
           aria-colcount={span}
           onKeyDownCapture={onKeyDownCapture}
@@ -358,13 +364,13 @@ function GridView({
                 className={cn(th, "w-2/5", titleTh, scrolled && titleEdge)}
               >
                 <Type {...ic} />
-                제목
+                {m.collection.grid.title}
               </th>
               {columns.map((c, i) => {
                 const head = (
                   <button
                     type="button"
-                    aria-label={`${c.name} 속성 메뉴`}
+                    aria-label={m.collection.grid.propertyMenu(c.name)}
                     className={cn(
                       "-mx-1.5 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5",
                       "hover:bg-active hover:text-primary force-hover:bg-active force-hover:text-primary",
@@ -442,7 +448,8 @@ function GridView({
               "focus-visible:-outline-offset-2",
             )}
           >
-            <Plus {...ic} className="size-4" />새 레코드
+            <Plus {...ic} className="size-4" />
+            {m.collection.grid.newRecord}
           </button>
         )}
       </div>
@@ -468,11 +475,12 @@ const GridRow = React.memo(function GridRow({
   hasAdd: boolean;
   ctx: GridRowCtx;
 }) {
-  const name = r.title || "제목 없음";
+  const m = useMessages();
+  const name = r.title || m.collection.untitled;
   const builtinCell = (key: BuiltinKey) =>
     key === "status" ? (
       <StatusPicker
-        label={`${name} 상태`}
+        label={m.collection.grid.statusOf(name)}
         value={r.status}
         options={ctx.statusOptions}
         color={r.statusColor}
@@ -480,13 +488,17 @@ const GridRow = React.memo(function GridRow({
       />
     ) : key === "assignee" ? (
       <AssigneePicker
-        label={`${name} 담당`}
+        label={m.collection.grid.assigneeOf(name)}
         value={r.assignee}
         choices={ctx.assigneeChoices}
         onChange={(n) => ctx.onAssigneeChange(r.id, n)}
       />
     ) : key === "due" ? (
-      <DuePicker label={`${name} 마감`} value={r.due} onChange={(d) => ctx.onDueChange(r.id, d)} />
+      <DuePicker
+        label={m.collection.grid.dueOf(name)}
+        value={r.due}
+        onChange={(d) => ctx.onDueChange(r.id, d)}
+      />
     ) : (
       <TagCell item={r} name={name} editor={ctx.tagEditor?.(r.id)} />
     );
@@ -526,7 +538,7 @@ const GridRow = React.memo(function GridRow({
             <span className="truncate">{name}</span>
           </button>
           <IconButton
-            label={`“${name}” 페이지로 열기`}
+            label={m.collection.grid.openPage(name)}
             onClick={() => ctx.onOpenPage(r.id)}
             className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 force-hover:opacity-100"
           >
@@ -560,6 +572,7 @@ function TagCell({
   name: string;
   editor?: React.ReactNode;
 }) {
+  const m = useMessages();
   const chips = item.tags.length ? (
     <span className="flex min-w-0 flex-wrap gap-1">
       {item.tags.map((t) => (
@@ -574,7 +587,7 @@ function TagCell({
   if (!editor) return <span className="flex px-1">{chips}</span>;
   return (
     <Popover>
-      <PopoverTrigger className={valueButton} aria-label={`${name} 태그 편집`}>
+      <PopoverTrigger className={valueButton} aria-label={m.collection.grid.tagsOf(name)}>
         {chips}
       </PopoverTrigger>
       <PopoverContent className="w-70 p-2">{editor}</PopoverContent>

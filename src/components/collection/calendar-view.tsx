@@ -1,3 +1,4 @@
+import { msg, useMessages } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -38,7 +39,6 @@ type CalendarViewProps = {
   className?: string;
 };
 
-const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 /** 칩 색 — 레코드의 상태 색 */
 const CHIP: Record<SoftColor, string> = {
   gray: "bg-gray-bg text-gray-fg [&>i]:bg-gray-fg",
@@ -54,16 +54,17 @@ const CHIP: Record<SoftColor, string> = {
 
 const dateName = (date: string) => {
   const [, m, d] = date.split("-").map(Number);
-  return `${m}월 ${d}일`;
+  return msg().collection.calendar.monthDay(m, d);
 };
 
 function Chip({ item, onOpen }: { item: RecordItem; onOpen: CalendarViewProps["onOpen"] }) {
+  const m = useMessages();
   return (
     <button
       type="button"
       onClick={(e) => onOpen(item.id, e)}
       // 칩에서 말줄임된 제목은 마우스를 올리면 전체가 보인다
-      title={item.title || "제목 없음"}
+      title={item.title || m.collection.untitled}
       className={cn(
         "flex min-h-5.5 w-full min-w-0 items-center gap-1 rounded-pill px-1.5 text-left text-label",
         "transition-[filter] duration-(--dur-fast) hover:brightness-96 force-hover:brightness-96",
@@ -72,7 +73,7 @@ function Chip({ item, onOpen }: { item: RecordItem; onOpen: CalendarViewProps["o
       )}
     >
       <i aria-hidden className="size-1.5 shrink-0 rounded-pill" />
-      <span className="min-w-0 flex-1 truncate">{item.title || "제목 없음"}</span>
+      <span className="min-w-0 flex-1 truncate">{item.title || m.collection.untitled}</span>
       {item.status ? <span className="sr-only">, {item.status}</span> : null}
     </button>
   );
@@ -95,6 +96,7 @@ function CalendarView({
   empty,
   className,
 }: CalendarViewProps) {
+  const m = useMessages();
   const none = !days.some((d) => !d.out && d.items.length);
   return (
     <div data-slot="collection-calendar" className={className}>
@@ -102,20 +104,20 @@ function CalendarView({
         <h2 className="flex-1 text-body font-semibold text-primary" aria-live="polite">
           {monthLabel}
         </h2>
-        <IconButton label="이전 달" onClick={onPrev}>
+        <IconButton label={m.collection.calendar.prevMonth} onClick={onPrev}>
           <ChevronLeft strokeWidth={1.5} />
         </IconButton>
         <Button variant="secondary" size="sm" onClick={onToday}>
-          오늘
+          {m.collection.calendar.today}
         </Button>
-        <IconButton label="다음 달" onClick={onNext}>
+        <IconButton label={m.collection.calendar.nextMonth} onClick={onNext}>
           <ChevronRight strokeWidth={1.5} />
         </IconButton>
       </div>
       {none && empty ? <div className="mb-3">{empty}</div> : null}
       <div className="overflow-hidden rounded-lg border border-line">
         <div aria-hidden className="grid grid-cols-7 border-b border-line bg-subtle">
-          {DOW.map((d) => (
+          {m.collection.calendar.dow.map((d) => (
             <span key={d} className="p-2 text-center text-label font-medium text-secondary">
               {d}
             </span>
@@ -125,12 +127,15 @@ function CalendarView({
           {days.map((d, i) => {
             const shown = d.items.slice(0, maxPerDay);
             const more = d.items.length - shown.length;
-            const name = `${dateName(d.date)}${d.today ? " (오늘)" : ""}`;
+            const name = `${dateName(d.date)}${d.today ? ` (${m.collection.calendar.today})` : ""}`;
             return (
               <div
                 key={d.date}
                 role="group"
-                aria-label={`${name}, 레코드 ${d.items.length}개`}
+                aria-label={m.collection.calendar.dayLabel(
+                  name,
+                  m.collection.model.count(d.items.length),
+                )}
                 data-out={d.out || undefined}
                 data-today={d.today || undefined}
                 className={cn(
@@ -152,7 +157,7 @@ function CalendarView({
                   </span>
                   <button
                     type="button"
-                    aria-label={`${dateName(d.date)} 마감 레코드 만들기`}
+                    aria-label={m.collection.calendar.newOn(dateName(d.date))}
                     onClick={() => onNew(d.date)}
                     className={cn(
                       "grid size-4.5 place-items-center rounded-pill text-tertiary opacity-0 [&_svg]:size-3",
@@ -177,7 +182,8 @@ function CalendarView({
                           focusRing,
                         )}
                       >
-                        +{more}개 더<span className="sr-only">, {dateName(d.date)}</span>
+                        {m.collection.calendar.more(more)}
+                        <span className="sr-only">, {dateName(d.date)}</span>
                       </PopoverTrigger>
                       <PopoverContent className="grid w-60 gap-0.5 p-2">
                         <p className="px-1 pb-1 text-label font-medium text-secondary">

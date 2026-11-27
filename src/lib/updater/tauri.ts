@@ -1,6 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import { msg } from "@/lib/i18n";
 import type { UpdateInfo, Updater } from "./types";
 
 /** check()가 찾은 업데이트. 내려받기는 이 핸들로 한다(Rust 쪽 리소스라 닫아야 한다) */
@@ -23,7 +24,7 @@ export function createTauriUpdater(): Updater {
     },
     async downloadAndInstall(onProgress) {
       const update = pending;
-      if (!update) throw new Error("확인된 업데이트가 없어요");
+      if (!update) throw new Error(msg().features.updater.noUpdate);
       let total: number | null = null;
       let received = 0;
       await update.downloadAndInstall((event) => {

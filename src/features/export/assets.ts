@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { Page } from "@/lib/storage";
 import { capUtf8Bytes } from "@/lib/utf8-cap";
 import type { MdNode } from "./markdown";
@@ -61,7 +62,7 @@ export function assignAssetNames(srcs: readonly string[]): SingleAsset[] {
     const ext = dot > 0 && raw.length - dot <= 16 ? raw.slice(dot) : "";
     const stemRaw = ext ? raw.slice(0, dot) : raw;
     const budget = NAME_MAX_BYTES - encoder.encode(ext).length;
-    const stem = capUtf8Bytes(stemRaw, budget).trim() || "이미지";
+    const stem = capUtf8Bytes(stemRaw, budget).trim() || msg().features.export.fallback.image;
     let name = `${stem}${ext}`;
     for (let n = 2; used.has(name.toLowerCase()); n++) name = `${stem} (${n})${ext}`;
     used.add(name.toLowerCase());

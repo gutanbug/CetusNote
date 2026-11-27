@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -143,6 +144,7 @@ export function PropertyValueCell({
 }
 
 function TextPicker({ field, value, text, onChange, label, className }: ValueProps) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -163,7 +165,7 @@ function TextPicker({ field, value, text, onChange, label, className }: ValuePro
     if (kind === "number") {
       const n = Number(v.replace(/,/g, ""));
       if (v !== "" && !Number.isFinite(n)) {
-        setError("숫자만 입력해요");
+        setError(m.collection.property.numberOnly);
         return false;
       }
       onChange(v === "" ? null : n);
@@ -270,8 +272,12 @@ function TextPicker({ field, value, text, onChange, label, className }: ValuePro
             className={cn(menuItem, focusRing, "mt-1")}
           >
             <Link {...ic} />
-            {kind === "url" ? "링크 열기" : kind === "email" ? "메일 쓰기" : "전화 걸기"}
-            <span className="sr-only"> (새 창)</span>
+            {kind === "url"
+              ? m.collection.property.openLink
+              : kind === "email"
+                ? m.collection.property.writeMail
+                : m.collection.property.call}
+            <span className="sr-only">{` (${m.collection.property.newWindow})`}</span>
           </a>
         ) : null}
         {value !== null && value !== "" ? (
@@ -285,7 +291,7 @@ function TextPicker({ field, value, text, onChange, label, className }: ValuePro
             className={cn(menuItem, focusRing, "mt-1 text-secondary")}
           >
             <X {...ic} />
-            비우기
+            {m.collection.property.clear}
           </button>
         ) : null}
       </PopoverContent>
@@ -294,6 +300,7 @@ function TextPicker({ field, value, text, onChange, label, className }: ValuePro
 }
 
 function OptionPicker({ field, value, onChange, onCreateOption, label, className }: ValueProps) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const multi = field.type === "multi";
@@ -350,14 +357,16 @@ function OptionPicker({ field, value, onChange, onCreateOption, label, className
             autoFocus
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            aria-label={`${field.name} 옵션 찾기`}
-            placeholder={onCreateOption ? "찾거나 새로 적고 Enter" : "찾기"}
+            aria-label={m.collection.property.findOption(field.name)}
+            placeholder={
+              onCreateOption ? m.collection.property.findOrCreate : m.collection.property.find
+            }
             className={cn(inputClass, "h-7.5 min-h-7.5 text-caption")}
           />
         </form>
         <div
           role="group"
-          aria-label={`${field.name} 옵션`}
+          aria-label={m.collection.property.optionsOf(field.name)}
           className="mt-1 grid max-h-56 overflow-y-auto"
         >
           {shown.map((o) => (
@@ -375,14 +384,17 @@ function OptionPicker({ field, value, onChange, onCreateOption, label, className
         </div>
         {q && onCreateOption && !field.options.some((o) => o.name === q) ? (
           <button type="button" onClick={create} className={cn(menuItem, focusRing)}>
-            <Plus {...ic} />“{q}” 만들기
+            <Plus {...ic} />
+            {m.collection.property.createOption(q)}
           </button>
         ) : null}
         {!shown.length && !q ? (
-          <p className="px-2 py-1 text-caption text-tertiary">옵션을 적어 만들어요</p>
+          <p className="px-2 py-1 text-caption text-tertiary">
+            {m.collection.property.typeToCreate}
+          </p>
         ) : null}
         {!shown.length && q && !onCreateOption ? (
-          <p className="px-2 py-1 text-caption text-tertiary">일치하는 옵션이 없어요</p>
+          <p className="px-2 py-1 text-caption text-tertiary">{m.collection.property.noMatch}</p>
         ) : null}
       </PopoverContent>
     </Popover>
@@ -402,11 +414,12 @@ export function AddPropertyMenu({
   children: React.ReactElement;
   align?: "start" | "end";
 }) {
+  const m = useMessages();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="max-h-96 w-48 overflow-y-auto">
-        <DropdownMenuLabel>속성 종류</DropdownMenuLabel>
+        <DropdownMenuLabel>{m.collection.property.propertyKind}</DropdownMenuLabel>
         {ADDABLE.map((t) => (
           <DropdownMenuItem key={t} icon={<PropertyIcon kind={t} />} onSelect={() => onAdd(t)}>
             {PROPERTY_TYPE_NAMES[t]}
@@ -455,6 +468,7 @@ export function PropertyMenu({
   axis = "x",
   align = "start",
 }: PropertyMenuProps) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState(entry.name);
   const [confirm, setConfirm] = React.useState(false);
@@ -464,7 +478,9 @@ export function PropertyMenu({
     if (onRename && name.trim() && name.trim() !== entry.name) onRename(name.trim());
   };
   const close = () => setOpen(false);
-  const typeName = entry.builtin ? "기본 속성" : PROPERTY_TYPE_NAMES[entry.kind as PropertyType];
+  const typeName = entry.builtin
+    ? m.collection.property.builtinProperty
+    : PROPERTY_TYPE_NAMES[entry.kind as PropertyType];
   return (
     <Popover
       open={open}
@@ -482,7 +498,7 @@ export function PropertyMenu({
       <PopoverContent
         align={align}
         className="w-60 p-1"
-        aria-label={`${entry.name} 속성`}
+        aria-label={m.collection.property.propertyOf(entry.name)}
         onEscapeKeyDown={() => {
           cancelled.current = true;
         }}
@@ -501,7 +517,7 @@ export function PropertyMenu({
                 value={name}
                 maxLength={60}
                 onChange={(e) => setName(e.target.value)}
-                aria-label="속성 이름"
+                aria-label={m.collection.property.propertyName}
                 className={cn(inputClass, "h-7.5 min-h-7.5 text-caption")}
               />
             </form>
@@ -519,10 +535,12 @@ export function PropertyMenu({
         {options && options.length && onRenameOption && onDeleteOption ? (
           <div
             role="group"
-            aria-label="옵션"
+            aria-label={m.collection.property.option}
             className="grid gap-0.5 border-t border-line px-1 py-1"
           >
-            <span className="px-1 py-0.5 text-label text-tertiary">옵션</span>
+            <span className="px-1 py-0.5 text-label text-tertiary">
+              {m.collection.property.option}
+            </span>
             {options.map((o) => (
               <OptionRow
                 key={o.name}
@@ -538,11 +556,11 @@ export function PropertyMenu({
             <>
               <button type="button" className={cn(menuItem, focusRing)} onClick={() => onMove(-1)}>
                 <ArrowUp {...ic} className={axis === "x" ? "-rotate-90" : undefined} />
-                {axis === "x" ? "왼쪽으로" : "위로"}
+                {axis === "x" ? m.collection.property.moveLeft : m.collection.property.moveUp}
               </button>
               <button type="button" className={cn(menuItem, focusRing)} onClick={() => onMove(1)}>
                 <ArrowDown {...ic} className={axis === "x" ? "-rotate-90" : undefined} />
-                {axis === "x" ? "오른쪽으로" : "아래로"}
+                {axis === "x" ? m.collection.property.moveRight : m.collection.property.moveDown}
               </button>
             </>
           ) : null}
@@ -553,7 +571,7 @@ export function PropertyMenu({
             onClick={onToggleCard}
           >
             <Check {...ic} className={cn(!entry.card && "invisible")} />
-            보드 카드에 보이기
+            {m.collection.property.showOnCard}
           </button>
           <button
             type="button"
@@ -564,7 +582,7 @@ export function PropertyMenu({
             }}
           >
             {entry.hidden ? <Eye {...ic} /> : <EyeOff {...ic} />}
-            {entry.hidden ? "보이기" : "숨기기"}
+            {entry.hidden ? m.collection.property.show : m.collection.property.hide}
           </button>
           {onDelete && !entry.builtin ? (
             <button
@@ -578,7 +596,9 @@ export function PropertyMenu({
             >
               <Trash2 {...ic} />
               <span aria-live="polite">
-                {confirm ? "한 번 더 누르면 지워요 (값도 함께)" : "속성 지우기"}
+                {confirm
+                  ? m.collection.property.confirmDelete
+                  : m.collection.property.deleteProperty}
               </span>
             </button>
           ) : null}
@@ -597,6 +617,7 @@ function OptionRow({
   onRename: (to: string) => void;
   onDelete: () => void;
 }) {
+  const m = useMessages();
   const [draft, setDraft] = React.useState(option.name);
   const commit = () => {
     const v = draft.trim();
@@ -621,11 +642,11 @@ function OptionRow({
             commit();
           }
         }}
-        aria-label={`옵션 이름: ${option.name}`}
+        aria-label={m.collection.property.optionName(option.name)}
         className={cn(inputClass, "h-6.5 min-h-6.5 min-w-0 flex-1 text-caption")}
       />
       <IconButton
-        label={`옵션 지우기: ${option.name}`}
+        label={m.collection.property.deleteOption(option.name)}
         onClick={onDelete}
         className="size-6 text-tertiary [&_svg]:size-3.5"
       >
@@ -657,10 +678,11 @@ export function PropertyList({
   onMove: (key: string, dir: -1 | 1) => void;
   onAdd: (type: PropertyType) => void;
 }) {
+  const m = useMessages();
   const small = "size-6 text-tertiary [&_svg]:size-3.5 aria-pressed:text-accent";
   return (
     <div className="grid gap-0.5">
-      <ul aria-label="속성" className="grid gap-0.5">
+      <ul aria-label={m.collection.property.list} className="grid gap-0.5">
         {entries.map((e, i) => {
           const nameButton = (
             <button
@@ -676,7 +698,7 @@ export function PropertyList({
               {menu ? menu(e, nameButton) : nameButton}
               {/* 토글 이름은 상태와 관계없이 고정, 상태는 aria-pressed (켜지면 포인트 색) */}
               <IconButton
-                label={`${e.name} 보드 카드 표시`}
+                label={m.collection.property.showOnCardOf(e.name)}
                 aria-pressed={e.card}
                 onClick={() => onToggleCard(e.key)}
                 className={small}
@@ -684,7 +706,7 @@ export function PropertyList({
                 <Columns3 {...ic} />
               </IconButton>
               <IconButton
-                label={`${e.name} 표시`}
+                label={m.collection.property.showOf(e.name)}
                 aria-pressed={!e.hidden}
                 onClick={() => onToggleHidden(e.key)}
                 className={small}
@@ -693,7 +715,7 @@ export function PropertyList({
               </IconButton>
               {/* disabled는 누르는 순간 포커스를 잃게 만든다(맨 위로 올리면 "위로"가 꺼짐). aria-disabled로 포커스를 남긴다 */}
               <IconButton
-                label={`${e.name} 위로`}
+                label={m.collection.property.moveUpOf(e.name)}
                 aria-disabled={i === 0 || undefined}
                 onClick={() => i > 0 && onMove(e.key, -1)}
                 className={cn(small, "aria-disabled:pointer-events-none aria-disabled:opacity-35")}
@@ -701,7 +723,7 @@ export function PropertyList({
                 <ArrowUp {...ic} />
               </IconButton>
               <IconButton
-                label={`${e.name} 아래로`}
+                label={m.collection.property.moveDownOf(e.name)}
                 aria-disabled={i === entries.length - 1 || undefined}
                 onClick={() => i < entries.length - 1 && onMove(e.key, 1)}
                 className={cn(small, "aria-disabled:pointer-events-none aria-disabled:opacity-35")}
@@ -716,7 +738,7 @@ export function PropertyList({
         <AddPropertyMenu onAdd={onAdd}>
           <button type="button" className={cn(menuItem, focusRing, "text-secondary")}>
             <Plus {...ic} />
-            속성 추가
+            {m.collection.property.addProperty}
           </button>
         </AddPropertyMenu>
       </div>

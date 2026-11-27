@@ -32,6 +32,7 @@ import { toast } from "@/components/ui/toast";
 import type { JSONContent } from "@tiptap/core";
 import { normalizeDocCodeLanguages } from "@/lib/code-language";
 import * as React from "react";
+import { msg, useMessages } from "@/lib/i18n";
 import {
   ancestors,
   createSubpageOf,
@@ -102,6 +103,7 @@ function useBacklinks(id: string, all: Record<string, Page>): BacklinkItem[] {
  * 본문 — 상단 바(경로·편집 시각) + 페이지 머리 + 속성 + 에디터 (SHELL-09).
  */
 export function PageView({ page }: { page: Page }) {
+  const m = useMessages();
   const iconProps = usePageIconProps(page);
   useMinuteTick();
   const all = usePages((s) => s.pages);
@@ -195,7 +197,9 @@ export function PageView({ page }: { page: Page }) {
     if (!blank) return;
     // 메뉴에서 만들었으면 메뉴가 닫히며 트리거로 포커스를 돌려준 뒤에 잡는다
     const t = setTimeout(() =>
-      bodyRef.current?.querySelector<HTMLElement>('[aria-label="페이지 제목"]')?.focus(),
+      bodyRef.current
+        ?.querySelector<HTMLElement>(`[aria-label="${msg().page.pageHeader.titleLabel}"]`)
+        ?.focus(),
     );
     return () => clearTimeout(t);
     // 처음 열 때만 (제목을 지워도 다시 잡지 않는다)
@@ -219,7 +223,7 @@ export function PageView({ page }: { page: Page }) {
             }}
           />
         }
-        editedAt={`${formatAgo(page.updatedAt)} 편집`}
+        editedAt={m.screens.collectionView.edited(formatAgo(page.updatedAt))}
         scrolled={scrolled}
         sidebarOpen={!collapsed && !focusMode}
         onToggleSidebar={() =>
@@ -277,7 +281,7 @@ export function PageView({ page }: { page: Page }) {
             focusSignal={find.seq}
             initialQuery={selectedText(findEditor)}
             onClose={closeFind}
-            onReplacedAll={(n) => toast(`${n}곳을 바꿨어요`, { id: "find-replaced" })}
+            onReplacedAll={(n) => toast(m.screens.replacedCount(n), { id: "find-replaced" })}
             className="absolute top-2 right-4 z-20"
           />
         ) : null}
@@ -333,7 +337,7 @@ export function PageView({ page }: { page: Page }) {
             >
               <BodyEditor
                 content={initialContent}
-                label={`${page.title || "제목 없음"} 본문`}
+                label={m.screens.editorLabel(page.title || m.screens.untitled)}
                 onChange={onBodyChange}
                 onOpenLink={openEditorLink}
                 mentions={mentions}

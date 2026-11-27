@@ -92,7 +92,7 @@ export type EditorExtensionOptions = {
  * | 계산 줄               | CalcLine (커스텀, 장식)          | 줄 끝 `=` → 결과, Tab으로 넣기 |
  */
 export function createExtensions({
-  placeholder = msg().editor.placeholder,
+  placeholder,
   onMathClick = () => {},
   slash,
   mention,
@@ -132,7 +132,8 @@ export function createExtensions({
         if (node.type.name === "image") return ""; // 캡션 안내는 노드 뷰가 그린다
         // 코드 블록에서는 / 메뉴가 열리지 않고, 안내가 언어 고르기 줄과 겹친다
         if (node.type.name === "codeBlock") return "";
-        return placeholder;
+        // 언어가 바뀌어도 따라가도록 그릴 때마다 읽는다 (SYS-14)
+        return placeholder ?? msg().editor.placeholder;
       },
     }),
     TaskList,

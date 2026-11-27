@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 /**
  * 목차(ED-TableOfContents)와 마크다운 내보내기가 같이 쓰는 제목 계산. Tiptap JSON만 읽는 순수 함수다.
  * 규칙은 `components/editor/outline.ts`의 getHeadings와 같다: H1–H3, 글자도 덩어리도 없는 제목 제외, 글자 블록 안은 들어가지 않는다.
@@ -72,7 +73,7 @@ export function collectHeadings(root: TocNode | undefined): TocEntry[] {
       // 글자 없이 멘션만 있는 제목도 넣는다. 글자도 덩어리도 없는 제목만 뺀다
       const hasInline = (node.content ?? []).some((child) => child.text === undefined);
       if (level <= MAX_LEVEL && (label || hasInline))
-        found.push({ level, text: label || "제목 없음", node });
+        found.push({ level, text: label || msg().features.untitled, node });
       return;
     }
     if (node.type && TEXT_BLOCKS.has(node.type)) return;

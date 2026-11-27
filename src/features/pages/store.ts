@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import {
   canContain,
   createPage,
@@ -258,7 +259,7 @@ export function createPagesStore(
         const batch = todo.slice(i, i + BODY_BATCH);
         const run = readBodies(batch).catch((e) => {
           // 읽지 못한 페이지는 본문 없이 남고, 여는 쪽이 false로 안다
-          console.warn("본문을 읽지 못했어요", e);
+          console.warn("Couldn't read the page body", e);
         });
         for (const id of batch) inflight.set(id, run);
         void run.then(() => {
@@ -308,7 +309,7 @@ export function createPagesStore(
       create(init) {
         const page = createPage(init);
         if (!canContain(page.parentId ? get().pages[page.parentId] : null, page.kind))
-          throw new Error("컬렉션 안에는 문서만 둘 수 있어요");
+          throw new Error(msg().features.pages.onlyPagesInCollection);
         put(page);
         return page;
       },
@@ -319,7 +320,8 @@ export function createPagesStore(
         if (Object.entries(patch).every(([k, v]) => sameValue(v, page[k as keyof Page]))) return;
         if (patch.parentId !== undefined && patch.parentId !== page.parentId) {
           const parent = patch.parentId ? get().pages[patch.parentId] : null;
-          if (!canContain(parent, page.kind)) throw new Error("컬렉션 안에는 문서만 둘 수 있어요");
+          if (!canContain(parent, page.kind))
+            throw new Error(msg().features.pages.onlyPagesInCollection);
         }
         put({ ...page, ...patch, updatedAt: now() });
       },
@@ -367,9 +369,9 @@ export function createPagesStore(
         const page = get().pages[id];
         if (!page?.trashedAt) return;
         // 저장 전에 본문이 있어야 한다. 구조만 고친 채 지우면 본문 없는 파일이 남을 수 있다
-        if (!(await ensureBody(id))) throw new Error("본문을 읽지 못해 영구 삭제하지 못했어요");
+        if (!(await ensureBody(id))) throw new Error(msg().features.pages.permanentDeleteNoBody);
         // 휴지통으로 옮긴 내용이 아직 파일에 안 갔으면 먼저 쓴다(Rust는 trashedAt을 보고 지운다)
-        if (!(await queue.flushPage(id))) throw new Error("휴지통 이동을 저장하지 못했어요");
+        if (!(await queue.flushPage(id))) throw new Error(msg().features.pages.trashSaveFailed);
         // assets/<id>가 지워지기 전에, 그 이미지를 쓰는 다른 페이지(복제·복사)에 사본을 준다
         await get().adoptAssets(id);
         await storage.purgePage(id);
@@ -419,7 +421,8 @@ export function createPagesStore(
           if (!map.size) continue;
           const latest = get().pages[page.id]!;
           get().update(page.id, replaceAssetRefs(latest, map));
-          if (!(await queue.flushPage(page.id))) throw new Error("이미지 사본을 저장하지 못했어요");
+          if (!(await queue.flushPage(page.id)))
+            throw new Error(msg().features.pages.imageCopySaveFailed);
         }
       },
       externalRev: {},

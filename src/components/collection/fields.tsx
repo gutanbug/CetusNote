@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -47,10 +48,11 @@ export type RecordItem = {
 
 /** 빈 값 */
 export function EmptyValue() {
+  const m = useMessages();
   // 값 칸에 올리면 바탕이 진해져 한 단계 진한 글자색으로 대비를 지킨다
   return (
     <span className="text-tertiary group-hover/val:text-secondary force-hover:text-secondary">
-      비어 있음
+      {m.collection.fields.empty}
     </span>
   );
 }
@@ -60,6 +62,7 @@ export function EmptyValue() {
  * (글자는 보조 색 그대로 — hover 바탕에서도 대비 4.5:1을 지키게).
  */
 export function DueText({ due }: { due: NonNullable<RecordItem["due"]> }) {
+  const m = useMessages();
   const Icon = due.late ? CalendarX : CalendarDays;
   return (
     <span
@@ -68,7 +71,7 @@ export function DueText({ due }: { due: NonNullable<RecordItem["due"]> }) {
     >
       <Icon strokeWidth={1.5} aria-hidden className={cn("size-3.5", due.late && "text-danger")} />
       {due.text}
-      {due.late ? <span className="font-medium"> · 지남</span> : null}
+      {due.late ? <span className="font-medium"> · {m.collection.fields.late}</span> : null}
     </span>
   );
 }
@@ -150,6 +153,7 @@ export function AssigneePicker({
   label: string;
   className?: string;
 }) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const q = draft.trim();
@@ -181,14 +185,14 @@ export function AssigneePicker({
             autoFocus
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            aria-label="담당 이름"
-            placeholder="이름을 적고 Enter"
+            aria-label={m.collection.fields.assigneeName}
+            placeholder={m.collection.fields.typeName}
             className={cn(inputClass, "h-7.5 min-h-7.5 text-caption")}
           />
         </form>
         <div
           role="listbox"
-          aria-label="전에 쓴 이름"
+          aria-label={m.collection.fields.recentNames}
           className="mt-1 grid max-h-56 overflow-y-auto"
         >
           {shown.map((name) => (
@@ -206,7 +210,7 @@ export function AssigneePicker({
           ))}
           {q && !choices.includes(q) ? (
             <button type="button" onClick={() => pick(q)} className={cn(menuItem, focusRing)}>
-              “{q}” 담당으로
+              {m.collection.fields.assignTo(q)}
             </button>
           ) : null}
           {value ? (
@@ -216,7 +220,7 @@ export function AssigneePicker({
               className={cn(menuItem, focusRing, "text-secondary")}
             >
               <X strokeWidth={1.5} aria-hidden />
-              담당 비우기
+              {m.collection.fields.clearAssignee}
             </button>
           ) : null}
         </div>
@@ -237,6 +241,7 @@ export function DuePicker({
   label: string;
   className?: string;
 }) {
+  const m = useMessages();
   const [open, setOpen] = React.useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -248,7 +253,7 @@ export function DuePicker({
         <input
           type="date"
           autoFocus
-          aria-label="마감 날짜"
+          aria-label={m.collection.fields.dueDate}
           defaultValue={value?.date}
           onKeyDown={(e) => {
             if (e.key === "Enter") setOpen(false);
@@ -266,7 +271,7 @@ export function DuePicker({
             className={cn(menuItem, focusRing, "mt-1 text-secondary")}
           >
             <X strokeWidth={1.5} aria-hidden />
-            마감 비우기
+            {m.collection.fields.clearDue}
           </button>
         ) : null}
       </PopoverContent>

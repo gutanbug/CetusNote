@@ -15,6 +15,7 @@ import * as React from "react";
 import { create } from "zustand";
 import { openPageLink } from "./actions";
 import { resolveMention } from "./mention-model";
+import { msg } from "@/lib/i18n";
 
 /**
  * 날짜 알림 (EDIT-37) 화면 연결. 앱 시작 때 한 번 켜고(useReminderAlerts), 페이지 요약이 바뀔 때마다
@@ -33,7 +34,7 @@ function notifyInApp(item: MissedReminder) {
   toast(`${item.title} · ${item.label}`, {
     description: REMINDER_COPY.fallback,
     duration: 10_000,
-    action: { label: "열기", onClick: () => openPageLink(item.pageId) },
+    action: { label: msg().screens.reminders.open, onClick: () => openPageLink(item.pageId) },
   });
 }
 
@@ -90,7 +91,7 @@ export function startReminderAlerts(): () => void {
     onMissed: (items) => {
       toast(REMINDER_COPY.missedTitle(items.length), {
         duration: 15_000,
-        action: { label: "보기", onClick: () => showMissed(items) },
+        action: { label: msg().screens.reminders.view, onClick: () => showMissed(items) },
       });
     },
   });

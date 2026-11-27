@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 // 파일 첨부 블록의 종류와 크기 상한 (EDIT-31~33, ADR-025).
 // 화면 컴포넌트(ED-FileAttachment · ED-PdfViewer · ED-MediaPlayer)는 이 값으로 크기 초과 상태를 그린다.
 // 저장 시점 검사(Rust `asset_pick_file`)도 같은 값을 쓴다 — 단위는 바이트.
@@ -41,6 +42,6 @@ export function isOversize(kind: AttachmentKind, size?: number | null): boolean 
 /** 크기 초과 안내 문구 (사용자 결정 2026-11-24) */
 export function oversizeMessage(kind: AttachmentKind): string {
   return kind === "video" || kind === "audio"
-    ? "영상·소리 파일이 너무 커요 (최대 200MB)"
-    : "파일이 너무 커요 (최대 25MB)";
+    ? msg().features.attachments.tooLargeMedia
+    : msg().features.attachments.tooLarge;
 }

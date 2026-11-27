@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -54,12 +55,8 @@ export type OpenMode = "modal" | "side" | "tab";
 /** 라디오 값으로 쓰는 "기본값 따르기" (null 대신) */
 const DEFAULT_OPEN_VALUE = "default";
 
-const FIELD_NAME: Record<FilterField, string> = { status: "상태", assignee: "담당", tags: "태그" };
-const OPEN_MODE_NAME: Record<OpenMode, string> = {
-  modal: "모달",
-  side: "사이드 패널",
-  tab: "새 탭",
-};
+const FILTER_FIELDS: FilterField[] = ["status", "assignee", "tags"];
+const OPEN_MODES: OpenMode[] = ["modal", "side", "tab"];
 const OPEN_ICON: Record<OpenMode, React.ReactNode> = {
   modal: <AppWindow strokeWidth={1.5} aria-hidden />,
   side: <PanelRight strokeWidth={1.5} aria-hidden />,
@@ -136,18 +133,21 @@ function Toolbar({
   properties,
   className,
 }: ToolbarProps) {
+  const m = useMessages();
   const has = (f: ToolbarFilter) => filters.some((x) => x.field === f.field && x.value === f.value);
   const groupOf = (field: string) => filterGroups.find((g) => g.field === field);
   const chipLabel = (f: ToolbarFilter) => {
     const g = groupOf(f.field);
     return `${g?.name ?? f.field}: ${g?.values.find((v) => v.value === f.value)?.label ?? f.value}`;
   };
-  const sortName = sort ? (sortFields.find((x) => x.field === sort.field)?.name ?? "정렬") : "";
+  const sortName = sort
+    ? (sortFields.find((x) => x.field === sort.field)?.name ?? m.collection.toolbar.sort)
+    : "";
   const effective = openMode ?? defaultOpenMode;
   return (
     <div
       role="group"
-      aria-label="컬렉션 도구"
+      aria-label={m.collection.toolbar.tools}
       data-slot="collection-toolbar"
       className={cn(
         "flex flex-wrap items-center gap-2 border-b border-line px-8 pt-4 pb-3",
@@ -155,19 +155,24 @@ function Toolbar({
       )}
     >
       <Segmented<ViewKind>
-        label="보기"
+        label={m.collection.toolbar.view}
         value={view}
         onValueChange={onViewChange}
         options={[
-          { value: "grid", label: "표", icon: <Table2 {...ic} /> },
-          { value: "board", label: "보드", icon: <Columns3 {...ic} /> },
-          { value: "calendar", label: "캘린더", icon: <CalendarDays {...ic} /> },
+          { value: "grid", label: m.collection.toolbar.views.grid, icon: <Table2 {...ic} /> },
+          { value: "board", label: m.collection.toolbar.views.board, icon: <Columns3 {...ic} /> },
+          {
+            value: "calendar",
+            label: m.collection.toolbar.views.calendar,
+            icon: <CalendarDays {...ic} />,
+          },
         ]}
       />
       <DropdownMenu>
         <DropdownMenuTrigger className={tool} data-press="" data-on={filters.length > 0}>
           <ListFilter {...ic} />
-          필터{filters.length ? ` ${filters.length}` : ""}
+          {m.collection.toolbar.filter}
+          {filters.length ? ` ${filters.length}` : ""}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="min-w-48">
           {filterGroups.map(({ field, name, values }) => (
@@ -187,7 +192,7 @@ function Toolbar({
                   ))
                 ) : (
                   <DropdownMenuLabel className="font-normal text-tertiary">
-                    아직 값이 없어요
+                    {m.collection.toolbar.noValues}
                   </DropdownMenuLabel>
                 )}
               </DropdownMenuSubContent>
@@ -197,7 +202,7 @@ function Toolbar({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem icon={<X {...ic} />} onSelect={onClearFilters}>
-                필터 모두 풀기
+                {m.collection.toolbar.clearFilters}
               </DropdownMenuItem>
             </>
           ) : null}
@@ -206,9 +211,13 @@ function Toolbar({
       <DropdownMenu>
         <DropdownMenuTrigger className={tool} data-press="" data-on={!!sort}>
           <ArrowDownUp {...ic} />
-          {sort ? `정렬 · ${sortName}` : "정렬"}
+          {sort ? m.collection.toolbar.sortBy(sortName) : m.collection.toolbar.sort}
           {sort ? (
-            <span className="sr-only">{sort.dir === "asc" ? " 오름차순" : " 내림차순"}</span>
+            <span className="sr-only">
+              {sort.dir === "asc"
+                ? ` ${m.collection.toolbar.asc}`
+                : ` ${m.collection.toolbar.desc}`}
+            </span>
           ) : null}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="max-h-96 min-w-40 overflow-y-auto">
@@ -229,7 +238,7 @@ function Toolbar({
           >
             {(["asc", "desc"] as const).map((dir) => (
               <DropdownMenuRadioItem key={dir} value={dir} disabled={!sort}>
-                {dir === "asc" ? "오름차순" : "내림차순"}
+                {dir === "asc" ? m.collection.toolbar.asc : m.collection.toolbar.desc}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -237,14 +246,17 @@ function Toolbar({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem icon={<X {...ic} />} onSelect={() => onSortChange(null)}>
-                정렬 없음
+                {m.collection.toolbar.noSort}
               </DropdownMenuItem>
             </>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {filters.length ? (
-        <ul aria-label="적용된 필터" className="flex flex-wrap items-center gap-1">
+        <ul
+          aria-label={m.collection.toolbar.appliedFilters}
+          className="flex flex-wrap items-center gap-1"
+        >
           {filters.map((f) => (
             <li
               key={`${f.field}:${f.value}`}
@@ -253,7 +265,7 @@ function Toolbar({
               <span className="truncate">{chipLabel(f)}</span>
               <button
                 type="button"
-                aria-label={`필터 풀기: ${chipLabel(f)}`}
+                aria-label={m.collection.toolbar.removeFilter(chipLabel(f))}
                 onClick={() => onToggleFilter(f)}
                 className={cn(
                   "grid size-4.5 shrink-0 place-items-center rounded-pill text-tertiary [&_svg]:size-3",
@@ -269,10 +281,12 @@ function Toolbar({
       ) : null}
       <span className="min-w-2 flex-1" />
       <span className="shrink-0 text-label whitespace-nowrap text-tertiary" aria-live="polite">
-        {shown === total ? `${total}개` : `${shown}개 / 전체 ${total}개`}
+        {shown === total
+          ? m.collection.model.count(total)
+          : m.collection.toolbar.shownOf(shown, total)}
       </span>
       <label className="relative w-45 shrink-0">
-        <span className="sr-only">레코드 검색</span>
+        <span className="sr-only">{m.collection.toolbar.search}</span>
         <Search
           {...ic}
           className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-tertiary"
@@ -287,25 +301,31 @@ function Toolbar({
               onSearchChange("");
             }
           }}
-          placeholder="레코드 검색"
+          placeholder={m.collection.toolbar.search}
           className={cn(inputClass, "h-6.5 min-h-6.5 pl-8 text-caption")}
         />
       </label>
       {view === "board" && groupBy && onGroupByChange ? (
         <DropdownMenu>
-          <DropdownMenuTrigger data-press="" className={tool} aria-label="보드 설정">
+          <DropdownMenuTrigger
+            data-press=""
+            className={tool}
+            aria-label={m.collection.toolbar.boardSettings}
+          >
             <Settings2 {...ic} />
-            <span className="whitespace-nowrap">{FIELD_NAME[groupBy]}별</span>
+            <span className="whitespace-nowrap">
+              {m.collection.toolbar.groupBy(m.collection.model.builtin[groupBy])}
+            </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>칸 나누기</DropdownMenuLabel>
+            <DropdownMenuLabel>{m.collection.toolbar.groupTitle}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={groupBy}
               onValueChange={(v) => onGroupByChange(v as FilterField)}
             >
-              {(Object.keys(FIELD_NAME) as FilterField[]).map((f) => (
+              {FILTER_FIELDS.map((f) => (
                 <DropdownMenuRadioItem key={f} value={f}>
-                  {FIELD_NAME[f]}
+                  {m.collection.model.builtin[f]}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -316,9 +336,13 @@ function Toolbar({
         <Popover>
           <PopoverTrigger className={tool} data-press="">
             <SlidersHorizontal {...ic} />
-            속성
+            {m.collection.toolbar.properties}
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-72 p-1" aria-label="속성 관리">
+          <PopoverContent
+            align="end"
+            className="w-72 p-1"
+            aria-label={m.collection.toolbar.manageProperties}
+          >
             {properties}
           </PopoverContent>
         </Popover>
@@ -330,15 +354,19 @@ function Toolbar({
               <DropdownMenuTrigger
                 data-press=""
                 className={tool}
-                aria-label={`열기 방식: ${OPEN_MODE_NAME[effective]}`}
+                aria-label={m.collection.toolbar.openModeLabel(
+                  m.collection.toolbar.openMode[effective],
+                )}
               >
                 {OPEN_ICON[effective]}
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent>열기 방식: {OPEN_MODE_NAME[effective]}</TooltipContent>
+            <TooltipContent>
+              {m.collection.toolbar.openModeLabel(m.collection.toolbar.openMode[effective])}
+            </TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="end" className="w-60">
-            <DropdownMenuLabel>레코드 열기 방식</DropdownMenuLabel>
+            <DropdownMenuLabel>{m.collection.toolbar.openTitle}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={openMode ?? DEFAULT_OPEN_VALUE}
               onValueChange={(v) =>
@@ -346,11 +374,11 @@ function Toolbar({
               }
             >
               <DropdownMenuRadioItem value={DEFAULT_OPEN_VALUE}>
-                기본값 따르기 (지금: {OPEN_MODE_NAME[defaultOpenMode]})
+                {m.collection.toolbar.followDefault(m.collection.toolbar.openMode[defaultOpenMode])}
               </DropdownMenuRadioItem>
-              {(Object.keys(OPEN_MODE_NAME) as OpenMode[]).map((m) => (
-                <DropdownMenuRadioItem key={m} value={m}>
-                  {OPEN_MODE_NAME[m]}
+              {OPEN_MODES.map((mode) => (
+                <DropdownMenuRadioItem key={mode} value={mode}>
+                  {m.collection.toolbar.openMode[mode]}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -361,7 +389,7 @@ function Toolbar({
                   disabled={effective === defaultOpenMode}
                   onSelect={() => onOpenModeDefault(effective)}
                 >
-                  이 방식을 모든 컬렉션 기본값으로
+                  {m.collection.toolbar.setAsDefault}
                 </DropdownMenuItem>
               </>
             ) : null}
@@ -369,7 +397,8 @@ function Toolbar({
         </DropdownMenu>
       ) : null}
       <Button size="sm" onClick={onNew}>
-        <Plus {...ic} />새 레코드
+        <Plus {...ic} />
+        {m.collection.toolbar.newRecord}
       </Button>
     </div>
   );

@@ -1,9 +1,10 @@
+import { msg } from "@/lib/i18n";
 // @vitest-environment happy-dom
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ENEX_CRYPT_TEXT, convertEnex, convertEnexFile, parseEnexDate } from "./enex";
+import { convertEnex, convertEnexFile, parseEnexDate } from "./enex";
 import { md5Hex } from "./md5";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -63,7 +64,7 @@ describe("convertEnex", () => {
   });
 
   it("암호화된 노트는 안내 글만 남긴다", () => {
-    expect(diary!.markdown).toBe(`<p>${ENEX_CRYPT_TEXT}</p>`);
+    expect(diary!.markdown).toBe(`<p>${msg().features.import.encryptedNote}</p>`);
     expect(diary!.tags).toEqual([]);
     expect(result.error).toBeNull();
   });

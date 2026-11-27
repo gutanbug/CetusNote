@@ -1,4 +1,11 @@
-import { parseLanguagePref, resolveLocale, setLocale, type LanguagePref } from "./i18n";
+import {
+  getLocale,
+  onLocaleChange,
+  parseLanguagePref,
+  resolveLocale,
+  setLocale,
+  type LanguagePref,
+} from "./i18n";
 import { applyZoom, normalizeZoom } from "./zoom";
 import { getStorage } from "./storage/default";
 import { parseAppIconPref, resolveAppIcon, type AppIconPref } from "./app-icon";
@@ -27,6 +34,21 @@ let current: AppearanceInput | null = null;
 /** 마지막으로 보낸 앱 아이콘 — 같은 값이면 다시 보내지 않는다 */
 let lastIcon: string | null = null;
 let unlisten: (() => void) | null = null;
+/** 마지막으로 보낸 화면 언어 — 같은 값이면 다시 보내지 않는다 (SYS-14) */
+let lastLocale: string | null = null;
+
+/** 화면 언어를 Rust에 알린다(네이티브 메뉴·대화상자·오류 문구). 실패하면 다음번에 다시 보낸다 */
+function syncLocale() {
+  const next = getLocale();
+  if (next === lastLocale) return;
+  lastLocale = next;
+  getStorage()
+    .setLocale(next)
+    .catch(() => {
+      lastLocale = null;
+    });
+}
+onLocaleChange(syncLocale);
 
 /** 앱 아이콘을 지금 테마에 맞춰 바꾼다(SET-07). 실패하면 다음번에 다시 보낸다 */
 function syncAppIcon(a: AppearanceInput, theme: "light" | "dark") {
@@ -50,6 +72,7 @@ function paint(a: AppearanceInput) {
   root.style.colorScheme = root.dataset.theme;
   applyZoom(normalizeZoom(a.zoom ?? 1));
   setLocale(resolveLocale(a.language ?? "system"));
+  syncLocale();
 }
 
 export function applyAppearance(a: AppearanceInput) {

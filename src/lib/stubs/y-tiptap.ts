@@ -9,7 +9,7 @@ import { PluginKey } from "@tiptap/pm/state";
 export const ySyncPluginKey = new PluginKey("y-sync");
 
 function unsupported(): never {
-  throw new Error("실시간 협업(Yjs)은 지원하지 않아요");
+  throw new Error("Real-time collaboration (Yjs) is not supported");
 }
 
 export const absolutePositionToRelativePosition = unsupported;

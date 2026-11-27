@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { workspaceStore } from "@/features/workspace";
 import { StorageError, type Storage } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
@@ -66,12 +67,11 @@ export function useAssetUrl(path: string | null | undefined): string | undefined
 /** 이미지 저장 실패 안내 (토스트 문구) */
 export function assetErrorMessage(e: unknown): string {
   if (e instanceof StorageError) {
-    if (e.code === "unsupported_image") return "PNG·JPEG·GIF·WebP·AVIF 이미지만 넣을 수 있어요.";
-    if (e.code === "too_large") return "25MB보다 큰 이미지는 넣을 수 없어요.";
-    if (e.code === "fetch_failed")
-      return "링크에서 이미지를 가져오지 못했어요. 주소를 확인해 주세요.";
+    if (e.code === "unsupported_image") return msg().features.assets.unsupportedImage;
+    if (e.code === "too_large") return msg().features.assets.tooLarge;
+    if (e.code === "fetch_failed") return msg().features.assets.fetchFailed;
   }
-  return "이미지를 저장하지 못했어요.";
+  return msg().features.assets.saveFailed;
 }
 
 /** 붙여넣거나 끌어 놓은 이미지 파일을 그 페이지의 assets에 저장 → 경로 */

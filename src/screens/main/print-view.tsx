@@ -13,6 +13,7 @@ import { useMainUi } from "./ui-store";
 
 import { PRINT_ROOT_ID as ROOT_ID } from "./print-ready";
 import { PageIcon } from "@/components/ui/page-icon";
+import { useMessages } from "@/lib/i18n";
 
 /**
  * PDF 내보내기(DATA-06)의 인쇄 전용 화면 — body 바로 아래 #print-root에 페이지 제목과 읽기 전용 본문을 그린다.
@@ -20,6 +21,7 @@ import { PageIcon } from "@/components/ui/page-icon";
  * 쪽 나누기는 pdf-layout.ts가 한다. 다음 내보내기 전까지 남겨 둔다.
  */
 export function PrintView() {
+  const m = useMessages();
   const id = useMainUi((s) => s.printId);
   const page = usePages((s) => (id ? s.pages[id] : undefined));
   const all = usePagesWhile(id !== null);
@@ -30,7 +32,7 @@ export function PrintView() {
   const images = React.useMemo<ImageSource>(
     () => ({
       load: (src) => assetUrl(src),
-      upload: () => Promise.reject(new Error("읽기 전용")),
+      upload: () => Promise.reject(new Error("read-only")),
       pick: async () => null,
     }),
     [],
@@ -69,13 +71,13 @@ export function PrintView() {
         </div>
       ) : null}
       <h1 className="mt-2 mb-6 text-title font-bold tracking-(--tracking-display) break-words">
-        {page.title || "제목 없음"}
+        {page.title || m.screens.untitled}
       </h1>
       <NoteEditor
         key={page.updatedAt}
         content={page.content as JSONContent}
         editable={false}
-        label={`${page.title || "제목 없음"} 본문`}
+        label={m.screens.editorLabel(page.title || m.screens.untitled)}
         mentions={mentions}
         images={images}
         spellCheck={false}

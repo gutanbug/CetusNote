@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
+import { setLocale } from "@/lib/i18n";
 import { guideFor, IMPORT_GUIDES } from "./guides";
 import { IMPORT_APPS } from "./pipeline";
+
+describe("다른 앱에서 가져오기 안내 — 영어 (SYS-14)", () => {
+  it("영어로 읽으면 영어 문구가 나오고, 앱 이름과 메뉴 이름은 그대로다", () => {
+    setLocale("en");
+    try {
+      const notion = guideFor("notion");
+      expect(notion.note).toContain("Export all workspace content");
+      expect(notion.steps.join("\n")).toContain("Include subpages");
+      expect(guideFor("evernote").steps.join("\n")).toContain("Choose ENEX files");
+      expect(notion.label).toBe("Notion");
+    } finally {
+      setLocale("ko");
+    }
+    expect(guideFor("notion").steps.join("\n")).toContain("압축은 풀지 마세요");
+  });
+});
 
 describe("다른 앱에서 가져오기 안내 (guides)", () => {
   it("앱은 선택 목록 순서대로 다섯 개이고 id가 겹치지 않는다", () => {

@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import {
   attachmentKind,
   limitFor,
@@ -36,13 +37,13 @@ export function attachmentErrorMessage(e: unknown, kind?: AttachmentKind): strin
   if (e instanceof StorageError) {
     if (e.code === "too_large") return oversizeMessage(kind ?? "file");
     if (e.code === "wrong_kind") {
-      if (kind === "pdf") return "PDF 파일만 넣을 수 있어요.";
-      if (kind === "video" || kind === "audio") return "영상·소리 파일만 넣을 수 있어요.";
+      if (kind === "pdf") return msg().features.attachments.pdfOnly;
+      if (kind === "video" || kind === "audio") return msg().features.attachments.mediaOnly;
     }
-    if (e.code === "not_found") return "파일을 찾지 못했어요.";
-    if (e.code === "symlink") return "링크 파일은 넣을 수 없어요.";
+    if (e.code === "not_found") return msg().features.attachments.notFound;
+    if (e.code === "symlink") return msg().features.attachments.symlink;
   }
-  return "파일을 첨부하지 못했어요.";
+  return msg().features.attachments.failed;
 }
 
 /** 에디터의 종류 → 고르기 대화상자의 종류 */

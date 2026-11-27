@@ -47,6 +47,7 @@ import {
 } from "@/lib/storage";
 import type { JSONContent } from "@tiptap/core";
 import * as React from "react";
+import { intlLocale, msg, useMessages } from "@/lib/i18n";
 import { ancestors, displayTitle, moveToTrash, openPage, toggleFavorite } from "./actions";
 import { MoveDialog } from "./move-dialog";
 import { useRestoreFocus } from "./use-restore-focus";
@@ -89,6 +90,7 @@ function rowItemOf(p: Page, tags: ItemTags, today: string, statuses: ItemStatuse
 }
 
 export function CollectionView({ page }: { page: Page }) {
+  const m = useMessages();
   const iconProps = usePageIconProps(page);
   const all = usePages((s) => s.pages);
   const order = useMeta((s) => s.meta?.order[page.id]);
@@ -131,7 +133,9 @@ export function CollectionView({ page }: { page: Page }) {
     if (page.title) return;
     // 메뉴에서 만들었으면 메뉴가 닫히며 트리거로 포커스를 돌려준 뒤에 잡는다
     const t = setTimeout(() =>
-      scrollerRef.current?.querySelector<HTMLElement>('[aria-label="페이지 제목"]')?.focus(),
+      scrollerRef.current
+        ?.querySelector<HTMLElement>(`[aria-label="${msg().page.pageHeader.titleLabel}"]`)
+        ?.focus(),
     );
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -397,10 +401,10 @@ export function CollectionView({ page }: { page: Page }) {
     <div className="grid justify-items-center gap-3 text-center">
       <p className="text-ui text-secondary">
         {!records.length
-          ? "아직 레코드가 없어요."
+          ? m.screens.collectionView.emptyRecords
           : narrowed
-            ? "조건에 맞는 레코드가 없어요."
-            : "이번 달에 마감인 레코드가 없어요."}
+            ? m.screens.collectionView.noMatch
+            : m.screens.collectionView.noDueThisMonth}
       </p>
       {records.length && narrowed ? (
         <Button
@@ -411,15 +415,15 @@ export function CollectionView({ page }: { page: Page }) {
             setSettings({ filters: [] });
           }}
         >
-          필터와 검색 풀기
+          {m.screens.collectionView.clearFilters}
         </Button>
       ) : !records.length ? (
         <Button size="sm" onClick={() => createRecord()}>
-          새 레코드
+          {m.screens.collectionView.newRecord}
         </Button>
       ) : (
         <Button size="sm" onClick={() => createRecord({ due: isoDate(new Date()) })}>
-          오늘 마감으로 새 레코드
+          {m.screens.collectionView.newDueToday}
         </Button>
       )}
     </div>
@@ -445,9 +449,9 @@ export function CollectionView({ page }: { page: Page }) {
     ...fieldFilterChoices(settings.fields),
   ];
   const sortFields = [
-    { field: "title", name: "제목" },
+    { field: "title", name: m.screens.collectionView.sortTitle },
     ...props.entries.map((e) => ({ field: e.key, name: e.name })),
-    { field: "updated", name: "수정일" },
+    { field: "updated", name: m.screens.collectionView.sortUpdated },
   ];
 
   const panelWidth = useSession((s) => s.recordPanelWidth);
@@ -547,7 +551,7 @@ export function CollectionView({ page }: { page: Page }) {
             }}
           />
         }
-        editedAt={`${formatAgo(page.updatedAt)} 편집`}
+        editedAt={m.screens.collectionView.edited(formatAgo(page.updatedAt))}
         scrolled={scrolled}
         sidebarOpen={!collapsed && !focusMode}
         onToggleSidebar={() =>
@@ -659,7 +663,10 @@ export function CollectionView({ page }: { page: Page }) {
               />
             ) : (
               <CalendarView
-                monthLabel={`${month.year}년 ${month.month + 1}월`}
+                monthLabel={new Intl.DateTimeFormat(intlLocale(), {
+                  year: "numeric",
+                  month: "long",
+                }).format(new Date(month.year, month.month, 1))}
                 days={days}
                 onPrev={() => shiftMonth(-1)}
                 onNext={() => shiftMonth(1)}
@@ -679,7 +686,7 @@ export function CollectionView({ page }: { page: Page }) {
           <div className="relative h-full shrink-0" style={{ width: sideWidth }}>
             <Resizer
               edge="left"
-              label="레코드 패널 너비 조절"
+              label={m.screens.collectionView.resizePanel}
               width={sideWidth}
               min={PANEL_MIN}
               max={panelMax}
@@ -728,7 +735,7 @@ function RecordBody({ page }: { page: Page }) {
       <NoteEditor
         key={rev}
         content={page.content as JSONContent}
-        label={`${page.title || "제목 없음"} 본문`}
+        label={msg().screens.editorLabel(page.title || msg().screens.untitled)}
         onChange={(content) =>
           pagesStore.getState().update(page.id, { content: content as Page["content"] })
         }

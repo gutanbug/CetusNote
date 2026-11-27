@@ -7,6 +7,8 @@ use tauri::{
     menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu},
 };
 
+use crate::i18n::{self, Text};
+
 pub const NEW_TAB: &str = "new-tab";
 pub const CLOSE_TAB: &str = "close-tab";
 pub const ZOOM_IN: &str = "zoom-in";
@@ -35,34 +37,71 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         &name,
         true,
         &[
-            &PredefinedMenuItem::about(app, Some(&format!("{name}에 관하여")), Some(about))?,
+            &PredefinedMenuItem::about(
+                app,
+                Some(&i18n::text(Text::About).replace("{name}", &name)),
+                Some(about),
+            )?,
             &sep()?,
-            &PredefinedMenuItem::services(app, Some("서비스"))?,
+            &PredefinedMenuItem::services(app, Some(i18n::text(Text::Services)))?,
             &sep()?,
-            &PredefinedMenuItem::hide(app, Some(&format!("{name} 가리기")))?,
-            &PredefinedMenuItem::hide_others(app, Some("기타 가리기"))?,
+            &PredefinedMenuItem::hide(
+                app,
+                Some(&i18n::text(Text::HideApp).replace("{name}", &name)),
+            )?,
+            &PredefinedMenuItem::hide_others(app, Some(i18n::text(Text::HideOthers)))?,
             &sep()?,
             // 종료는 직접 처리한다 (DATA-07): 저장을 끝낸 뒤 종료하려고 기본 quit 항목 대신 쓴다
-            &MenuItem::with_id(app, QUIT, format!("{name} 종료"), true, Some("CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(
+                app,
+                QUIT,
+                i18n::text(Text::QuitApp).replace("{name}", &name),
+                true,
+                Some("CmdOrCtrl+Q"),
+            )?,
         ],
     )?;
     let file = Submenu::with_items(
         app,
-        "파일",
+        i18n::text(Text::FileMenu),
         true,
         &[
-            &MenuItem::with_id(app, NEW_TAB, "새 탭", true, Some("CmdOrCtrl+T"))?,
-            &MenuItem::with_id(app, CLOSE_TAB, "탭 닫기", true, Some("CmdOrCtrl+W"))?,
+            &MenuItem::with_id(
+                app,
+                NEW_TAB,
+                i18n::text(Text::NewTab),
+                true,
+                Some("CmdOrCtrl+T"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                CLOSE_TAB,
+                i18n::text(Text::CloseTab),
+                true,
+                Some("CmdOrCtrl+W"),
+            )?,
             &sep()?,
             // 문서 가져오기 (DATA-08) — 프런트엔드가 파일 고르기부터 한다
-            &MenuItem::with_id(app, IMPORT_DOCUMENT, "문서 가져오기…", true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                IMPORT_DOCUMENT,
+                i18n::text(Text::ImportDocument),
+                true,
+                None::<&str>,
+            )?,
             // 다른 앱에서 가져오기 (DATA-11) — 프런트엔드가 앱과 zip·폴더 고르기부터 한다
-            &MenuItem::with_id(app, IMPORT_APP, "다른 앱에서 가져오기…", true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                IMPORT_APP,
+                i18n::text(Text::ImportApp),
+                true,
+                None::<&str>,
+            )?,
             // 워크스페이스 전체 Markdown 내보내기 (DATA-10) — 프런트엔드가 폴더 고르기부터 한다
             &MenuItem::with_id(
                 app,
                 EXPORT_WORKSPACE_MARKDOWN,
-                "워크스페이스를 Markdown으로 내보내기…",
+                i18n::text(Text::ExportWorkspaceMarkdown),
                 true,
                 None::<&str>,
             )?,
@@ -70,23 +109,23 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     )?;
     let edit = Submenu::with_items(
         app,
-        "편집",
+        i18n::text(Text::EditMenu),
         true,
         &[
-            &PredefinedMenuItem::undo(app, Some("실행 취소"))?,
-            &PredefinedMenuItem::redo(app, Some("실행 복귀"))?,
+            &PredefinedMenuItem::undo(app, Some(i18n::text(Text::Undo)))?,
+            &PredefinedMenuItem::redo(app, Some(i18n::text(Text::Redo)))?,
             &sep()?,
-            &PredefinedMenuItem::cut(app, Some("오려두기"))?,
-            &PredefinedMenuItem::copy(app, Some("복사하기"))?,
-            &PredefinedMenuItem::paste(app, Some("붙여넣기"))?,
-            &PredefinedMenuItem::select_all(app, Some("전체 선택"))?,
+            &PredefinedMenuItem::cut(app, Some(i18n::text(Text::Cut)))?,
+            &PredefinedMenuItem::copy(app, Some(i18n::text(Text::Copy)))?,
+            &PredefinedMenuItem::paste(app, Some(i18n::text(Text::Paste)))?,
+            &PredefinedMenuItem::select_all(app, Some(i18n::text(Text::SelectAll)))?,
             &sep()?,
             // 페이지 안 찾기 (EDIT-25). 막대는 프런트엔드가 연다
-            &MenuItem::with_id(app, FIND, "찾기", true, Some("CmdOrCtrl+F"))?,
+            &MenuItem::with_id(app, FIND, i18n::text(Text::Find), true, Some("CmdOrCtrl+F"))?,
             &MenuItem::with_id(
                 app,
                 FIND_REPLACE,
-                "찾아 바꾸기",
+                i18n::text(Text::FindReplace),
                 true,
                 Some("CmdOrCtrl+Alt+F"),
             )?,
@@ -94,32 +133,56 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     )?;
     let view = Submenu::with_items(
         app,
-        "보기",
+        i18n::text(Text::ViewMenu),
         true,
         &[
             // 화면 크기 (SHELL-17). 단계·저장은 프런트엔드(lib/zoom.ts)가 한다. ⌘⇧=(⌘+)는 웹뷰 keydown으로 받는다
-            &MenuItem::with_id(app, ZOOM_RESET, "실제 크기", true, Some("CmdOrCtrl+0"))?,
-            &MenuItem::with_id(app, ZOOM_IN, "확대", true, Some("CmdOrCtrl+="))?,
-            &MenuItem::with_id(app, ZOOM_OUT, "축소", true, Some("CmdOrCtrl+-"))?,
+            &MenuItem::with_id(
+                app,
+                ZOOM_RESET,
+                i18n::text(Text::ActualSize),
+                true,
+                Some("CmdOrCtrl+0"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                ZOOM_IN,
+                i18n::text(Text::ZoomIn),
+                true,
+                Some("CmdOrCtrl+="),
+            )?,
+            &MenuItem::with_id(
+                app,
+                ZOOM_OUT,
+                i18n::text(Text::ZoomOut),
+                true,
+                Some("CmdOrCtrl+-"),
+            )?,
             &sep()?,
             // 목차 (PAGE-12) — 프런트엔드가 상단 바 목차 메뉴를 연다
-            &MenuItem::with_id(app, OUTLINE, "목차", true, Some("CmdOrCtrl+Alt+O"))?,
+            &MenuItem::with_id(
+                app,
+                OUTLINE,
+                i18n::text(Text::Outline),
+                true,
+                Some("CmdOrCtrl+Alt+O"),
+            )?,
             &sep()?,
-            &PredefinedMenuItem::fullscreen(app, Some("전체 화면으로 전환"))?,
+            &PredefinedMenuItem::fullscreen(app, Some(i18n::text(Text::EnterFullscreen)))?,
         ],
     )?;
     let window = Submenu::with_items(
         app,
-        "윈도우",
+        i18n::text(Text::WindowMenu),
         true,
         &[
-            &PredefinedMenuItem::minimize(app, Some("최소화"))?,
-            &PredefinedMenuItem::maximize(app, Some("확대/축소"))?,
+            &PredefinedMenuItem::minimize(app, Some(i18n::text(Text::Minimize)))?,
+            &PredefinedMenuItem::maximize(app, Some(i18n::text(Text::Maximize)))?,
             &sep()?,
             &MenuItem::with_id(
                 app,
                 CLOSE_WINDOW,
-                "창 닫기",
+                i18n::text(Text::CloseWindow),
                 true,
                 Some("CmdOrCtrl+Shift+W"),
             )?,

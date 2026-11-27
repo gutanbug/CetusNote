@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 /** 앱이 도는 운영체제. 브라우저 미리보기·Storybook은 UA로 판별한다 (SYS-08) */
 export type Platform = "mac" | "windows" | "linux";
 
@@ -73,7 +74,7 @@ export function isModPressed(
 
 /** 파일 위치 열기 버튼 문구 (SHELL·SET·DATA-04/05) */
 export function revealLabel(platform: Platform): string {
-  if (platform === "windows") return "탐색기에서 보기";
-  if (platform === "linux") return "파일 관리자에서 보기";
-  return "Finder에서 보기";
+  if (platform === "windows") return msg().features.platform.revealWindows;
+  if (platform === "linux") return msg().features.platform.revealLinux;
+  return msg().features.platform.revealMac;
 }

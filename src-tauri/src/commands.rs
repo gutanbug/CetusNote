@@ -2,6 +2,7 @@
 //! 경로는 받지 않는다: 폴더·저장 위치는 Rust가 띄우는 대화상자에서만 정해진다.
 
 use crate::app_import;
+use crate::i18n::{self, Text};
 use crate::storage::{self, LoadedPages, Result, StorageError, Workspace};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -393,7 +394,10 @@ pub async fn workspace_pick(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Option<WorkspaceInfo>> {
-    let mut dialog = app.dialog().file().set_title("노트를 저장할 폴더 선택");
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(i18n::text(Text::PickNotesFolder));
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
     }
@@ -497,7 +501,7 @@ pub async fn workspace_create(
     let mut dialog = app
         .dialog()
         .file()
-        .set_title(format!("“{name}” 워크스페이스를 만들 위치 선택"));
+        .set_title(i18n::text(Text::PickWorkspaceLocation).replace("{name}", &name));
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
     }
@@ -665,7 +669,7 @@ pub async fn export_markdown(
     let mut dialog = app
         .dialog()
         .file()
-        .set_title("Markdown으로 내보내기")
+        .set_title(i18n::text(Text::ExportMarkdown))
         .add_filter("Markdown", &["md"])
         .set_file_name(file_name);
     if let Ok(docs) = app.path().document_dir() {
@@ -697,7 +701,7 @@ pub async fn export_csv(app: AppHandle, file_name: String, text: String) -> Resu
     let mut dialog = app
         .dialog()
         .file()
-        .set_title("CSV로 내보내기")
+        .set_title(i18n::text(Text::ExportCsv))
         .add_filter("CSV", &["csv"])
         .set_file_name(file_name);
     if let Ok(docs) = app.path().document_dir() {
@@ -722,7 +726,10 @@ pub async fn workspace_export_markdown(
     manifest: storage::export::ExportManifest,
 ) -> Result<Option<storage::export::ExportReport>> {
     let root = workspace_root(&state)?;
-    let mut dialog = app.dialog().file().set_title("Markdown으로 모두 내보내기");
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(i18n::text(Text::ExportAllMarkdown));
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
     }
@@ -806,10 +813,14 @@ pub async fn document_pick(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Option<DocumentPick>> {
-    let mut dialog = app.dialog().file().set_title("문서 가져오기").add_filter(
-        "문서",
-        &["md", "markdown", "txt", "html", "htm", "docx", "pdf"],
-    );
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(i18n::text(Text::PickDocument))
+        .add_filter(
+            i18n::text(Text::DocumentFilter),
+            &["md", "markdown", "txt", "html", "htm", "docx", "pdf"],
+        );
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
     }
@@ -956,12 +967,12 @@ pub async fn app_import_pick(
     let picked = if kind == "folder" {
         app.dialog()
             .file()
-            .set_title("다른 앱에서 가져오기")
+            .set_title(i18n::text(Text::ImportOtherApps))
             .blocking_pick_folder()
     } else {
         app.dialog()
             .file()
-            .set_title("다른 앱에서 가져오기")
+            .set_title(i18n::text(Text::ImportOtherApps))
             .add_filter("zip", &["zip"])
             .blocking_pick_file()
     };
@@ -1020,7 +1031,7 @@ pub async fn app_import_enex_pick(app: AppHandle) -> Result<Option<EnexPick>> {
     let Some(picked) = app
         .dialog()
         .file()
-        .set_title("Evernote 파일 가져오기")
+        .set_title(i18n::text(Text::ImportEnex))
         .add_filter("ENEX", &["enex"])
         .blocking_pick_files()
     else {
@@ -1178,8 +1189,11 @@ pub async fn asset_pick(
     let mut dialog = app
         .dialog()
         .file()
-        .set_title("이미지 선택")
-        .add_filter("이미지", &["png", "jpg", "jpeg", "gif", "webp", "avif"]);
+        .set_title(i18n::text(Text::PickImage))
+        .add_filter(
+            i18n::text(Text::ImageFilter),
+            &["png", "jpg", "jpeg", "gif", "webp", "avif"],
+        );
     if let Ok(dir) = app.path().picture_dir() {
         dialog = dialog.set_directory(dir);
     }
@@ -1233,11 +1247,11 @@ pub async fn asset_pick_file(
 ) -> Result<Option<Attachment>> {
     let want = attachment_kind_arg(kind.as_deref())?;
     let root = root_with_token(&state, ws_token)?;
-    let mut dialog = app.dialog().file().set_title("파일 첨부");
+    let mut dialog = app.dialog().file().set_title(i18n::text(Text::AttachFile));
     dialog = match want {
         Some(AttachmentKind::Pdf) => dialog.add_filter("PDF", &["pdf"]),
         Some(AttachmentKind::Video) => dialog.add_filter(
-            "영상·소리",
+            i18n::text(Text::VideoAudioFilter),
             &[
                 "mp4", "m4v", "mov", "webm", "mkv", "avi", "mp3", "m4a", "wav", "ogg", "oga",
                 "flac", "aac", "opus",
@@ -1366,7 +1380,7 @@ pub async fn asset_save_as(
     let Some(dest) = app
         .dialog()
         .file()
-        .set_title("다른 이름으로 저장")
+        .set_title(i18n::text(Text::SaveAs))
         .set_file_name(default_name)
         .blocking_save_file()
     else {
@@ -1545,8 +1559,8 @@ pub async fn backup_export(
     let mut dialog = app
         .dialog()
         .file()
-        .set_title("백업 내보내기")
-        .add_filter("Cetus Note 백업", &["zip"])
+        .set_title(i18n::text(Text::BackupExport))
+        .add_filter(i18n::text(Text::BackupFilter), &["zip"])
         .set_file_name(file_name);
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
@@ -1611,8 +1625,8 @@ pub async fn backup_restore(
     let Some(zip) = app
         .dialog()
         .file()
-        .set_title("불러올 백업 선택")
-        .add_filter("Cetus Note 백업", &["zip"])
+        .set_title(i18n::text(Text::BackupPick))
+        .add_filter(i18n::text(Text::BackupFilter), &["zip"])
         .blocking_pick_file()
     else {
         return Ok(None);
@@ -1620,7 +1634,10 @@ pub async fn backup_restore(
     let zip = zip
         .into_path()
         .map_err(|e| StorageError::new("io", e.to_string()))?;
-    let mut dialog = app.dialog().file().set_title("백업을 풀 폴더 선택");
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(i18n::text(Text::BackupRestoreFolder));
     if let Ok(docs) = app.path().document_dir() {
         dialog = dialog.set_directory(docs);
     }
@@ -1837,7 +1854,7 @@ pub async fn pdf_save(
     let mut dialog = app
         .dialog()
         .file()
-        .set_title("PDF로 저장")
+        .set_title(i18n::text(Text::SavePdf))
         .add_filter("PDF", &["pdf"])
         .set_file_name(file_name);
     if let Ok(docs) = app.path().document_dir() {

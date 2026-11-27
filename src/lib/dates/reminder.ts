@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import {
   atTime,
   dayDiff,
@@ -22,26 +23,53 @@ export type ReminderRule =
 
 export const NO_REMINDER: ReminderRule = { kind: "none" };
 
-/** 고를 수 있는 알림 선택지. 키는 select의 value로 쓴다 */
+/** 고를 수 있는 알림 선택지. 키는 select의 value로 쓴다. label은 읽을 때의 언어로 나온다 */
 export const REMINDER_OPTIONS = [
-  { key: "none", label: "없음", rule: NO_REMINDER, needsTime: false },
-  { key: "morning", label: "당일 9시", rule: { kind: "morning" }, needsTime: false },
-  { key: "custom", label: "시간 지정", rule: { kind: "custom", time: "09:00" }, needsTime: true },
+  {
+    key: "none",
+    get label() {
+      return msg().features.reminder.none;
+    },
+    rule: NO_REMINDER,
+    needsTime: false,
+  },
+  {
+    key: "morning",
+    get label() {
+      return msg().features.reminder.morning;
+    },
+    rule: { kind: "morning" },
+    needsTime: false,
+  },
+  {
+    key: "custom",
+    get label() {
+      return msg().features.reminder.custom;
+    },
+    rule: { kind: "custom", time: "09:00" },
+    needsTime: true,
+  },
   {
     key: "before-10",
-    label: "10분 전",
+    get label() {
+      return msg().features.reminder.before10;
+    },
     rule: { kind: "before", minutes: 10 },
     needsTime: true,
   },
   {
     key: "before-60",
-    label: "1시간 전",
+    get label() {
+      return msg().features.reminder.before60;
+    },
     rule: { kind: "before", minutes: 60 },
     needsTime: true,
   },
   {
     key: "before-1440",
-    label: "1일 전",
+    get label() {
+      return msg().features.reminder.before1440;
+    },
     rule: { kind: "before", minutes: 1440 },
     needsTime: true,
   },

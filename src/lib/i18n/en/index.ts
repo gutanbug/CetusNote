@@ -8,6 +8,7 @@ import { page } from "./page";
 import { settings } from "./settings";
 import { screens } from "./screens";
 import { features } from "./features";
+import { storage } from "./storage";
 
 /** English strings (SYS-14) */
 export const en: Messages = {
@@ -20,4 +21,5 @@ export const en: Messages = {
   settings,
   screens,
   features,
+  storage,
 };

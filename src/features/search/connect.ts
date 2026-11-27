@@ -153,7 +153,7 @@ export function connectSearchIndex(
         disk = await readBodies(batch);
       } catch (e) {
         // 읽지 못한 페이지는 제목만 남는다. 다른 배치는 계속 읽는다
-        console.warn("검색 색인: 본문을 읽지 못했어요", e);
+        console.warn("Search index: couldn't read the page body", e);
       }
       if (pass !== bodyPass) return;
       const now = store.getState().pages;

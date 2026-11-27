@@ -1,13 +1,11 @@
+import { msg } from "@/lib/i18n";
 import { dayDiff, parseIsoDate, type IsoDate, type TimeOfDay } from "./local-date";
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 /** 상대 표시를 쓰는 가까운 날 범위(앞으로 N일). EDIT-36 「3일 뒤」 */
 const RELATIVE_FUTURE_DAYS = 6;
 
 function absolute(date: Date, now: Date): string {
-  const md = `${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAYS[date.getDay()]})`;
-  return date.getFullYear() === now.getFullYear() ? md : `${date.getFullYear()}년 ${md}`;
+  return msg().features.dates.absoluteDay(date, date.getFullYear() !== now.getFullYear());
 }
 
 /**
@@ -19,10 +17,11 @@ export function formatDateLabel(value: IsoDate, now: Date = new Date()): string 
   const date = parseIsoDate(value);
   if (!date) return value;
   const diff = dayDiff(now, date);
-  if (diff === 0) return "오늘";
-  if (diff === 1) return "내일";
-  if (diff === -1) return "어제";
-  if (diff >= 2 && diff <= RELATIVE_FUTURE_DAYS) return `${diff}일 뒤`;
+  const d = msg().features.dates;
+  if (diff === 0) return d.today;
+  if (diff === 1) return d.tomorrow;
+  if (diff === -1) return d.yesterday;
+  if (diff >= 2 && diff <= RELATIVE_FUTURE_DAYS) return d.daysLater(diff);
   return absolute(date, now);
 }
 
@@ -30,7 +29,7 @@ export function formatDateLabel(value: IsoDate, now: Date = new Date()): string 
 export function formatAbsoluteLabel(value: IsoDate, time?: TimeOfDay | null): string {
   const date = parseIsoDate(value);
   if (!date) return value;
-  const day = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAYS[date.getDay()]})`;
+  const day = msg().features.dates.absoluteDay(date, true);
   return time ? `${day} ${time}` : day;
 }
 

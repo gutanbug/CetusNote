@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import {
   collectionRecords as orderedRecords,
   fieldOf,
@@ -34,7 +35,7 @@ export function fieldText(def: FieldDef, page: Page): string {
   if (def.type === "updated") return localDate(page.updatedAt);
   const v = page.props.values[def.id];
   if (v === undefined || v === null || v === "") return "";
-  if (typeof v === "boolean") return v ? "예" : "아니오";
+  if (typeof v === "boolean") return v ? msg().features.export.yes : msg().features.export.no;
   if (Array.isArray(v)) return v.join(", ");
   return String(v);
 }
@@ -42,15 +43,37 @@ export function fieldText(def: FieldDef, page: Page): string {
 type CsvColumn = { header: string; cell: (r: Page) => string };
 
 const TITLE_COLUMN: CsvColumn = {
-  header: "제목",
-  cell: (r) => r.title.trim() || "제목 없음",
+  get header() {
+    return msg().features.export.columns.title;
+  },
+  cell: (r) => r.title.trim() || msg().features.untitled,
 };
 
 const BUILTIN_COLUMNS: Record<BuiltinProperty, CsvColumn> = {
-  status: { header: "상태", cell: (r) => r.props.status ?? "" },
-  assignee: { header: "담당", cell: (r) => r.props.assignee ?? "" },
-  due: { header: "마감", cell: (r) => r.props.due ?? "" },
-  tags: { header: "태그", cell: (r) => r.props.tags.join(", ") },
+  status: {
+    get header() {
+      return msg().features.export.columns.status;
+    },
+    cell: (r) => r.props.status ?? "",
+  },
+  assignee: {
+    get header() {
+      return msg().features.export.columns.assignee;
+    },
+    cell: (r) => r.props.assignee ?? "",
+  },
+  due: {
+    get header() {
+      return msg().features.export.columns.due;
+    },
+    cell: (r) => r.props.due ?? "",
+  },
+  tags: {
+    get header() {
+      return msg().features.export.columns.tags;
+    },
+    cell: (r) => r.props.tags.join(", "),
+  },
 };
 
 const fieldColumn = (f: FieldDef): CsvColumn => ({

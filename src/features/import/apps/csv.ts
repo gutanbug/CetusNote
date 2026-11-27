@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { FieldValue } from "@/lib/storage";
 
 /**
@@ -54,7 +55,7 @@ const TAG_HEADER = /^(tags?|labels?|태그|라벨)$/i;
 export function inferColumns(header: string[], rows: string[][]): Column[] {
   return header.slice(1).map((raw, k) => {
     const i = k + 1;
-    const name = raw.trim() || `속성 ${i}`;
+    const name = raw.trim() || msg().features.import.propertyName(i);
     const values = rows.map((r) => (r[i] ?? "").trim());
     const filled = values.filter((v) => v !== "");
     const text: Column = { name, type: "text", options: [] };

@@ -1,7 +1,8 @@
 import { createFakeUpdater } from "@/lib/updater/fake";
 import { isValidElement, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { INSTALL_ERROR_MESSAGE, RELAUNCH_ERROR_MESSAGE, createUpdaterStore } from "./store";
+import { msg } from "@/lib/i18n";
+import { createUpdaterStore } from "./store";
 import { UPDATE_TOAST_ID, announceUpdateToast, runInstallWithToast } from "./announce";
 
 const toastMock = vi.hoisted(() => {
@@ -169,7 +170,10 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     await store.getState().check();
     runInstallWithToast(store);
     await vi.waitFor(() => expect(toastMock.error).toHaveBeenCalled());
-    expect(toastMock.error).toHaveBeenCalledWith(RELAUNCH_ERROR_MESSAGE, expect.any(Object));
+    expect(toastMock.error).toHaveBeenCalledWith(
+      msg().features.updater.relaunchError,
+      expect.any(Object),
+    );
     const opts = lastOpts(toastMock.error);
     expect(opts).toMatchObject({ id: UPDATE_TOAST_ID, action: undefined });
     expect(isValidElement(opts.cancel)).toBe(true);
@@ -182,7 +186,10 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     runInstallWithToast(store);
     await vi.waitFor(() => expect(toastMock.error).toHaveBeenCalled());
     const opts = lastOpts(toastMock.error);
-    expect(toastMock.error).toHaveBeenCalledWith(INSTALL_ERROR_MESSAGE, expect.any(Object));
+    expect(toastMock.error).toHaveBeenCalledWith(
+      msg().features.updater.installError,
+      expect.any(Object),
+    );
     expect(opts).toMatchObject({
       id: UPDATE_TOAST_ID,
       duration: Infinity,

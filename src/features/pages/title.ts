@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { Page } from "@/lib/storage";
 
 /**
@@ -8,9 +9,9 @@ export function displayTitle(p: Pick<Page, "title" | "kind">): string {
   return (
     p.title ||
     (p.kind === "folder"
-      ? "이름 없는 폴더"
+      ? msg().features.pages.untitledFolder
       : p.kind === "collection"
-        ? "이름 없는 컬렉션"
-        : "제목 없음")
+        ? msg().features.pages.untitledCollection
+        : msg().features.untitled)
   );
 }

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 /** 폴더 이름 바꾸기 (SHELL-14). 문서는 페이지 머리의 제목에서 바로 고친다. 부르는 쪽이 대상마다 key를 바꿔 처음 값을 다시 잡는다 */
 export function RenameDialog({
@@ -22,6 +23,7 @@ export function RenameDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (name: string) => void;
 }) {
+  const m = useMessages();
   const [name, setName] = React.useState(initial);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,22 +37,22 @@ export function RenameDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>폴더 이름</DialogTitle>
-            <DialogDescription>사이드바에 보이는 이름이에요.</DialogDescription>
+            <DialogTitle>{m.screens.dialogs.rename.title}</DialogTitle>
+            <DialogDescription>{m.screens.dialogs.rename.description}</DialogDescription>
           </DialogHeader>
           <Input
             autoFocus
-            aria-label="폴더 이름"
+            aria-label={m.screens.dialogs.rename.label}
             value={name}
-            placeholder="이름 없는 폴더"
+            placeholder={m.screens.dialogs.rename.placeholder}
             onChange={(e) => setName(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
           />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              취소
+              {m.screens.dialogs.cancel}
             </Button>
-            <Button type="submit">저장</Button>
+            <Button type="submit">{m.screens.dialogs.save}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

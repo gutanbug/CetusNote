@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import type { UpdateInfo, Updater } from "@/lib/updater/types";
+import { msg } from "@/lib/i18n";
 import { isNewerVersion } from "./version";
 
 /** 업데이트 상태 (SYS-07). idle = 아직 확인 안 함 */
@@ -37,12 +38,6 @@ export type UpdaterStore = UpdaterState & {
   loadVersion(): Promise<void>;
   markNotified(version: string): void;
 };
-
-export const CHECK_ERROR_MESSAGE = "업데이트를 확인하지 못했어요. 인터넷 연결을 확인해 주세요.";
-export const INSTALL_ERROR_MESSAGE = "업데이트를 내려받지 못했어요. 다시 시도해 주세요.";
-export const RELAUNCH_ERROR_MESSAGE = "업데이트는 설치됐어요. 앱을 직접 다시 열어 주세요.";
-export const SAVE_BEFORE_RESTART_MESSAGE =
-  "저장하지 못한 변경이 있어 업데이트를 미뤘어요. 저장을 마친 뒤 다시 시도해 주세요.";
 
 export type UpdaterDeps = {
   updater: Updater;
@@ -82,9 +77,9 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
           // 자동 확인의 실패는 조용히 넘긴다. 이전 상태(찾은 업데이트 등)는 그대로 둔다
           set({ status: before === "checking" ? "idle" : before });
         } else {
-          set({ status: "error", errorStep: "check", error: CHECK_ERROR_MESSAGE });
+          set({ status: "error", errorStep: "check", error: msg().features.updater.checkError });
         }
-        return { kind: "error", message: CHECK_ERROR_MESSAGE };
+        return { kind: "error", message: msg().features.updater.checkError };
       }
     };
 
@@ -152,7 +147,7 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
           errorStep: "install",
           progress: null,
           finishing: false,
-          error: INSTALL_ERROR_MESSAGE,
+          error: msg().features.updater.installError,
         });
         return;
       }
@@ -165,7 +160,7 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
           errorStep: "install",
           progress: null,
           finishing: false,
-          error: SAVE_BEFORE_RESTART_MESSAGE,
+          error: msg().features.updater.saveBeforeRestart,
         });
         return;
       }
@@ -178,7 +173,7 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
           errorStep: "relaunch",
           progress: null,
           finishing: false,
-          error: RELAUNCH_ERROR_MESSAGE,
+          error: msg().features.updater.relaunchError,
         });
       }
     }

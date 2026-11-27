@@ -37,10 +37,11 @@ pub fn default_folder_name() -> &'static str {
     }
 }
 
-/// 프론트엔드로 돌려주는 오류. `code`로 분기하고 `message`는 로그·개발용이다.
-#[derive(Debug, Serialize, PartialEq)]
+/// 프론트엔드로 돌려주는 오류. `code`로 분기하고 `message`는 화면에 보이는 문구다(SYS-14: 앱 언어에 맞춰 나간다).
+#[derive(Debug, PartialEq)]
 pub struct StorageError {
     pub code: &'static str,
+    /// 원문(한국어). 로그·테스트용이고, 프론트엔드에는 `i18n::error_message`로 바꿔 보낸다
     pub message: String,
 }
 
@@ -50,6 +51,19 @@ impl StorageError {
             code,
             message: message.into(),
         }
+    }
+}
+
+impl Serialize for StorageError {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut st = s.serialize_struct("StorageError", 2)?;
+        st.serialize_field("code", self.code)?;
+        st.serialize_field(
+            "message",
+            &crate::i18n::error_message(self.code, &self.message),
+        )?;
+        st.end()
     }
 }
 

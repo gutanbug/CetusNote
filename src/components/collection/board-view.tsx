@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n";
 import { COLOR_NAMES } from "@/components/ui/color-popover";
 import {
   DropdownMenu,
@@ -45,10 +46,10 @@ const isArrow = (key: string): key is Arrow =>
   key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowDown";
 /** 카드 메뉴의 옮기기 항목 — Alt+화살표와 같다 */
 const MOVES = [
-  { key: "ArrowLeft", glyph: "←", label: "왼쪽 칸으로", Icon: ArrowLeft },
-  { key: "ArrowRight", glyph: "→", label: "오른쪽 칸으로", Icon: ArrowRight },
-  { key: "ArrowUp", glyph: "↑", label: "위로", Icon: ArrowUp },
-  { key: "ArrowDown", glyph: "↓", label: "아래로", Icon: ArrowDown },
+  { key: "ArrowLeft", glyph: "←", msgKey: "moveCellLeft", Icon: ArrowLeft },
+  { key: "ArrowRight", glyph: "→", msgKey: "moveCellRight", Icon: ArrowRight },
+  { key: "ArrowUp", glyph: "↑", msgKey: "moveUp", Icon: ArrowUp },
+  { key: "ArrowDown", glyph: "↓", msgKey: "moveDown", Icon: ArrowDown },
 ] as const;
 
 /** 칸 바탕 — 칸 색을 옅게 깐다(AppFlowy 보드처럼). 카드는 그 위에 bg-elevated로 뜬다.
@@ -70,12 +71,7 @@ const BOARD_CHIP = "dark:ring-1 dark:ring-inset dark:ring-current/35";
 
 /** 칸 머리 계산 */
 export type BoardCalcKind = "count" | "due" | "late" | "none";
-const CALC_NAMES: Record<BoardCalcKind, string> = {
-  count: "개수",
-  due: "마감 있음",
-  late: "마감 지남",
-  none: "보이지 않기",
-};
+const CALC_KINDS: BoardCalcKind[] = ["count", "due", "late", "none"];
 
 /** 보드 칸 하나 */
 /** 칸 하나가 한 번에 그리는 카드 수 — 넘으면 「더 보기」 (SYS-11) */
@@ -103,6 +99,7 @@ type CardProps = {
 
 /** CL-Card — 보드 카드 (프로토타입 §13 `.bcard`). 아이콘 + 제목 · 태그 · 담당 · 마감 */
 function Card({ item, dragging, className, ...props }: CardProps) {
+  const m = useMessages();
   const extra = item.extra ?? [];
   const meta = item.tags.length || item.assignee || item.due || extra.length;
   return (
@@ -134,7 +131,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
             !item.title && "text-tertiary",
           )}
         >
-          {item.title || "제목 없음"}
+          {item.title || m.collection.untitled}
         </span>
       </span>
       {meta ? (
@@ -216,6 +213,7 @@ type BoardViewProps = {
 
 /** 칸 이름 바꾸기 입력 — Enter·바깥 클릭으로 저장, Esc로 취소 */
 function RenameInput({ value, onDone }: { value: string; onDone: (name: string | null) => void }) {
+  const m = useMessages();
   const [draft, setDraft] = React.useState(value);
   const done = React.useRef(false);
   const finish = (name: string | null) => {
@@ -227,7 +225,7 @@ function RenameInput({ value, onDone }: { value: string; onDone: (name: string |
     <input
       autoFocus
       value={draft}
-      aria-label="칸 이름"
+      aria-label={m.collection.board.columnName}
       maxLength={40}
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => setDraft(e.target.value)}
@@ -271,6 +269,7 @@ function BoardView({
   onCalcChange,
   className,
 }: BoardViewProps) {
+  const m = useMessages();
   /** 끄는 카드와 원래 칸 */
   type Drag = { id: string; from: string };
   const [drag, setDrag] = React.useState<Drag>();
@@ -302,8 +301,8 @@ function BoardView({
   const say = (title: string, to: BoardColumn, same: boolean) =>
     setAnnounce(
       same
-        ? `“${title || "제목 없음"}” 순서를 바꿨어요.`
-        : `“${title || "제목 없음"}”을 ${to.label} 칸으로 옮겼어요.`,
+        ? m.collection.board.reordered(title || m.collection.untitled)
+        : m.collection.board.moved(title || m.collection.untitled, to.label),
     );
 
   /** 놓을 자리가 지금 자리와 같으면 undefined */
@@ -423,12 +422,18 @@ function BoardView({
                     "has-data-[state=open]:opacity-100",
                   )}
                 >
-                  <IconButton label={`${col.label}에 새 레코드`} onClick={() => onNew(col.key)}>
+                  <IconButton
+                    label={m.collection.board.newRecordIn(col.label)}
+                    onClick={() => onNew(col.key)}
+                  >
                     <Plus {...ic} />
                   </IconButton>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <IconButton label={`${col.label} 칸 메뉴`} className={openOn}>
+                      <IconButton
+                        label={m.collection.board.columnMenu(col.label)}
+                        className={openOn}
+                      >
                         <Ellipsis {...ic} />
                       </IconButton>
                     </DropdownMenuTrigger>
@@ -438,13 +443,13 @@ function BoardView({
                           icon={<Pencil {...ic} />}
                           onSelect={() => setRenaming(col.key)}
                         >
-                          이름 바꾸기
+                          {m.collection.board.rename}
                         </DropdownMenuItem>
                       ) : null}
                       {onColorChange ? (
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger icon={<Palette {...ic} />}>
-                            색
+                            {m.collection.board.color}
                           </DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-40">
                             <DropdownMenuRadioGroup
@@ -463,16 +468,16 @@ function BoardView({
                       {onCalcChange ? (
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger icon={<Calculator {...ic} />}>
-                            계산
+                            {m.collection.board.calcTitle}
                           </DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-40">
                             <DropdownMenuRadioGroup
                               value={calc}
                               onValueChange={(k) => onCalcChange(k as BoardCalcKind)}
                             >
-                              {(Object.keys(CALC_NAMES) as BoardCalcKind[]).map((k) => (
+                              {CALC_KINDS.map((k) => (
                                 <DropdownMenuRadioItem key={k} value={k}>
-                                  {CALC_NAMES[k]}
+                                  {m.collection.board.calc[k]}
                                 </DropdownMenuRadioItem>
                               ))}
                             </DropdownMenuRadioGroup>
@@ -486,14 +491,14 @@ function BoardView({
                             disabled={!columns[ci - 1]?.editable}
                             onSelect={() => onMoveColumn(col.key, -1)}
                           >
-                            왼쪽으로 옮기기
+                            {m.collection.board.moveLeftItem}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             icon={<ArrowRight {...ic} />}
                             disabled={!columns[ci + 1]?.editable}
                             onSelect={() => onMoveColumn(col.key, 1)}
                           >
-                            오른쪽으로 옮기기
+                            {m.collection.board.moveRightItem}
                           </DropdownMenuItem>
                         </>
                       ) : null}
@@ -502,7 +507,7 @@ function BoardView({
                           icon={<EyeOff {...ic} />}
                           onSelect={() => onHideColumn(col.key)}
                         >
-                          숨기기
+                          {m.collection.board.hide}
                         </DropdownMenuItem>
                       ) : null}
                       {col.editable && onDeleteColumn ? (
@@ -513,7 +518,7 @@ function BoardView({
                             icon={<Trash2 {...ic} />}
                             onSelect={() => onDeleteColumn(col.key)}
                           >
-                            상태 삭제
+                            {m.collection.board.deleteStatus}
                           </DropdownMenuItem>
                         </>
                       ) : null}
@@ -567,7 +572,10 @@ function BoardView({
                           onDragStart={(e) => {
                             e.dataTransfer.effectAllowed = "move";
                             // WebKit은 데이터가 없으면 끌기를 시작하지 않는다
-                            e.dataTransfer.setData("text/plain", item.title || "제목 없음");
+                            e.dataTransfer.setData(
+                              "text/plain",
+                              item.title || m.collection.untitled,
+                            );
                             const d = {
                               id: item.id,
                               from: col.key,
@@ -595,7 +603,9 @@ function BoardView({
                           >
                             {onOpenPage ? (
                               <IconButton
-                                label={`“${item.title || "제목 없음"}” 페이지로 열기`}
+                                label={m.collection.board.openPage(
+                                  item.title || m.collection.untitled,
+                                )}
                                 onClick={() => onOpenPage(item.id)}
                               >
                                 <Maximize2 {...ic} />
@@ -605,7 +615,9 @@ function BoardView({
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <IconButton
-                                    label={`${item.title || "제목 없음"} 메뉴`}
+                                    label={m.collection.board.itemMenu(
+                                      item.title || m.collection.untitled,
+                                    )}
                                     className={openOn}
                                   >
                                     <Ellipsis {...ic} />
@@ -613,15 +625,15 @@ function BoardView({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
                                   {/* 끌기 대신 쓰는 옮기기 — Alt+화살표와 같은 동작, 단축키를 함께 보인다 */}
-                                  {MOVES.map((m) => (
+                                  {MOVES.map((mv) => (
                                     <DropdownMenuItem
-                                      key={m.key}
-                                      icon={<m.Icon {...ic} />}
-                                      shortcut={<Kbd keys={["⌥", m.glyph]} />}
-                                      disabled={!planMove(m.key)}
-                                      onSelect={() => moveBy(m.key)}
+                                      key={mv.key}
+                                      icon={<mv.Icon {...ic} />}
+                                      shortcut={<Kbd keys={["⌥", mv.glyph]} />}
+                                      disabled={!planMove(mv.key)}
+                                      onSelect={() => moveBy(mv.key)}
                                     >
-                                      {m.label}
+                                      {m.collection.board[mv.msgKey]}
                                     </DropdownMenuItem>
                                   ))}
                                   <DropdownMenuSeparator />
@@ -630,7 +642,7 @@ function BoardView({
                                     icon={<Trash2 {...ic} />}
                                     onSelect={() => onTrash(item.id)}
                                   >
-                                    휴지통으로 옮기기
+                                    {m.collection.board.moveToTrash}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -653,20 +665,21 @@ function BoardView({
                     focusRing,
                   )}
                 >
-                  더 보기 · {restCount}개
+                  {m.collection.board.showMore(m.collection.model.count(restCount))}
                 </button>
               ) : null}
               <button
                 type="button"
                 onClick={() => onNew(col.key)}
-                aria-label={`${col.label}에 새 레코드`}
+                aria-label={m.collection.board.newRecordIn(col.label)}
                 className={cn(
                   "flex min-h-7.5 w-full items-center gap-2 rounded-pill px-2 py-1 text-caption text-secondary",
                   "transition-[background-color,color] duration-(--dur-fast) hover:bg-hover hover:text-primary force-hover:bg-hover force-hover:text-primary",
                   focusRing,
                 )}
               >
-                <Plus {...ic} className="size-4" />새 레코드
+                <Plus {...ic} className="size-4" />
+                {m.collection.board.newRecord}
               </button>
             </section>
           );
@@ -683,7 +696,8 @@ function BoardView({
                   focusRing,
                 )}
               >
-                <Plus {...ic} className="size-4" />새 상태
+                <Plus {...ic} className="size-4" />
+                {m.collection.model.newStatus()}
               </button>
             ) : null}
             {hidden.length ? (
@@ -692,7 +706,7 @@ function BoardView({
                 className="grid gap-1 rounded-lg bg-subtle p-2"
               >
                 <h2 id="board-hidden" className="px-1 py-1 text-label font-medium text-secondary">
-                  숨긴 칸
+                  {m.collection.board.hiddenColumns}
                 </h2>
                 <ul className="grid gap-0.5">
                   {hidden.map((h) => (
@@ -700,7 +714,10 @@ function BoardView({
                       <button
                         type="button"
                         onClick={() => onShowColumn?.(h.key)}
-                        aria-label={`${h.label} 칸 보이기, 레코드 ${h.count}개`}
+                        aria-label={m.collection.board.showColumn(
+                          h.label,
+                          m.collection.model.count(h.count),
+                        )}
                         className={cn(
                           "group/hid flex min-h-7.5 w-full items-center gap-2 rounded-md px-1 text-left",
                           "hover:bg-hover force-hover:bg-hover",
@@ -712,7 +729,9 @@ function BoardView({
                         ) : (
                           <StatusChip status={h.label} color={h.color} className={BOARD_CHIP} />
                         )}
-                        <span className="flex-1 text-label text-tertiary">{h.count}개</span>
+                        <span className="flex-1 text-label text-tertiary">
+                          {m.collection.model.count(h.count)}
+                        </span>
                         <Eye
                           {...ic}
                           className="size-4 text-tertiary opacity-0 group-hover/hid:opacity-100 group-focus-visible/hid:opacity-100 force-hover:opacity-100"

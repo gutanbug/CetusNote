@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { toast } from "@/components/ui/toast";
 import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
@@ -46,7 +47,7 @@ export async function checkForUpdates() {
     updaterStore.getState().markNotified(r.update.version);
     announceUpdate(r.update.version);
   } else if (r.kind === "latest") {
-    toast(`최신 버전이에요 (${updaterStore.getState().currentVersion ?? ""})`);
+    toast(msg().features.updater.latestToast(updaterStore.getState().currentVersion ?? ""));
   } else {
     toast.error(r.message);
   }

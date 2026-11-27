@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 /**
  * 문서 가져오기(DATA-08) — 파일 글을 페이지 머리(제목·아이콘·태그)와 본문으로 나눈다.
  * 이 앱의 내보내기(DATA-04) 모양을 되돌릴 수 있게 맞췄다:
@@ -139,7 +140,7 @@ export function parseMarkdownFile(name: string, raw: string): ParsedMarkdown {
     }
   }
   return {
-    title: (title || name.trim() || "제목 없음").slice(0, TITLE_MAX),
+    title: (title || name.trim() || msg().features.untitled).slice(0, TITLE_MAX),
     icon,
     tags,
     id,

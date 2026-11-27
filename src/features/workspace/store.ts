@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import {
   StorageError,
   type RecentWorkspace,
@@ -10,7 +11,7 @@ import { advanceWorkspaceGeneration } from "./generation";
 /** 워크스페이스를 바꾸기 전에 남은 저장을 끝내지 못했을 때 (DATA-03). 폴더는 바꾸지 않았다 */
 export class UnsavedChangesError extends Error {
   constructor() {
-    super("저장하지 못한 변경이 있어서 폴더를 바꾸지 않았어요");
+    super(msg().features.workspace.switchBlockedUnsaved);
     this.name = "UnsavedChangesError";
   }
 }
@@ -71,24 +72,24 @@ export function shortenHome(path: string): string {
 /** 저장 오류 → 화면 문구(해요체) */
 export function workspaceErrorMessage(e: unknown): string {
   if (e instanceof UnsavedChangesError) {
-    return "저장하지 못한 변경이 있어서 폴더를 바꾸지 않았어요. 잠시 뒤 다시 시도해 주세요.";
+    return msg().features.workspace.switchBlockedUnsavedRetry;
   }
   const code = e instanceof StorageError ? e.code : "io";
   switch (code) {
     case "permission_denied":
-      return "이 폴더에는 쓸 수 없어요. 다른 폴더를 골라 주세요.";
+      return msg().features.workspace.notWritable;
     case "disk_full":
-      return "디스크 공간이 부족해요. 공간을 확보한 뒤 다시 시도해 주세요.";
+      return msg().features.workspace.noSpace;
     case "not_found":
-      return "폴더를 찾을 수 없어요. 다른 폴더를 골라 주세요.";
+      return msg().features.workspace.notFound;
     case "already_exists":
-      return "그 위치에 같은 이름의 폴더가 이미 있어요. 다른 이름이나 위치를 골라 주세요.";
+      return msg().features.workspace.nameTaken;
     case "locked":
-      return "다른 Cetus Note 창이 이 폴더를 쓰고 있어요. 그 창을 닫은 뒤 다시 열어 주세요.";
+      return msg().features.workspace.inUse;
     case "invalid_path":
-      return "폴더 이름으로 쓸 수 없는 이름이에요. / \\ : 와 맨 앞 점(.)은 빼 주세요.";
+      return msg().features.workspace.invalidName;
     default:
-      return "폴더를 열지 못했어요. 다시 시도해 주세요.";
+      return msg().features.workspace.openFailed;
   }
 }
 
@@ -97,7 +98,7 @@ export function workspaceErrorMessage(e: unknown): string {
  */
 export function switchErrorMessage(name: string, e: unknown): string {
   if (e instanceof StorageError && e.code === "not_found") {
-    return `“${name}” 폴더를 찾을 수 없어요. 목록에서 빼거나 다른 폴더를 열어 주세요.`;
+    return msg().features.workspace.missingFolder(name);
   }
   return workspaceErrorMessage(e);
 }

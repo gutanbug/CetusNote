@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { useWorkspace, type UnsavedSwitch } from "@/features/workspace";
 import * as React from "react";
+import { useMessages } from "@/lib/i18n";
 
 /**
  * 저장하지 못한 채 워크스페이스를 바꾸려 할 때 묻는다 (DATA-03).
@@ -16,6 +17,7 @@ import * as React from "react";
  */
 export function UnsavedSwitchDialog() {
   const unsaved = useWorkspace((s) => s.unsaved);
+  const m = useMessages();
   const [busy, setBusy] = React.useState(false);
 
   const choose = async (pick: (u: UnsavedSwitch) => Promise<void>) => {
@@ -37,25 +39,22 @@ export function UnsavedSwitchDialog() {
     >
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>저장하지 못한 변경이 있어요</DialogTitle>
-          <DialogDescription>
-            지금 워크스페이스의 변경을 아직 저장하지 못했어요. 다시 시도하거나, 저장하지 않고
-            워크스페이스를 바꿀 수 있어요. 저장하지 않고 바꾸면 마지막으로 저장된 내용만 남아요.
-          </DialogDescription>
+          <DialogTitle>{m.screens.dialogs.unsaved.title}</DialogTitle>
+          <DialogDescription>{m.screens.dialogs.unsaved.description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" disabled={busy} onClick={() => unsaved?.cancel()}>
-            취소
+            {m.screens.dialogs.cancel}
           </Button>
           <Button
             variant="secondary"
             disabled={busy}
             onClick={() => void choose((u) => u.discard())}
           >
-            저장하지 않고 진행
+            {m.screens.dialogs.unsaved.discard}
           </Button>
           <Button disabled={busy} onClick={() => void choose((u) => u.retry())}>
-            다시 시도
+            {m.screens.dialogs.unsaved.retry}
           </Button>
         </DialogFooter>
       </DialogContent>

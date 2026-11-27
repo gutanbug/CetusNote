@@ -32,6 +32,7 @@ import { ImportAppDialog } from "./import-app-dialog";
 import { openImportAppPicker } from "./import-app-picker";
 import { exportWorkspaceMarkdown } from "./export-workspace";
 import { toast } from "@/components/ui/toast";
+import { msg, useMessages } from "@/lib/i18n";
 import { stepZoom, zoomKey } from "@/lib/zoom";
 
 /** 열린 문서의 id. 보기가 문서가 아니거나 문서가 아니면 null */
@@ -64,8 +65,16 @@ function zoomBy(dir: -1 | 0 | 1) {
   const now = s.appearance.zoom;
   const next = stepZoom(now, dir);
   if (next !== now) s.setAppearance({ zoom: next });
-  const edge = next === now && dir !== 0 ? (dir > 0 ? " · 최대 크기예요" : " · 최소 크기예요") : "";
-  toast(`화면 크기 ${Math.round(next * 100)}%${edge}`, { id: "zoom", duration: 1500 });
+  const edge =
+    next === now && dir !== 0
+      ? dir > 0
+        ? msg().screens.mainScreen.zoomMax
+        : msg().screens.mainScreen.zoomMin
+      : "";
+  toast(`${msg().screens.mainScreen.zoom(Math.round(next * 100))}${edge}`, {
+    id: "zoom",
+    duration: 1500,
+  });
 }
 
 /**
@@ -260,6 +269,7 @@ function ActiveCollection({ id }: { id: string }) {
 
 /** 열린 페이지가 없을 때 */
 function NoPage() {
+  const m = useMessages();
   const collapsed = useSession((s) => s.sidebarCollapsed);
   return (
     <section
@@ -273,19 +283,19 @@ function NoPage() {
       <div className="grid justify-items-center gap-4">
         <SkyMark />
         <h1 id="no-page-title" className="text-h3 font-semibold text-primary">
-          열린 페이지가 없어요
+          {m.screens.mainScreen.noPageTitle}
         </h1>
         <p className="text-ui text-secondary">
-          {collapsed ? "사이드바를 열어 페이지를 고르거나" : "사이드바에서 페이지를 고르거나"} 새로
-          만들어 보세요.
+          {collapsed ? m.screens.mainScreen.hintCollapsed : m.screens.mainScreen.hintExpanded}
         </p>
         <Button onClick={() => createIn(null)}>
-          <FilePlus strokeWidth={1.5} aria-hidden />새 페이지
+          <FilePlus strokeWidth={1.5} aria-hidden />
+          {m.screens.sidebar.newPage}
           <Kbd keys={["⌘", "N"]} className="ml-1" />
         </Button>
         {collapsed ? (
           <Button variant="ghost" size="sm" onClick={() => sessionStore.getState().toggleSidebar()}>
-            사이드바 열기
+            {m.screens.mainScreen.openSidebar}
           </Button>
         ) : null}
       </div>

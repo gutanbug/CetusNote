@@ -52,7 +52,7 @@ function nativeZoom() {
  */
 export function applyZoom(level: number) {
   const native = setWebviewZoom(level, (e) => {
-    console.warn("웹뷰 배율을 바꾸지 못해 CSS zoom으로 대신해요", e);
+    console.warn("Could not change the webview zoom; using CSS zoom instead", e);
     cssZoom(level);
   });
   if (native) nativeZoom();

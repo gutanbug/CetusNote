@@ -84,6 +84,7 @@ import { countTags, tagColor } from "./tag-colors";
 import { openTagMenuFromKey } from "./tag-ui";
 import { openTagMenuAt, useTagUi } from "./tag-ui";
 import { useMainUi } from "./ui-store";
+import { useMessages } from "@/lib/i18n";
 
 const ic = { strokeWidth: 1.5 } as const;
 
@@ -113,6 +114,7 @@ function SaveAwareFooter(props: Omit<SidebarFooterProps, "saveState">) {
  * SH-Sidebar 패널. 구조(structure)·순서(order)·펼침만 구독한다. 본문 입력은 여기를 다시 그리지 않는다 (SYS-10)
  */
 function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
+  const m = useMessages();
   // 사이드바는 구조만 쓴다 — 본문 입력마다 트리를 다시 만들지 않는다 (SYS-10)
   const pages = usePages((s) => s.structure);
   const folderName = useWorkspace((s) => s.workspace?.name ?? "");
@@ -139,7 +141,7 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
   const tree = React.useMemo(() => buildPageTree(Object.values(pages), order), [pages, order]);
   const visible = React.useMemo(() => visibleIds(pages), [pages]);
   const pageCount = [...visible].filter((id) => pages[id]?.kind === "page").length;
-  const workspaceDetail = [`페이지 ${pageCount}개`, shortenHome(workspacePath)]
+  const workspaceDetail = [m.screens.sidebar.pageCount(pageCount), shortenHome(workspacePath)]
     .filter(Boolean)
     .join(" · ");
   const recent = recentPages(recentIds, pages, visible);
@@ -180,25 +182,25 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
   const addMenu = (node: PageNode) => (
     <>
       <DropdownMenuItem icon={<FilePlus {...ic} />} onSelect={() => createIn(node.id)}>
-        {node.kind === "collection" ? "새 레코드" : "새 페이지"}
+        {node.kind === "collection" ? m.screens.sidebar.newRecord : m.screens.sidebar.newPage}
       </DropdownMenuItem>
       <DropdownMenuItem
         icon={<FolderPlus {...ic} />}
         disabled={node.kind === "collection"}
         onSelect={() => newFolder(node.id)}
       >
-        새 폴더
+        {m.screens.sidebar.newFolder}
       </DropdownMenuItem>
       <DropdownMenuItem
         icon={<Table2 {...ic} />}
         disabled={node.kind === "collection"}
         onSelect={() => createIn(node.id, "collection")}
       >
-        새 컬렉션
+        {m.screens.sidebar.newCollection}
       </DropdownMenuItem>
       {node.kind === "collection" ? (
         <p className="px-2 pt-1 pb-1.5 text-caption text-tertiary">
-          컬렉션 안에는 레코드만 만들 수 있어요.
+          {m.screens.sidebar.collectionHint}
         </p>
       ) : null}
     </>
@@ -208,22 +210,22 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
     node.kind === "folder" ? (
       <>
         <DropdownMenuItem icon={<FilePlus {...ic} />} onSelect={() => createIn(node.id)}>
-          폴더에 페이지 추가
+          {m.screens.sidebar.row.addPageToFolder}
         </DropdownMenuItem>
         <DropdownMenuItem icon={<FolderPlus {...ic} />} onSelect={() => newFolder(node.id)}>
-          하위 폴더 추가
+          {m.screens.sidebar.row.addSubfolder}
         </DropdownMenuItem>
         <DropdownMenuItem icon={<PenLine {...ic} />} onSelect={() => setRenaming(node.id)}>
-          이름 바꾸기
+          {m.screens.sidebar.row.rename}
         </DropdownMenuItem>
         <DropdownMenuItem icon={<FolderInput {...ic} />} onSelect={() => setMoving(node.id)}>
-          옮기기…
+          {m.screens.sidebar.row.move}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {/* 안의 페이지가 따를 본문 폭 (SHELL-14). 전체 설정을 따르면 값을 비운다 */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger icon={<MoveHorizontal {...ic} />}>
-            안의 페이지 본문 폭
+            {m.screens.sidebar.row.bodyWidth}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup
@@ -232,9 +234,15 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
                 setBodyWidth(node.id, v === "inherit" ? undefined : (v as "default" | "wide"))
               }
             >
-              <DropdownMenuRadioItem value="inherit">기본 설정 따르기</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="default">기본</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="wide">전체 폭</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="inherit">
+                {m.screens.sidebar.row.followDefault}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="default">
+                {m.screens.sidebar.row.widthDefault}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="wide">
+                {m.screens.sidebar.row.widthFull}
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -244,39 +252,41 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
           icon={<Trash2 {...ic} />}
           onSelect={() => moveToTrash(node.id)}
         >
-          휴지통으로 옮기기
+          {m.screens.sidebar.row.trash}
         </DropdownMenuItem>
       </>
     ) : (
       <>
         <DropdownMenuItem icon={<SquarePlus {...ic} />} onSelect={() => openInNewTab(node.id)}>
-          새 탭에서 열기
+          {m.screens.sidebar.row.openInNewTab}
         </DropdownMenuItem>
         <DropdownMenuItem
           icon={favoriteIds?.includes(node.id) ? <StarOff {...ic} /> : <Star {...ic} />}
           onSelect={() => toggleFavorite(node.id)}
         >
-          {favoriteIds?.includes(node.id) ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가"}
+          {favoriteIds?.includes(node.id)
+            ? m.screens.sidebar.row.removeFromFavorites
+            : m.screens.sidebar.row.addToFavorites}
         </DropdownMenuItem>
         <DropdownMenuItem icon={<Plus {...ic} />} onSelect={() => createIn(node.id)}>
-          하위 페이지 추가
+          {m.screens.sidebar.row.addSubpage}
         </DropdownMenuItem>
         <DropdownMenuItem
           icon={<FolderPlus {...ic} />}
           disabled={node.kind === "collection"}
           onSelect={() => newFolder(node.id)}
         >
-          하위 폴더 추가
+          {m.screens.sidebar.row.addSubfolder}
         </DropdownMenuItem>
         <DropdownMenuItem
           icon={<Copy {...ic} />}
           shortcut={<Kbd keys={["⌘", "D"]} />}
           onSelect={() => duplicatePage(node.id)}
         >
-          복제
+          {m.screens.sidebar.row.duplicate}
         </DropdownMenuItem>
         <DropdownMenuItem icon={<FolderInput {...ic} />} onSelect={() => setMoving(node.id)}>
-          옮기기…
+          {m.screens.sidebar.row.move}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -284,7 +294,7 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
           icon={<Trash2 {...ic} />}
           onSelect={() => moveToTrash(node.id)}
         >
-          휴지통으로 옮기기
+          {m.screens.sidebar.row.trash}
         </DropdownMenuItem>
       </>
     );
@@ -329,10 +339,8 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
                     void workspaceStore
                       .getState()
                       .forget(w.path)
-                      .then(() =>
-                        toast(`“${w.name}” 워크스페이스를 목록에서 뺐어요. 폴더는 그대로예요.`),
-                      )
-                      .catch(() => toast.error("목록에서 빼지 못했어요. 다시 시도해 주세요.")),
+                      .then(() => toast(m.screens.sidebar.removed(w.name)))
+                      .catch(() => toast.error(m.screens.sidebar.removeFail)),
             }))}
             onCreate={() => setCreatingWorkspace(true)}
             onOpenFolder={() => void workspaceStore.getState().pick()}
@@ -342,7 +350,7 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
               shortcut={<Kbd keys={["⌘", ","]} />}
               onSelect={() => useMainUi.getState().openSettings()}
             >
-              설정
+              {m.screens.sidebar.settings}
             </DropdownMenuItem>
             {canReveal() ? (
               <DropdownMenuItem
@@ -387,24 +395,24 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
           </SaveAwareFooter>
         }
       >
-        <SidebarSection title="빠른 액션" untitled>
+        <SidebarSection title={m.screens.sidebar.quickActions} untitled>
           <SidebarItem
             icon={House}
-            label="홈"
+            label={m.screens.sidebar.home}
             active={view.kind === "home"}
             aria-current={view.kind === "home" ? "page" : undefined}
             onClick={() => useMainUi.getState().setView({ kind: "home" })}
           />
           <SidebarItem
             icon={Search}
-            label="검색"
+            label={m.screens.sidebar.search}
             shortcut={["⌘", "K"]}
             aria-haspopup="dialog"
             onClick={() => useMainUi.getState().setPaletteOpen(true)}
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <SidebarItem icon={Clock} label="최근 항목" />
+              <SidebarItem icon={Clock} label={m.screens.sidebar.recent} />
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="start" className="w-64">
               {recent.length ? (
@@ -429,27 +437,27 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
                   </DropdownMenuItem>
                 ))
               ) : (
-                <p className="px-2 py-1 text-caption text-tertiary">최근에 연 항목이 없어요.</p>
+                <p className="px-2 py-1 text-caption text-tertiary">{m.screens.sidebar.noRecent}</p>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
           {/* 설정은 워크스페이스 메뉴(⌘,)에만 둔다 — 2026-11-20 사용자 요청 */}
           <SidebarItem
             icon={Plus}
-            label="새 페이지"
+            label={m.screens.sidebar.newPage}
             shortcut={["⌘", "N"]}
             onClick={() => createIn(null)}
           />
           <SidebarItem
             icon={LayoutTemplate}
-            label="템플릿"
+            label={m.screens.sidebar.templates}
             shortcut={["⌘", "⇧", "T"]}
             aria-haspopup="dialog"
             onClick={() => useMainUi.getState().setTemplatesOpen(true)}
           />
         </SidebarSection>
         {favorites.length ? (
-          <SidebarSection title="즐겨찾기">
+          <SidebarSection title={m.screens.sidebar.favorites}>
             {favorites.map((p) => (
               <SidebarItem
                 key={p.id}
@@ -466,9 +474,9 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
         ) : null}
         <SidebarSection
           // 지금 워크스페이스의 문서 트리 — 문서 하나(페이지)와 헷갈리지 않게 "문서" (SHELL-15)
-          title="문서"
+          title={m.screens.sidebar.documents}
           action={{
-            label: "추가",
+            label: m.screens.sidebar.add,
             icon: Plus,
             alwaysVisible: true,
             menu: (
@@ -478,16 +486,16 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
                   shortcut={<Kbd keys={["⌘", "N"]} />}
                   onSelect={() => createIn(null)}
                 >
-                  새 페이지
+                  {m.screens.sidebar.newPage}
                 </DropdownMenuItem>
                 <DropdownMenuItem icon={<FolderPlus {...ic} />} onSelect={() => newFolder(null)}>
-                  새 폴더
+                  {m.screens.sidebar.newFolder}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   icon={<Table2 {...ic} />}
                   onSelect={() => createIn(null, "collection")}
                 >
-                  새 컬렉션
+                  {m.screens.sidebar.newCollection}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -495,7 +503,7 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
                   shortcut={<Kbd keys={["⌘", "⇧", "T"]} />}
                   onSelect={() => useMainUi.getState().setTemplatesOpen(true)}
                 >
-                  템플릿에서…
+                  {m.screens.sidebar.fromTemplate}
                 </DropdownMenuItem>
               </>
             ),
@@ -515,11 +523,13 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
             />
           ) : (
             // 섹션 제목 글자(화살표 자리 뒤)와 줄을 맞춘다
-            <p className="py-1 pr-2 pl-6.5 text-caption text-tertiary">아직 페이지가 없어요.</p>
+            <p className="py-1 pr-2 pl-6.5 text-caption text-tertiary">
+              {m.screens.sidebar.noPages}
+            </p>
           )}
         </SidebarSection>
         {tags.length ? (
-          <SidebarSection title="태그">
+          <SidebarSection title={m.screens.sidebar.tags}>
             {tags.map(([tag, count]) => {
               const active = view.kind === "tag" && view.tag === tag;
               return (

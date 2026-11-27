@@ -9,11 +9,13 @@ import { NotebookPen } from "lucide-react";
 import * as React from "react";
 import { deleteQuickNote, promoteQuickNote } from "./actions";
 import { useMainUi } from "./ui-store";
+import { useMessages } from "@/lib/i18n";
 
 const NONE: Note[] = [];
 
 /** 사이드바 아래 "빠른 메모" 항목 + 팝오버 (QN-01/02, 프로토타입 `#qnoteBtn` · `.qnote`) */
 export function QuickNotePopover() {
+  const m = useMessages();
   const open = useMainUi((s) => s.quickNoteOpen);
   const notes = useMeta((s) => s.meta?.quickNotes ?? NONE);
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -28,7 +30,7 @@ export function QuickNotePopover() {
       <PopoverTrigger asChild>
         <SidebarItem
           icon={NotebookPen}
-          label="빠른 메모"
+          label={m.screens.quickNote.label}
           count={notes.length}
           shortcut={["⌘", "⇧", "N"]}
           aria-haspopup="dialog"
@@ -38,7 +40,7 @@ export function QuickNotePopover() {
         ref={contentRef}
         side="top"
         align="start"
-        aria-label="빠른 메모"
+        aria-label={m.screens.quickNote.label}
         className="w-80 max-w-none rounded-xl p-0"
         // 열면 바로 적을 수 있게 입력 칸으로
         onOpenAutoFocus={(e) => {
@@ -50,8 +52,8 @@ export function QuickNotePopover() {
           notes={items}
           onSave={async (text) => {
             const ok = await metaStore.getState().addQuickNote(text);
-            if (ok) toast("메모를 저장했어요.");
-            else toast.error("메모를 저장하지 못했어요. 적은 글은 그대로 있어요.");
+            if (ok) toast(m.screens.quickNote.saved);
+            else toast.error(m.screens.quickNote.saveFail);
             return ok;
           }}
           onPromote={promoteQuickNote}

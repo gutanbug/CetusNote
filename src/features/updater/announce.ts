@@ -4,6 +4,7 @@ import { toast, ToastCancelButton, ToastCloseButton } from "@/components/ui/toas
 import { releaseUrl } from "@/features/release-notes/release-url";
 import { openLink } from "@/lib/storage/open-link";
 import type { UpdaterStoreApi } from "./store";
+import { msg } from "@/lib/i18n";
 import { downloadMessage } from "./view";
 
 /** 업데이트 토스트 하나가 알림·내려받기 진행률·오류를 이어서 보여 준다 */
@@ -20,7 +21,10 @@ function downloadBody(text: string, progress: number | null) {
     createElement("span", null, text),
     progress === null
       ? null
-      : createElement(Progress, { value: progress, "aria-label": "내려받기 진행률" }),
+      : createElement(Progress, {
+          value: progress,
+          "aria-label": msg().features.updater.progressLabel,
+        }),
   );
 }
 
@@ -28,7 +32,7 @@ function downloadBody(text: string, progress: number | null) {
 function closeButton(onClose: () => void = () => toast.dismiss(UPDATE_TOAST_ID)) {
   return createElement(ToastCancelButton, {
     onClick: onClose,
-    children: "닫기",
+    children: msg().features.updater.close,
   });
 }
 
@@ -56,7 +60,7 @@ function releaseButton(version: string) {
       void openLink(releaseUrl(version));
       toast.dismiss(UPDATE_TOAST_ID);
     },
-    children: "릴리스 보기",
+    children: msg().features.updater.releaseLink,
   });
 }
 
@@ -65,11 +69,11 @@ function releaseButton(version: string) {
  * 같은 버전 알림 중복은 호출하는 쪽이 markNotified로 막는다.
  */
 export function announceUpdateToast(store: UpdaterStoreApi, version: string) {
-  toast(`새 버전 ${version}이 나왔어요`, {
+  toast(msg().features.updater.newVersion(version), {
     id: UPDATE_TOAST_ID,
     duration: Infinity,
     dismissible: false,
-    action: installAction("업데이트", () => runInstallWithToast(store)),
+    action: installAction(msg().features.updater.installAction, () => runInstallWithToast(store)),
     // 「릴리스 보기」와 아이콘 전용 ✕를 한 줄에 둔다(sonner의 cancel 슬롯은 요소 하나만 받는다)
     cancel: createElement(
       "span",
@@ -120,7 +124,7 @@ export function runInstallWithToast(store: UpdaterStoreApi) {
         // 설치가 끝난 뒤의 실패(relaunch)는 다시 설치하지 않으므로 「닫기」만 남긴다
         action:
           s.errorStep === "install"
-            ? installAction("다시 시도", () => runInstallWithToast(store))
+            ? installAction(msg().features.updater.retryAction, () => runInstallWithToast(store))
             : undefined,
         cancel: closeButton(),
       });

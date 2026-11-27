@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { AppImportPick } from "@/lib/storage";
 import { convertMarkdownTree, convertNotion } from "./notion";
 import { convertObsidianVault } from "./obsidian";
@@ -37,8 +38,7 @@ export function parseAppExport(app: ImportAppId, pick: AppImportPick): ParseOutc
     return {
       nodes: [],
       skipped: [],
-      error:
-        "AFFiNE 원본 파일은 가져올 수 없어요. AFFiNE에서 Markdown으로 내보낸 뒤 다시 골라 주세요",
+      error: msg().features.import.affineOriginal,
     };
   }
   if (!docs.length) {
@@ -60,7 +60,7 @@ export function parseAppExport(app: ImportAppId, pick: AppImportPick): ParseOutc
       return {
         nodes: [],
         skipped: [],
-        error: "Evernote 파일은 「ENEX 파일 고르기」로 골라 주세요",
+        error: msg().features.import.evernoteUseEnex,
       };
   }
   return { nodes: result.nodes, skipped: [...result.skipped, ...pick.skipped], error: null };
@@ -69,14 +69,14 @@ export function parseAppExport(app: ImportAppId, pick: AppImportPick): ParseOutc
 function notFoundMessage(app: ImportAppId): string {
   switch (app) {
     case "notion":
-      return "Notion 내보내기에서 문서를 찾지 못했어요. Markdown & CSV로 내보낸 파일인지 확인해 주세요";
+      return msg().features.import.notFound.notion;
     case "obsidian":
-      return "Obsidian 보관소에서 노트(.md)를 찾지 못했어요. 보관소 폴더를 골라 주세요";
+      return msg().features.import.notFound.obsidian;
     case "appflowy":
-      return "AppFlowy 내보내기에서 문서를 찾지 못했어요. Markdown 또는 HTML로 내보낸 파일인지 확인해 주세요";
+      return msg().features.import.notFound.appflowy;
     case "affine":
-      return "AFFiNE 내보내기에서 문서를 찾지 못했어요. Markdown으로 내보낸 파일인지 확인해 주세요";
+      return msg().features.import.notFound.affine;
     case "evernote":
-      return "Evernote 내보내기에서 노트를 찾지 못했어요. ENEX 형식으로 내보낸 파일인지 확인해 주세요";
+      return msg().features.import.notFound.evernote;
   }
 }

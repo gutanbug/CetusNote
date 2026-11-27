@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { common, createLowlight } from "lowlight";
 
 /**
@@ -8,12 +9,22 @@ export const lowlight = createLowlight(common);
 
 /** 선택 목록에 보일 이름. lowlight `common`의 37개 언어 중 자주 쓰는 순서로 둔다. */
 export const CODE_LANGUAGES: { value: string; label: string }[] = [
-  { value: "plaintext", label: "일반 텍스트" },
+  {
+    value: "plaintext",
+    get label() {
+      return msg().features.codeLanguage.plain;
+    },
+  },
   { value: "typescript", label: "TypeScript" },
   { value: "javascript", label: "JavaScript" },
   { value: "json", label: "JSON" },
   { value: "bash", label: "Bash" },
-  { value: "shell", label: "셸 세션" },
+  {
+    value: "shell",
+    get label() {
+      return msg().features.codeLanguage.shell;
+    },
+  },
   { value: "python", label: "Python" },
   { value: "rust", label: "Rust" },
   { value: "go", label: "Go" },
@@ -44,7 +55,12 @@ export const CODE_LANGUAGES: { value: string; label: string }[] = [
   { value: "vbnet", label: "VB.NET" },
   { value: "wasm", label: "WebAssembly" },
   { value: "python-repl", label: "Python REPL" },
-  { value: "php-template", label: "PHP 템플릿" },
+  {
+    value: "php-template",
+    get label() {
+      return msg().features.codeLanguage.phpTemplate;
+    },
+  },
 ];
 
 /** ```ts 처럼 줄임말로 만든 블록을 목록의 이름으로 맞춘다 */

@@ -1,6 +1,7 @@
 mod app_icon;
 mod app_import;
 mod commands;
+mod i18n;
 mod mcp;
 #[cfg(target_os = "macos")]
 mod menu;
@@ -19,6 +20,7 @@ pub fn run() {
         std::process::exit(code);
     }
     #[allow(unused_mut)]
+    i18n::init_from_os();
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -85,6 +87,7 @@ pub fn run() {
             commands::pages_read,
             commands::app_executable_path,
             commands::mcp_status,
+            i18n::set_locale,
         ]);
 
     // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다

@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { Page, Storage } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
 import { pageAssets } from "./assets";
@@ -78,5 +79,5 @@ function sanitizeCsvName(title: string): string {
       .replace(/^\.+/, ""),
     200,
   ).trim();
-  return base || "컬렉션";
+  return base || msg().features.export.fallback.collection;
 }

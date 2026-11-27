@@ -5,9 +5,11 @@ import { useSession, type Tab } from "@/features/session";
 import { hasOverlayTitleBar } from "@/lib/platform";
 import { closeTabAt, newTab, selectTab } from "./tabs";
 import { useTabBarVisible } from "./use-tab-bar";
+import { useMessages } from "@/lib/i18n";
 
 /** 열린 탭 (SHELL-11) — 탭마다 지금 제목·아이콘을 읽는다 */
 export function TabsBar() {
+  const m = useMessages();
   const visible = useTabBarVisible();
   const tabs = useSession((s) => s.tabs);
   const active = useSession((s) => s.activeTab);
@@ -18,10 +20,10 @@ export function TabsBar() {
 
   const item = (t: Tab, i: number): PageTabItem => {
     const key = `${i}:${t.kind === "page" ? t.id : t.kind === "tag" ? t.tag : "home"}`;
-    if (t.kind === "home") return { key, kind: "home", title: "홈" };
+    if (t.kind === "home") return { key, kind: "home", title: m.screens.tabs.home };
     if (t.kind === "tag") return { key, kind: "tag", title: `#${t.tag}` };
     const p = pages[t.id];
-    return { key, kind: "page", title: p ? displayTitle(p) : "제목 없음", emoji: p?.icon };
+    return { key, kind: "page", title: p ? displayTitle(p) : m.screens.untitled, emoji: p?.icon };
   };
 
   return (

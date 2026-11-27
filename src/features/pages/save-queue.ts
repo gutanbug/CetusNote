@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { StorageError, type Page } from "@/lib/storage";
 import { currentWorkspaceGeneration } from "@/features/workspace/generation";
 
@@ -16,7 +17,7 @@ type SaveQueueOptions = {
 /** 워크스페이스가 바뀐 뒤에 남은 변경 — 다른 폴더에 쓰지 않고 오류로 알린다 */
 export class StaleWriteError extends Error {
   constructor() {
-    super("워크스페이스를 바꾸는 사이 남은 변경이라 저장하지 않았어요");
+    super(msg().features.pages.saveSkippedOnSwitch);
     this.name = "StaleWriteError";
   }
 }

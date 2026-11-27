@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { Page } from "@/lib/storage";
 
 /** 페이지 링크 주소 앞부분 (ED-PageMention의 PAGE_LINK_PREFIX와 같다) */
@@ -77,7 +78,7 @@ export function linksOf(
         for (const t of targets) hit(t, [text.length, text.length + s.length]);
         text += s;
       } else if (n.type === "pageMention") {
-        const label = `@${titleOf(String(n.attrs?.id)) || String(n.attrs?.label ?? "") || "제목 없음"}`;
+        const label = `@${titleOf(String(n.attrs?.id)) || String(n.attrs?.label ?? "") || msg().features.untitled}`;
         if (typeof n.attrs?.id === "string")
           hit(n.attrs.id, [text.length, text.length + label.length]);
         text += label;
@@ -105,7 +106,7 @@ export function linksOf(
     }
     // 하위 페이지 블록은 글이 없어도 그 페이지를 가리킨다 (EDIT-29)
     if (n.type === "subpage" && typeof n.attrs?.pageId === "string") {
-      const label = titleOf(n.attrs.pageId) || "하위 페이지";
+      const label = titleOf(n.attrs.pageId) || msg().features.export.fallback.subpage;
       const entry = out.get(n.attrs.pageId) ?? { count: 0, snippets: [] };
       entry.count += 1;
       if (entry.snippets.length < SNIPPETS_PER_PAGE)

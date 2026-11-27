@@ -3,6 +3,7 @@ import { PROPERTY_ICONS } from "@/components/collection/property-types";
 import { fieldOf, formatDue, isoDate, nextColor, statusesOf } from "@/features/collection/model";
 import { pagesStore } from "@/features/pages";
 import { isFieldId, normalizeCollection, type Page, type StatusOption } from "@/lib/storage";
+import { msg } from "@/lib/i18n";
 import { valueCell } from "./collection-properties";
 import { tagColor } from "./tag-colors";
 
@@ -95,7 +96,7 @@ export function recordFields(page: Page, all: Record<string, Page>) {
     statusOptions: statuses.map((o) => ({ name: o.name, color: tagColor(o.color) })),
     assignee: hidden("assignee") ? undefined : (
       <AssigneePicker
-        label="담당"
+        label={msg().screens.collectionProps.assignee}
         value={item.assignee}
         choices={assigneeChoices(all)}
         onChange={(name) => setRecordProps(page.id, { assignee: name ?? null })}
@@ -104,7 +105,7 @@ export function recordFields(page: Page, all: Record<string, Page>) {
     ),
     due: hidden("due") ? undefined : (
       <DuePicker
-        label="마감"
+        label={msg().screens.collectionProps.due}
         value={item.due}
         onChange={(date) => setRecordProps(page.id, { due: date ?? null })}
         className="min-h-7.5 px-2"

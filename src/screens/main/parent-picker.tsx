@@ -13,6 +13,7 @@ import * as React from "react";
 import { displayTitle } from "./actions";
 import { pagePath } from "./palette-model";
 import { useRestoreFocus } from "./use-restore-focus";
+import { useMessages } from "@/lib/i18n";
 
 const ic = { strokeWidth: 1.5 } as const;
 
@@ -43,11 +44,13 @@ export function ParentPicker({
   targets: (Page | null)[];
   onPick: (parentId: string | null) => void;
 }) {
+  const m = useMessages();
   const [query, setQuery] = React.useState("");
   useRestoreFocus(open);
   const q = query.trim().normalize("NFC").toLowerCase();
   const shown = targets.filter(
-    (t) => !q || matchHangul(foldText(t ? displayTitle(t) : "맨 위"), q) !== null,
+    (t) =>
+      !q || matchHangul(foldText(t ? displayTitle(t) : m.screens.dialogs.move.root), q) !== null,
   );
 
   return (
@@ -65,7 +68,7 @@ export function ParentPicker({
         value={query}
         onValueChange={setQuery}
         placeholder={placeholder}
-        aria-label={`${heading} 검색`}
+        aria-label={m.screens.dialogs.pickerSearch}
       />
       <CommandList>
         <CommandEmpty>{emptyText}</CommandEmpty>
@@ -93,7 +96,7 @@ export function ParentPicker({
                   onOpenChange(false);
                 }}
               >
-                {t ? displayTitle(t) : "맨 위"}
+                {t ? displayTitle(t) : m.screens.dialogs.move.root}
               </CommandItem>
             ))}
           </CommandGroup>

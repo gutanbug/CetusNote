@@ -1,2 +1,305 @@
-/** 한국어 문구 — features 영역 (SYS-14). 영어는 ../en/features.ts에 같은 키로 둔다 */
-export const features = {};
+/**
+ * 한국어 문구 — features 영역 (SYS-14). 기능 모듈(템플릿·가져오기·업데이트·날짜 등)이 읽는 문구.
+ * 영어는 ../en/features.ts에 같은 키로 둔다.
+ */
+export const features = {
+  app: {
+    autoBackupFailed: "자동 백업을 만들지 못했어요. 설정 → 데이터에서 확인해 주세요.",
+    externalChangesKept: "다른 곳에서 바뀐 내용을 버전 기록에 남겨 두었어요.",
+    viewHistory: "버전 기록 보기",
+    externalPagesChanged:
+      "다른 곳에서 바뀐 페이지가 있어요. 여기서 고친 내용을 지켰고, 바뀐 내용은 버전 기록에서 볼 수 있어요.",
+    externalReadErrors: (n: number) => `바깥에서 바뀐 파일 ${n}개를 읽지 못했어요.`,
+    quitFailed: "앱을 종료하지 못했어요. 다시 시도해 주세요.",
+    quitBlockedUnsaved: "저장하지 못한 변경이 있어요. 앱을 종료하지 않았어요.",
+    quitAnyway: "그래도 종료",
+    closeBlockedUnsaved: "저장하지 못한 변경이 있어요. 창을 닫지 않았어요.",
+    closeAnyway: "그래도 닫기",
+  },
+  workspace: {
+    switchBlockedUnsaved: "저장하지 못한 변경이 있어서 폴더를 바꾸지 않았어요",
+    switchBlockedUnsavedRetry:
+      "저장하지 못한 변경이 있어서 폴더를 바꾸지 않았어요. 잠시 뒤 다시 시도해 주세요.",
+    notWritable: "이 폴더에는 쓸 수 없어요. 다른 폴더를 골라 주세요.",
+    noSpace: "디스크 공간이 부족해요. 공간을 확보한 뒤 다시 시도해 주세요.",
+    notFound: "폴더를 찾을 수 없어요. 다른 폴더를 골라 주세요.",
+    nameTaken: "그 위치에 같은 이름의 폴더가 이미 있어요. 다른 이름이나 위치를 골라 주세요.",
+    inUse: "다른 Cetus Note 창이 이 폴더를 쓰고 있어요. 그 창을 닫은 뒤 다시 열어 주세요.",
+    invalidName: "폴더 이름으로 쓸 수 없는 이름이에요. / \\ : 와 맨 앞 점(.)은 빼 주세요.",
+    openFailed: "폴더를 열지 못했어요. 다시 시도해 주세요.",
+    missingFolder: (name: string) =>
+      `“${name}” 폴더를 찾을 수 없어요. 목록에서 빼거나 다른 폴더를 열어 주세요.`,
+  },
+  pages: {
+    onlyPagesInCollection: "컬렉션 안에는 문서만 둘 수 있어요",
+    permanentDeleteNoBody: "본문을 읽지 못해 영구 삭제하지 못했어요",
+    trashSaveFailed: "휴지통 이동을 저장하지 못했어요",
+    imageCopySaveFailed: "이미지 사본을 저장하지 못했어요",
+    saveSkippedOnSwitch: "워크스페이스를 바꾸는 사이 남은 변경이라 저장하지 않았어요",
+    statsEmpty: "아직 글이 없어요",
+    statsSummary: (chars: string, words: string, minutes: number) =>
+      `글자 ${chars} · 단어 ${words} · 약 ${minutes}분`,
+    untitledFolder: "이름 없는 폴더",
+    untitledCollection: "이름 없는 컬렉션",
+  },
+  search: { bodyReadFailed: "검색 색인: 본문을 읽지 못했어요" },
+  backup: {
+    fileName: (safe: string, date: string) => `${safe} 백업 ${date}.zip`,
+    notBackupFile: "Cetus Note 백업 파일이 아니거나 손상된 파일이에요.",
+    entryTooLarge: "백업 안의 파일이 너무 커서 풀지 않았어요.",
+    insideWorkspace: "워크스페이스 폴더 밖에 저장해 주세요.",
+    notWritable: "이 폴더에는 쓸 수 없어요. 다른 폴더를 골라 주세요.",
+    noSpace: "디스크 공간이 부족해요.",
+    failed: "백업하지 못했어요. 다시 시도해 주세요.",
+  },
+  assets: {
+    unsupportedImage: "PNG·JPEG·GIF·WebP·AVIF 이미지만 넣을 수 있어요.",
+    tooLarge: "25MB보다 큰 이미지는 넣을 수 없어요.",
+    fetchFailed: "링크에서 이미지를 가져오지 못했어요. 주소를 확인해 주세요.",
+    saveFailed: "이미지를 저장하지 못했어요.",
+  },
+  pdf: { noCanvas: "미리보기 그림을 그릴 수 없어요", pngFailed: "쪽 그림을 PNG로 바꾸지 못했어요" },
+  releaseNotes: {
+    missing: (v: string | null) => `${v ?? "이"} 버전의 릴리스 노트가 없어요`,
+  },
+  dates: {
+    today: "오늘",
+    tomorrow: "내일",
+    yesterday: "어제",
+    daysLater: (n: number) => `${n}일 뒤`,
+    justNow: "방금",
+    minutesAgo: (n: number) => `${n}분 전`,
+    hoursAgo: (n: number) => `${n}시간 전`,
+    daysAgo: (n: number) => `${n}일 전`,
+    absoluteDay: (date: Date, withYear: boolean) =>
+      `${withYear ? `${date.getFullYear()}년 ` : ""}${date.getMonth() + 1}월 ${date.getDate()}일 (${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`,
+  },
+  history: {
+    justNow: "방금 전",
+    dayLabel: (date: Date, sameYear: boolean) => {
+      const base = `${date.getMonth() + 1}월 ${date.getDate()}일`;
+      return sameYear ? base : `${date.getFullYear()}년 ${base}`;
+    },
+    chars: (n: number) => `${n.toLocaleString("ko-KR")}자`,
+  },
+  reminder: {
+    none: "없음",
+    morning: "당일 9시",
+    custom: "시간 지정",
+    before10: "10분 전",
+    before60: "1시간 전",
+    before1440: "1일 전",
+  },
+  reminders: {
+    permissionExplain: "날짜 알림을 받으려면 알림을 허용해 주세요. 앱이 켜져 있을 때만 울려요.",
+    permissionDenied: "알림이 꺼져 있어요. 시스템 설정에서 Cetus Note 알림을 켜면 받을 수 있어요.",
+    fallback: "알림을 보내지 못해 앱 안에서 알려 드려요",
+    allowButton: "알림 허용",
+    missedTitle: (count: number) => `놓친 알림 ${count}개`,
+    untitled: "제목 없음",
+  },
+  updater: {
+    downloading: "내려받는 중이에요",
+    finishing: "설치하고 다시 여는 중이에요",
+    downloadingPercent: (p: number) => `내려받는 중 ${p}%`,
+    checking: "새 버전이 있는지 확인하고 있어요",
+    checkingAction: "확인 중…",
+    latest: "최신 버전이에요",
+    checkAction: "업데이트 확인",
+    newVersion: (v: string) => `새 버전 ${v}이 나왔어요`,
+    installAction: "업데이트",
+    retryAction: "다시 시도",
+    checkFailed: "업데이트를 확인하지 못했어요.",
+    checkError: "업데이트를 확인하지 못했어요. 인터넷 연결을 확인해 주세요.",
+    installError: "업데이트를 내려받지 못했어요. 다시 시도해 주세요.",
+    relaunchError: "업데이트는 설치됐어요. 앱을 직접 다시 열어 주세요.",
+    saveBeforeRestart:
+      "저장하지 못한 변경이 있어 업데이트를 미뤘어요. 저장을 마친 뒤 다시 시도해 주세요.",
+    progressLabel: "내려받기 진행률",
+    close: "닫기",
+    releaseLink: "릴리스 보기",
+    latestToast: (v: string) => `최신 버전이에요 (${v})`,
+    noUpdate: "확인된 업데이트가 없어요",
+  },
+  export: {
+    yes: "예",
+    no: "아니오",
+    columns: { title: "제목", status: "상태", assignee: "담당", due: "마감", tags: "태그" },
+    fallback: { collection: "컬렉션", image: "이미지", attachment: "첨부", subpage: "하위 페이지" },
+  },
+  import: {
+    propertyName: (i: number) => `속성 ${i}`,
+    affineOriginal:
+      "AFFiNE 원본 파일은 가져올 수 없어요. AFFiNE에서 Markdown으로 내보낸 뒤 다시 골라 주세요",
+    evernoteUseEnex: "Evernote 파일은 「ENEX 파일 고르기」로 골라 주세요",
+    notFound: {
+      notion:
+        "Notion 내보내기에서 문서를 찾지 못했어요. Markdown & CSV로 내보낸 파일인지 확인해 주세요",
+      obsidian: "Obsidian 보관소에서 노트(.md)를 찾지 못했어요. 보관소 폴더를 골라 주세요",
+      appflowy:
+        "AppFlowy 내보내기에서 문서를 찾지 못했어요. Markdown 또는 HTML로 내보낸 파일인지 확인해 주세요",
+      affine:
+        "AFFiNE 내보내기에서 문서를 찾지 못했어요. Markdown으로 내보낸 파일인지 확인해 주세요",
+      evernote:
+        "Evernote 내보내기에서 노트를 찾지 못했어요. ENEX 형식으로 내보낸 파일인지 확인해 주세요",
+    },
+    failedToRead: "문서를 가져오지 못했어요",
+    importedOne: (title: string) => `“${title}” 문서를 가져왔어요`,
+    importedMany: (n: number) => `문서 ${n}개를 가져왔어요`,
+    partialOne: (title: string, failed: number) =>
+      `“${title}” 문서를 가져왔고 ${failed}개는 읽지 못했어요`,
+    partialMany: (n: number, failed: number) => `${n}개를 가져왔고 ${failed}개는 읽지 못했어요`,
+    attachmentFile: "첨부 파일",
+    skipFormat: "(내용 형식을 읽지 못해 글자만 가져왔어요)",
+    skipMissingImages: (n: number) => `(그림 ${n}개의 원본이 없어요)`,
+    skipEnexFormat: "(ENEX 형식을 읽지 못했어요)",
+    enexReadError:
+      "Evernote 파일을 읽지 못했어요. Evernote에서 ENEX 형식으로 내보낸 파일인지 확인해 주세요",
+    notebookFallback: "Evernote 노트북",
+    encryptedNote: "암호화된 내용은 가져오지 않았어요.",
+    guides: {
+      notion: {
+        hint: "Markdown & CSV 내보내기 zip",
+        gets: [
+          "페이지 본문(제목·목록·표·코드·그림)과 하위 페이지 구조",
+          "데이터베이스(CSV)는 컬렉션으로 옮겨요",
+        ],
+        misses: ["관계·수식·롤업 열(값으로 옮기지 않아요)", "댓글과 버전 기록"],
+        steps: [
+          "가져올 최상위 페이지를 열고 오른쪽 위 •••(더보기)를 눌러요.",
+          "•••에서 「More」를 열고 「Export」를 눌러요.",
+          "형식에서 「Markdown & CSV」를 고르고, 「하위 페이지 포함(Include subpages)」을 켜요.",
+          "「내보내기」를 누르면 받는 zip 파일을 그대로 골라요. 압축은 풀지 마세요.",
+        ],
+        note: "워크스페이스 전체는 설정 → 일반 → 「Export all workspace content」로 받을 수 있어요. 준비에 시간이 걸리고, 메일로 받는 링크는 7일 뒤 만료돼요.",
+      },
+      obsidian: {
+        hint: "보관소(vault) 폴더 또는 zip",
+        gets: [
+          "노트(.md)와 front matter(title·tags·aliases), #태그",
+          "위키링크·별칭·그림(![[그림]]), 콜아웃(> [!종류])",
+        ],
+        misses: ["캔버스(.canvas)와 플러그인 데이터", "보관소 밖에 있는 그림"],
+        steps: [
+          "내보낼 필요는 없어요. 노트는 보관소 폴더에 그대로 있어요.",
+          "「폴더」를 누르고 보관소 폴더를 골라요. 안의 .obsidian 폴더는 건너뛰어요.",
+          "보관소를 zip으로 압축했다면 「zip 파일」을 골라요.",
+        ],
+      },
+      appflowy: {
+        hint: "Markdown 또는 HTML로 내보낸 파일과 폴더",
+        gets: [
+          "Markdown·HTML 문서와 하위 문서 구조",
+          "그림(문서 기준 상대 경로), CSV 데이터베이스(컬렉션)",
+        ],
+        misses: ["AppFlowy 작업공간 내부 형식", "데이터베이스의 관계·수식·롤업 열"],
+        steps: [
+          "가져올 페이지마다 •••(더보기)를 눌러 「Export」에서 「Markdown」을 골라요. 데이터베이스는 「CSV」로 내보내요.",
+          "받은 파일과 그림을 한 폴더에 모아 두세요. 그림은 문서 기준 상대 경로로 찾아요.",
+          "「폴더」를 누르고 그 폴더를 골라요.",
+        ],
+        note: "AppFlowy 공식 도움말에는 닿지 못했어요. 커뮤니티 공지(forum.appflowy.com)에서 페이지별 Markdown·CSV 내보내기를 확인했어요(2026-11-23). 메뉴 이름은 버전에 따라 다를 수 있어요.",
+      },
+      affine: {
+        hint: "Markdown으로 내보낸 파일과 폴더",
+        gets: ["Markdown 문서와 그림(index.md와 assets 폴더)", "CSV 데이터베이스(컬렉션)"],
+        misses: [
+          "원본 파일(.affine·.bs.zip)과 문서 스냅샷 — Markdown으로 내보내 주세요",
+          "화이트보드 내용",
+        ],
+        steps: [
+          "문서 메뉴에서 「Markdown」 내보내기를 골라요. 공유 패널에도 같은 내보내기 메뉴가 있어요.",
+          "가져올 문서마다 반복해서 받고, 한 폴더에 모아 두세요.",
+          "「폴더」를 누르고 그 폴더를 골라요.",
+        ],
+        note: "AFFiNE 공식 블로그(v0.27.4 기준, 2026-10-09 확인)에서 문서 메뉴의 「Markdown」 내보내기를 확인했어요. 상위 「내보내기」 메뉴 이름은 그 글에서 확인하지 못했고, 메뉴 이름은 버전에 따라 다를 수 있어요.",
+      },
+      evernote: {
+        hint: "노트북마다 하나씩 만들어지는 ENEX 파일",
+        gets: [
+          "노트 본문(글꼴·목록·표·링크)과 체크 목록",
+          "그림과 첨부 파일, 태그, 만든 날·고친 날. 파일 이름이 노트북 폴더가 돼요",
+        ],
+        misses: ["암호화된 노트(자리에 안내 글만 남겨요)", "원본이 없는 그림, 공유·댓글 정보"],
+        steps: [
+          "사이드바에서 가져올 노트북을 우클릭하고 「노트북 내보내기」를 골라요.",
+          "형식에서 「ENEX」를 고르고 저장해요. 노트북마다 .enex 파일이 하나씩 생겨요.",
+          "「ENEX 파일 고르기」를 누르고 받은 .enex 파일을 골라요. 여러 개를 한 번에 고를 수 있어요.",
+        ],
+        note: "메뉴 이름은 Evernote 버전에 따라 다를 수 있어요. 내보내기는 노트북 단위로만 돼요.",
+      },
+    },
+  },
+  untitled: "제목 없음",
+  platform: {
+    revealWindows: "탐색기에서 보기",
+    revealLinux: "파일 관리자에서 보기",
+    revealMac: "Finder에서 보기",
+  },
+  codeLanguage: { plain: "일반 텍스트", shell: "셸 세션", phpTemplate: "PHP 템플릿" },
+  attachments: {
+    fileFallback: "파일",
+    pdfOnly: "PDF 파일만 넣을 수 있어요.",
+    mediaOnly: "영상·소리 파일만 넣을 수 있어요.",
+    notFound: "파일을 찾지 못했어요.",
+    symlink: "링크 파일은 넣을 수 없어요.",
+    failed: "파일을 첨부하지 못했어요.",
+    tooLargeMedia: "영상·소리 파일이 너무 커요 (최대 200MB)",
+    tooLarge: "파일이 너무 커요 (최대 25MB)",
+  },
+  templates: {
+    categories: { work: "업무", journal: "기록", study: "학습" },
+    meeting: {
+      name: "회의록",
+      description: "참석자 · 안건 · 결정 · 액션 아이템",
+      title: (d: string) => `회의록 ${d}`,
+      header: (d: string) => `참석: · 기록: · 일시: ${d}`,
+      agenda: "안건",
+      discussion: "논의",
+      decisions: "결정 사항",
+      actionItems: "액션 아이템",
+    },
+    weekly: {
+      name: "주간 리뷰",
+      description: "한 주의 성과 · 막힌 것 · 다음 주 계획",
+      title: "주간 리뷰",
+      wins: "이번 주 성과",
+      blockers: "막힌 것",
+      nextWeek: "다음 주 계획",
+    },
+    daily: {
+      name: "일일 노트",
+      description: "오늘 할 일 · 기록 · 회고",
+      title: (d: string) => `일일 노트 ${d}`,
+      today: "오늘 할 일",
+      log: "기록",
+      reflection: "회고",
+      reflectionPrompt: "잘된 것 / 아쉬운 것 / 다음에 바꿀 것",
+    },
+    todo: {
+      name: "할 일",
+      description: "오늘 · 이번 주 · 대기",
+      title: "할 일",
+      today: "오늘",
+      thisWeek: "이번 주",
+      waiting: "대기",
+    },
+    study: {
+      name: "학습 노트",
+      description: "요약 · 예제 코드 · 기억할 점",
+      title: "학습 노트",
+      summary: "한 줄 요약",
+      example: "예제 코드",
+      remember: "기억할 점",
+      more: "더 볼 것",
+    },
+    reading: {
+      name: "읽은 글 정리",
+      description: "출처 · 핵심 주장 · 내 생각",
+      title: "읽은 글 정리",
+      source: "출처",
+      claims: "핵심 주장",
+      mine: "내 생각",
+    },
+  },
+};

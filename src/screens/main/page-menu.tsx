@@ -45,13 +45,10 @@ import {
 import { openInNewTab } from "./tabs";
 import { pageMenuSections } from "./page-menu-model";
 import { useMainUi } from "./ui-store";
+import { useMessages } from "@/lib/i18n";
 
 const ic = { strokeWidth: 1.5 } as const;
-const FONTS: { value: PageFont; label: string }[] = [
-  { value: "default", label: "기본" },
-  { value: "serif", label: "세리프" },
-  { value: "mono", label: "모노" },
-];
+const FONT_VALUES: PageFont[] = ["default", "serif", "mono"];
 
 /** 상단 바 `···` 페이지 메뉴 (PAGE-05) */
 export function PageMenu({
@@ -63,6 +60,8 @@ export function PageMenu({
   favorite: boolean;
   onMove: () => void;
 }) {
+  const m = useMessages();
+  const fonts = FONT_VALUES.map((value) => ({ value, label: m.screens.pageMenu.fonts[value] }));
   const { update } = pagesStore.getState();
   const structure = usePages((s) => s.structure);
   const defaultWide = useSession((s) => s.appearance.defaultWide);
@@ -76,7 +75,7 @@ export function PageMenu({
     return (
       <>
         <DropdownMenuItem icon={<Copy {...ic} />} onSelect={() => duplicateTemplate(page.id)}>
-          템플릿 복제
+          {m.screens.pageMenu.templateDuplicate}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -84,7 +83,7 @@ export function PageMenu({
           icon={<Trash2 {...ic} />}
           onSelect={() => deleteTemplate(page.id)}
         >
-          템플릿 삭제
+          {m.screens.pageMenu.templateDelete}
         </DropdownMenuItem>
       </>
     );
@@ -94,13 +93,13 @@ export function PageMenu({
         icon={favorite ? <StarOff {...ic} /> : <Star {...ic} />}
         onSelect={() => toggleFavorite(page.id)}
       >
-        {favorite ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가"}
+        {favorite ? m.screens.pageMenu.favoriteRemove : m.screens.pageMenu.favoriteAdd}
       </DropdownMenuItem>
       <DropdownMenuItem icon={<SquarePlus {...ic} />} onSelect={() => openInNewTab(page.id)}>
-        새 탭에서 열기
+        {m.screens.pageMenu.openInNewTab}
       </DropdownMenuItem>
       <DropdownMenuItem icon={<Link {...ic} />} onSelect={() => void copyPageLink(page.id)}>
-        링크 복사
+        {m.screens.pageMenu.copyLink}
       </DropdownMenuItem>
       {doc ? (
         <DropdownMenuItem
@@ -108,7 +107,7 @@ export function PageMenu({
           shortcut={<Kbd keys={["⌘", "D"]} />}
           onSelect={() => duplicatePage(page.id)}
         >
-          복제
+          {m.screens.pageMenu.duplicate}
         </DropdownMenuItem>
       ) : null}
       {doc ? (
@@ -116,18 +115,18 @@ export function PageMenu({
           icon={<LayoutTemplate {...ic} />}
           onSelect={() => saveAsTemplate(page.id)}
         >
-          템플릿으로 저장
+          {m.screens.pageMenu.saveTemplate}
         </DropdownMenuItem>
       ) : null}
       <DropdownMenuItem icon={<FolderInput {...ic} />} onSelect={onMove}>
-        옮기기…
+        {m.screens.pageMenu.move}
       </DropdownMenuItem>
       {doc ? (
         <DropdownMenuItem
           icon={<History {...ic} />}
           onSelect={() => useMainUi.getState().setHistoryPageId(page.id)}
         >
-          버전 기록…
+          {m.screens.pageMenu.history}
         </DropdownMenuItem>
       ) : null}
       {doc ? (
@@ -138,20 +137,24 @@ export function PageMenu({
             checked={body.width === "wide"}
             onCheckedChange={(on) => setBodyWidth(page.id, on === true ? "wide" : "default")}
           >
-            전체 폭
+            {m.screens.pageMenu.fullWidth}
           </DropdownMenuCheckboxItem>
           {page.layout.width ? (
             <DropdownMenuItem
               icon={<RotateCcw {...ic} />}
               onSelect={() => setBodyWidth(page.id, undefined)}
             >
-              {inherited.from === "folder" ? "폴더 설정 따르기" : "기본 설정 따르기"}
+              {inherited.from === "folder"
+                ? m.screens.pageMenu.followFolder
+                : m.screens.pageMenu.followDefault}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger icon={<Type {...ic} />}>글꼴</DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger icon={<Type {...ic} />}>
+              {m.screens.pageMenu.font}
+            </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {FONTS.map((f) => (
+              {fonts.map((f) => (
                 <DropdownMenuCheckboxItem
                   key={f.value}
                   checked={page.layout.font === f.value}
@@ -179,24 +182,24 @@ export function PageMenu({
             icon={<Download {...ic} />}
             onSelect={() => void exportMarkdown(page.id)}
           >
-            Markdown으로 내보내기
+            {m.screens.pageMenu.exportMd}
           </DropdownMenuItem>
           <DropdownMenuItem icon={<Printer {...ic} />} onSelect={() => void exportPdf(page.id)}>
-            PDF로 내보내기…
+            {m.screens.pageMenu.exportPdf}
           </DropdownMenuItem>
         </>
       ) : null}
       {csv ? (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger icon={<FileSpreadsheet {...ic} />}>
-            CSV로 내보내기
+            {m.screens.pageMenu.exportCsv}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuItem onSelect={() => void exportCsv(page.id, "view")}>
-              지금 보기 그대로
+              {m.screens.pageMenu.csvView}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void exportCsv(page.id, "all")}>
-              전체 레코드
+              {m.screens.pageMenu.csvAll}
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -208,7 +211,7 @@ export function PageMenu({
           {/* 머리글(라벨) + 값 — 메뉴 항목처럼 보이지 않게 흐린 글자로 */}
           <DropdownMenuLabel className="grid gap-0.5 font-normal tracking-normal tabular-nums">
             <span className="text-label font-semibold tracking-(--tracking-label) text-tertiary">
-              글 정보
+              {m.screens.pageMenu.docInfo}
             </span>
             <span className="text-caption text-secondary">
               {formatDocStats(docStats(page.content))}
@@ -222,7 +225,7 @@ export function PageMenu({
         icon={<Trash2 {...ic} />}
         onSelect={() => moveToTrash(page.id)}
       >
-        휴지통으로 옮기기
+        {m.screens.pageMenu.trash}
       </DropdownMenuItem>
     </>
   );

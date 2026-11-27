@@ -151,7 +151,8 @@ export default defineConfig(() => ({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({}),
+            // 앱 전체를 띄우는 테스트는 시스템 언어를 따른다(SYS-14) — 기대 문구가 한국어라 브라우저 언어를 고정한다
+            provider: playwright({ contextOptions: { locale: "ko-KR" } }),
             // 성능 측정(SYS-11, typing-perf.browser.spec.tsx)용 CPU 프로파일 — 테스트가 부를 때만 켠다
             commands: { cpuProfileStart, cpuProfileStop, imeCompose, imeCommit },
             instances: [

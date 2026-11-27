@@ -9,7 +9,7 @@ import {
 } from "@/features/import/apps/pipeline";
 import { remapMentions } from "@/features/import/apps/mentions";
 import { decodeSafe, type ImportNode } from "@/features/import/apps/tree";
-import { ENEX_READ_ERROR, convertEnexFile } from "@/features/import/apps/enex";
+import { convertEnexFile } from "@/features/import/apps/enex";
 import { importSummary, type ImportFailure } from "@/features/import/summary";
 import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
@@ -70,7 +70,7 @@ export async function importFromApp(
         nodes,
         skipped,
         blobs,
-        error: read || !enex.files.length ? null : ENEX_READ_ERROR,
+        error: read || !enex.files.length ? null : msg().features.import.enexReadError,
       };
       pick = { texts: [], paths: [], skipped: [] };
     } else {

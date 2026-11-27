@@ -13,6 +13,7 @@ const COMMANDS: &[&str] = &[
     "pages_load_all",
     "app_executable_path",
     "mcp_status",
+    "set_locale",
     "pages_load_meta",
     "page_write",
     "page_purge",

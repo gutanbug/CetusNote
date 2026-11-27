@@ -1,4 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
+import { msg } from "@/lib/i18n";
 import type { PageStatus } from "@/lib/storage";
 
 /**
@@ -24,10 +25,27 @@ export type Template = {
 };
 
 export type TemplateCategoryId = "work" | "journal" | "study";
+const tt = () => msg().features.templates;
+
 export const TEMPLATE_CATEGORIES: { id: TemplateCategoryId; name: string }[] = [
-  { id: "work", name: "업무" },
-  { id: "journal", name: "기록" },
-  { id: "study", name: "학습" },
+  {
+    id: "work",
+    get name() {
+      return tt().categories.work;
+    },
+  },
+  {
+    id: "journal",
+    get name() {
+      return tt().categories.journal;
+    },
+  },
+  {
+    id: "study",
+    get name() {
+      return tt().categories.study;
+    },
+  },
 ];
 
 // ── 블록 만들기 ───────────────────────────────────────
@@ -51,123 +69,170 @@ const callout = (emoji: string, color: string, t: string): JSONContent => ({
 });
 const doc = (...content: JSONContent[]): JSONContent => ({ type: "doc", content });
 
+/** 내장 템플릿. 이름·설명·내용은 읽을 때의 언어로 만든다 */
 export const TEMPLATES: Template[] = [
   {
     id: "meeting",
     category: "work",
     emoji: "📝",
-    name: "회의록",
-    description: "참석자 · 안건 · 결정 · 액션 아이템",
-    make: (d) => ({
-      icon: "📝",
-      title: `회의록 ${d}`,
-      tags: ["회의"],
-      status: "진행 중",
-      content: doc(
-        callout("📌", "blue", `참석: · 기록: · 일시: ${d}`),
-        h2("안건"),
-        ul(""),
-        h2("논의"),
-        p(),
-        h2("결정 사항"),
-        ul(""),
-        h2("액션 아이템"),
-        todo("", ""),
-      ),
-    }),
+    get name() {
+      return tt().meeting.name;
+    },
+    get description() {
+      return tt().meeting.description;
+    },
+    make: (d) => {
+      const m = tt().meeting;
+      return {
+        icon: "📝",
+        title: m.title(d),
+        // i18n-ignore — 저장되는 태그 값
+        tags: ["회의"],
+        // i18n-ignore — 저장되는 상태 값
+        status: "진행 중",
+        content: doc(
+          callout("📌", "blue", m.header(d)),
+          h2(m.agenda),
+          ul(""),
+          h2(m.discussion),
+          p(),
+          h2(m.decisions),
+          ul(""),
+          h2(m.actionItems),
+          todo("", ""),
+        ),
+      };
+    },
   },
   {
     id: "weekly",
     category: "work",
     emoji: "🗓",
-    name: "주간 리뷰",
-    description: "한 주의 성과 · 막힌 것 · 다음 주 계획",
-    make: () => ({
-      icon: "🗓",
-      title: "주간 리뷰",
-      tags: ["업무"],
-      status: "진행 중",
-      content: doc(
-        h2("이번 주 성과"),
-        ul(""),
-        h2("막힌 것"),
-        ul(""),
-        h2("다음 주 계획"),
-        todo("", ""),
-      ),
-    }),
+    get name() {
+      return tt().weekly.name;
+    },
+    get description() {
+      return tt().weekly.description;
+    },
+    make: () => {
+      const m = tt().weekly;
+      return {
+        icon: "🗓",
+        title: m.title,
+        // i18n-ignore — 저장되는 태그 값
+        tags: ["업무"],
+        // i18n-ignore — 저장되는 상태 값
+        status: "진행 중",
+        content: doc(h2(m.wins), ul(""), h2(m.blockers), ul(""), h2(m.nextWeek), todo("", "")),
+      };
+    },
   },
   {
     id: "daily",
     category: "journal",
     emoji: "🌤",
-    name: "일일 노트",
-    description: "오늘 할 일 · 기록 · 회고",
-    make: (d) => ({
-      icon: "🌤",
-      title: `일일 노트 ${d}`,
-      tags: [],
-      status: "진행 중",
-      content: doc(
-        h2("오늘 할 일"),
-        todo("", ""),
-        h2("기록"),
-        p(),
-        h2("회고"),
-        quote("잘된 것 / 아쉬운 것 / 다음에 바꿀 것"),
-      ),
-    }),
+    get name() {
+      return tt().daily.name;
+    },
+    get description() {
+      return tt().daily.description;
+    },
+    make: (d) => {
+      const m = tt().daily;
+      return {
+        icon: "🌤",
+        title: m.title(d),
+        tags: [],
+        // i18n-ignore — 저장되는 상태 값
+        status: "진행 중",
+        content: doc(
+          h2(m.today),
+          todo("", ""),
+          h2(m.log),
+          p(),
+          h2(m.reflection),
+          quote(m.reflectionPrompt),
+        ),
+      };
+    },
   },
   {
     id: "todo",
     category: "journal",
     emoji: "✅",
-    name: "할 일",
-    description: "오늘 · 이번 주 · 대기",
-    make: () => ({
-      icon: "✅",
-      title: "할 일",
-      tags: ["할 일"],
-      status: "진행 중",
-      content: doc(h2("오늘"), todo("", ""), h2("이번 주"), todo(""), h2("대기"), todo("")),
-    }),
+    get name() {
+      return tt().todo.name;
+    },
+    get description() {
+      return tt().todo.description;
+    },
+    make: () => {
+      const m = tt().todo;
+      return {
+        icon: "✅",
+        title: m.title,
+        // i18n-ignore — 저장되는 태그 값
+        tags: ["할 일"],
+        // i18n-ignore — 저장되는 상태 값
+        status: "진행 중",
+        content: doc(h2(m.today), todo("", ""), h2(m.thisWeek), todo(""), h2(m.waiting), todo("")),
+      };
+    },
   },
   {
     id: "study",
     category: "study",
     emoji: "📚",
-    name: "학습 노트",
-    description: "요약 · 예제 코드 · 기억할 점",
-    make: () => ({
-      icon: "📚",
-      title: "학습 노트",
-      tags: ["학습"],
-      status: "진행 중",
-      content: doc(
-        h2("한 줄 요약"),
-        p(),
-        h2("예제 코드"),
-        code("javascript"),
-        h2("기억할 점"),
-        ul("", ""),
-        h2("더 볼 것"),
-        todo(""),
-      ),
-    }),
+    get name() {
+      return tt().study.name;
+    },
+    get description() {
+      return tt().study.description;
+    },
+    make: () => {
+      const m = tt().study;
+      return {
+        icon: "📚",
+        title: m.title,
+        // i18n-ignore — 저장되는 태그 값
+        tags: ["학습"],
+        // i18n-ignore — 저장되는 상태 값
+        status: "진행 중",
+        content: doc(
+          h2(m.summary),
+          p(),
+          h2(m.example),
+          code("javascript"),
+          h2(m.remember),
+          ul("", ""),
+          h2(m.more),
+          todo(""),
+        ),
+      };
+    },
   },
   {
     id: "reading",
     category: "study",
     emoji: "🔖",
-    name: "읽은 글 정리",
-    description: "출처 · 핵심 주장 · 내 생각",
-    make: () => ({
-      icon: "🔖",
-      title: "읽은 글 정리",
-      tags: ["학습"],
-      status: "진행 중",
-      content: doc(h2("출처"), p(), h2("핵심 주장"), ul("", ""), h2("내 생각"), quote()),
-    }),
+    get name() {
+      return tt().reading.name;
+    },
+    get description() {
+      return tt().reading.description;
+    },
+    make: () => {
+      const m = tt().reading;
+      return {
+        icon: "🔖",
+        title: m.title,
+        // i18n-ignore — 저장되는 태그 값
+        tags: ["학습"],
+        // i18n-ignore — 저장되는 상태 값
+        status: "진행 중",
+        content: doc(h2(m.source), p(), h2(m.claims), ul("", ""), h2(m.mine), quote()),
+      };
+    },
   },
 ];
 

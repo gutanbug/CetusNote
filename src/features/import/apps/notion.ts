@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 /**
  * Notion「Markdown & CSV」내보내기 가져오기 (DATA-11). 압축을 푼 파일 목록을 받는다(zip 풀기는 호출하는 쪽).
  * - 이름의 ` <32자리 id>`·UUID 꼬리는 뺀다. `X.md` + `X/` 폴더는 X 문서의 하위가 된다(tree.placeNodes).
@@ -138,7 +139,7 @@ export function convertMarkdownTree(
     });
     body.forEach((row, i) => {
       const cells = columns.map((_, k) => row[k + 1] ?? "");
-      const title = (row[0] ?? "").trim() || "제목 없음";
+      const title = (row[0] ?? "").trim() || msg().features.untitled;
       const child = nodes.find(
         (n) => n.parentKey === key && n.kind === "page" && !n.cells && n.title === title,
       );

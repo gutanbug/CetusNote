@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { emojiOf } from "@/lib/page-icon";
 import type { Page } from "@/lib/storage";
 import { detectLanguage } from "@/lib/code-language";
@@ -147,7 +148,7 @@ function inline(nodes: MdNode[] = [], mode: InlineMode = "block"): string {
       // 다른 앱에서도 글이 남게 링크로: [제목](cetusnote://page/<id>)
       const id = String(node.attrs?.id ?? "");
       const title = mentionTitle?.(id) ?? String(node.attrs?.label ?? "");
-      text = `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
+      text = `[${escapeText(title || msg().features.untitled)}](cetusnote://page/${id})`;
     } else if (node.type === "dateChip") {
       // 날짜 칩(EDIT-36)은 `@YYYY-MM-DD`로 쓴다. 가져오기가 이 형식만 날짜 칩으로 되돌린다.
       // 시각·알림·완료 표시는 글로 옮기지 않는다 (손실). 날짜가 없으면 빈 글
@@ -280,7 +281,7 @@ function block(node: MdNode): string {
     }
     case "attachment": {
       // 파일 첨부는 워크스페이스 기준 경로 링크 (EDIT-31~33, ADR-025). 단일 페이지 내보내기는 assetHref로 바꾼다
-      const name = String(node.attrs?.name ?? "") || "첨부";
+      const name = String(node.attrs?.name ?? "") || msg().features.export.fallback.attachment;
       const path = String(node.attrs?.path ?? "");
       return `[${escapeText(name)}](${linkTarget(assetHref ? assetHref(path) : path)})`;
     }
@@ -329,12 +330,14 @@ function block(node: MdNode): string {
     case "subpage": {
       // 하위 페이지 카드 → 페이지 링크 (EDIT-29)
       const id = String(node.attrs?.pageId ?? "");
-      const title = mentionTitle?.(id) ?? "하위 페이지";
-      return `[${escapeText(title || "제목 없음")}](cetusnote://page/${id})`;
+      const title = mentionTitle?.(id) ?? msg().features.export.fallback.subpage;
+      return `[${escapeText(title || msg().features.untitled)}](cetusnote://page/${id})`;
     }
     case "breadcrumb":
       // 경로 표시 블록 (EDIT-30): 경로를 `A › B`로. 경로를 모르면(복사 등) 블록은 빠진다
-      return pagePath?.length ? pagePath.map((t) => escapeText(t || "제목 없음")).join(" › ") : "";
+      return pagePath?.length
+        ? pagePath.map((t) => escapeText(t || msg().features.untitled)).join(" › ")
+        : "";
     case "tableOfContents":
       return tocList();
     case "table":
@@ -443,7 +446,7 @@ function frontMatterOf(page: Page): string {
 }
 
 function pageMarkdown(page: Page, options: PageMarkdownOptions = {}): string {
-  const title = page.title.trim() || "제목 없음";
+  const title = page.title.trim() || msg().features.untitled;
   const nodes = (page.content as MdNode).content ?? [];
   const [first, ...rest] = nodes;
   const sameTitle =
@@ -474,5 +477,5 @@ export function markdownFileName(page: Pick<Page, "title">): string {
       .replace(/^\.+/, ""),
     MD_NAME_MAX_BYTES,
   ).trim();
-  return `${base || "제목 없음"}.md`;
+  return `${base || msg().features.untitled}.md`;
 }

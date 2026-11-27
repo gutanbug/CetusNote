@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import { StorageError, type Storage } from "@/lib/storage";
 
 /**
@@ -22,7 +23,7 @@ export function backupFileName(workspaceName: string, now: Date): string {
       .replace(/\s+/g, " ")
       .replace(/^[\s.]+|[\s.]+$/g, "")
       .slice(0, 60) || "CetusNote";
-  return `${safe} 백업 ${localDate(now)}.zip`;
+  return msg().features.backup.fileName(safe, localDate(now));
 }
 
 /** 자동 백업 이름 → 날짜 (`CetusNote-2026-11-19.zip` → "2026-11-19") */
@@ -34,17 +35,17 @@ export function backupErrorMessage(e: unknown): string {
   const code = e instanceof StorageError ? e.code : "io";
   switch (code) {
     case "invalid_backup":
-      return "Cetus Note 백업 파일이 아니거나 손상된 파일이에요.";
+      return msg().features.backup.notBackupFile;
     case "too_large":
-      return "백업 안의 파일이 너무 커서 풀지 않았어요.";
+      return msg().features.backup.entryTooLarge;
     case "invalid_path":
-      return "워크스페이스 폴더 밖에 저장해 주세요.";
+      return msg().features.backup.insideWorkspace;
     case "permission_denied":
-      return "이 폴더에는 쓸 수 없어요. 다른 폴더를 골라 주세요.";
+      return msg().features.backup.notWritable;
     case "disk_full":
-      return "디스크 공간이 부족해요.";
+      return msg().features.backup.noSpace;
     default:
-      return "백업하지 못했어요. 다시 시도해 주세요.";
+      return msg().features.backup.failed;
   }
 }
 

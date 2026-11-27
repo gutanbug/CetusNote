@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 /**
  * 문서 가져오기(DATA-08) 끝의 알림 문구. 가져온 문서와 읽지 못한 파일을 한 줄로 요약한다.
  * 예: "문서 2개를 가져왔어요" · "2개를 가져왔고 1개는 읽지 못했어요" · "문서를 가져오지 못했어요"
@@ -14,10 +15,12 @@ export function importSummary(titles: string[], failed: ImportFailure[]): Import
     ? failed.map((f) => `${f.name} (${f.reason})`).join(", ")
     : undefined;
   const n = titles.length;
-  if (!n) return { message: "문서를 가져오지 못했어요", description };
-  const got = n === 1 ? `“${titles[0]}” 문서를` : `${n}개를`;
+  const t = msg().features.import;
+  if (!n) return { message: t.failedToRead, description };
   if (!failed.length) {
-    return { message: n === 1 ? `${got} 가져왔어요` : `문서 ${n}개를 가져왔어요` };
+    return { message: n === 1 ? t.importedOne(titles[0]) : t.importedMany(n) };
   }
-  return { message: `${got} 가져왔고 ${failed.length}개는 읽지 못했어요`, description };
+  const message =
+    n === 1 ? t.partialOne(titles[0], failed.length) : t.partialMany(n, failed.length);
+  return { message, description };
 }

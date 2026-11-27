@@ -17,6 +17,7 @@ import { formatAgo } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { LayoutTemplate, Plus } from "lucide-react";
 import * as React from "react";
+import { msg, useMessages } from "@/lib/i18n";
 import {
   createNearActive,
   displayTitle,
@@ -87,6 +88,7 @@ function SectionHead({
  * 할 일은 모든 문서의 체크하지 않은 항목(최근에 고친 문서부터). 여기서 체크한 것은 홈을 떠날 때까지 취소선으로 남긴다.
  */
 export function HomeView() {
+  const m = useMessages();
   const pages = usePages((s) => s.pages);
   // 할 일은 본문 요약을 본다 (SYS-10, ADR-022). 요약이 채워지는 대로 다시 그린다
   useSummaryVersion();
@@ -149,7 +151,7 @@ export function HomeView() {
 
   return (
     <div className="grid h-full grid-rows-[auto_minmax(0,1fr)]">
-      <HomeTopBar crumbs={[{ id: "home", title: "홈" }]} />
+      <HomeTopBar crumbs={[{ id: "home", title: m.screens.home.title }]} />
       <div ref={scrollRef} data-slot="home" className="overflow-y-auto overscroll-contain">
         {/* 아래 여백은 고정 padding이 아니다. 고정 여백은 내용이 화면에 딱 맞을 때도 스크롤을 만든다(SHELL-17).
             넘칠 때만 tail(--s16)을 펼친다 */}
@@ -164,7 +166,7 @@ export function HomeView() {
                 {greeting(hour)}
               </h1>
               <p className="mt-2 text-ui text-secondary">
-                열린 할 일 {allOpen.length}개 · 페이지 {docs.length}개
+                {m.screens.home.openSummary(allOpen.length, docs.length)}
               </p>
             </div>
             {/* 좁으면 숨긴다(concept.md §3). 모양·빛은 SkyMark가 정한다 */}
@@ -172,17 +174,18 @@ export function HomeView() {
           </div>
 
           <section aria-labelledby="home-recent" className="mt-12">
-            <SectionHead id="home-recent" title="최근 방문">
+            <SectionHead id="home-recent" title={m.screens.home.recentVisit}>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => useMainUi.getState().setTemplatesOpen(true)}
               >
                 <LayoutTemplate strokeWidth={1.5} aria-hidden />
-                템플릿
+                {m.screens.home.templates}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => createNearActive()}>
-                <Plus strokeWidth={1.5} aria-hidden />새 페이지
+                <Plus strokeWidth={1.5} aria-hidden />
+                {m.screens.sidebar.newPage}
               </Button>
             </SectionHead>
             {recents.length ? (
@@ -206,23 +209,23 @@ export function HomeView() {
                 ))}
               </div>
             ) : (
-              <p className="text-ui text-tertiary">최근에 연 항목이 없어요.</p>
+              <p className="text-ui text-tertiary">{m.screens.home.noRecent}</p>
             )}
           </section>
 
           <section aria-labelledby="home-todos" className="mt-12">
-            <SectionHead id="home-todos" title="오늘의 할 일" />
+            <SectionHead id="home-todos" title={m.screens.home.todayTodos} />
             <TodayTodos items={todos} onCheckedChange={toggle} onOpenPage={openPage} />
             {allOpen.length > TODO_LIMIT ? (
               <p className="mt-2 text-label text-tertiary">
-                외 {allOpen.length - TODO_LIMIT}개는 각 페이지에 있어요.
+                {m.screens.home.moreTodos(allOpen.length - TODO_LIMIT)}
               </p>
             ) : null}
           </section>
 
           {tagCounts.length ? (
             <section aria-labelledby="home-tags" className="mt-12">
-              <SectionHead id="home-tags" title="태그별 바로가기" />
+              <SectionHead id="home-tags" title={m.screens.home.tagShortcuts} />
               <ul className="flex flex-wrap gap-2">
                 {tagCounts.map(([tag, count]) => (
                   <li key={tag}>
@@ -253,7 +256,7 @@ function TagButton({
   return (
     <button
       type="button"
-      aria-label={`${tag} 태그 · 페이지 ${count}개`}
+      aria-label={msg().screens.home.tagAria(tag, count)}
       onClick={() => useMainUi.getState().setView({ kind: "tag", tag })}
       className={cn(
         "inline-flex min-h-7.5 items-center gap-2 rounded-pill border border-line py-1 pr-3 pl-1 text-caption text-tertiary",

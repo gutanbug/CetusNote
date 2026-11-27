@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { ImportNode } from "./tree";
 import { md5Hex } from "./md5";
 import { escapeHtml, plainTextToHtml } from "../text";
@@ -23,9 +24,6 @@ export type EnexResult = {
 
 export const ENEX_BLOB_PREFIX = "enex/";
 /** 파일을 한 개도 읽지 못했을 때의 안내 */
-export const ENEX_READ_ERROR =
-  "Evernote 파일을 읽지 못했어요. Evernote에서 ENEX 형식으로 내보낸 파일인지 확인해 주세요";
-export const ENEX_CRYPT_TEXT = "암호화된 내용은 가져오지 않았어요.";
 
 type Resource = { bytes: Uint8Array; mime: string; name: string };
 type NoteContext = {
@@ -194,7 +192,7 @@ function renderNode(node: Node, ctx: NoteContext): string {
     case "en-todo":
       return "";
     case "en-crypt":
-      return `<p>${ENEX_CRYPT_TEXT}</p>`;
+      return `<p>${msg().features.import.encryptedNote}</p>`;
     case "en-media":
       return renderMedia(el, ctx);
     case "br":
@@ -240,7 +238,7 @@ function noteToHtml(
       continue;
     }
     const attrs = childrenNamed(res, "resource-attributes")[0];
-    const name = (attrs && childText(attrs, "file-name")) || "첨부 파일";
+    const name = (attrs && childText(attrs, "file-name")) || msg().features.import.attachmentFile;
     resources.set(md5Hex(bytes), { bytes, mime: childText(res, "mime"), name });
   }
   const ctx: NoteContext = { resources, blobs, keys: new Set(), missing: 0 };
@@ -253,9 +251,9 @@ function noteToHtml(
   } else {
     // ENML이 XML로 읽히지 않으면 글자만 살린다
     html = plainTextToHtml(enml.replace(/<[^>]+>/g, ""));
-    skipped.push(`${title} (내용 형식을 읽지 못해 글자만 가져왔어요)`);
+    skipped.push(`${title} ${msg().features.import.skipFormat}`);
   }
-  if (ctx.missing) skipped.push(`${title} (그림 ${ctx.missing}개의 원본이 없어요)`);
+  if (ctx.missing) skipped.push(`${title} ${msg().features.import.skipMissingImages(ctx.missing)}`);
   return { html, keys: [...ctx.keys] };
 }
 
@@ -273,11 +271,12 @@ export function convertEnexFile(
   const skipped: string[] = [];
   const doc = parseXml(file.text);
   if (!doc) {
-    skipped.push(`${file.name} (ENEX 형식을 읽지 못했어요)`);
+    skipped.push(`${file.name} ${msg().features.import.skipEnexFormat}`);
     return { nodes, skipped, read: false };
   }
   const notes = Array.from(doc.getElementsByTagName("note"));
-  const folderTitle = file.name.replace(/\.enex$/i, "").trim() || "Evernote 노트북";
+  const folderTitle =
+    file.name.replace(/\.enex$/i, "").trim() || msg().features.import.notebookFallback;
   const folderKey = `e:${fileIndex}`;
   const folder: ImportNode = {
     key: folderKey,
@@ -290,7 +289,7 @@ export function convertEnexFile(
   };
   const pages: ImportNode[] = [];
   notes.forEach((note, noteIndex) => {
-    const title = childText(note, "title").slice(0, 200) || "제목 없음";
+    const title = childText(note, "title").slice(0, 200) || msg().features.untitled;
     const { html, keys } = noteToHtml(note, title, blobs, skipped);
     const tags = [
       ...new Set(childrenNamed(note, "tag").map((t) => t.textContent?.trim() ?? "")),
@@ -325,6 +324,6 @@ export function convertEnex(files: EnexInput[]): EnexResult {
     skipped.push(...part.skipped);
     if (part.read) read++;
   });
-  const error = read || !files.length ? null : ENEX_READ_ERROR;
+  const error = read || !files.length ? null : msg().features.import.enexReadError;
   return { nodes, skipped, blobs, error };
 }

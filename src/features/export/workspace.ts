@@ -1,3 +1,4 @@
+import { msg } from "@/lib/i18n";
 import type { Page } from "@/lib/storage";
 import { capUtf8Bytes } from "@/lib/utf8-cap";
 import { collectionToCsv, fieldText } from "./csv";
@@ -43,7 +44,6 @@ export type WorkspaceExportInput = {
   frontMatter?: boolean;
 };
 
-const UNTITLED = "제목 없음";
 const ROOT_KEY = "root";
 const INDEX = "index";
 /** 이름 한 조각의 UTF-8 바이트 상한. 파일 시스템 255바이트에서 `.md`(3바이트)를 뺀 값이라 폴더·`.md` 파일 모두 들어간다 */
@@ -60,7 +60,7 @@ export function sanitizeFileName(raw: string): string {
     .replace(/^\.+/, "")
     .trim();
   const cut = capUtf8Bytes(cleaned, NAME_MAX_BYTES).trim();
-  return cut || UNTITLED;
+  return cut || msg().features.untitled;
 }
 
 /** 같은 폴더 안에서 겹치지 않는 이름. 대소문자는 무시한다(macOS 기본 파일 시스템) */
@@ -149,7 +149,7 @@ function collect(pages: readonly Page[], input: WorkspaceExportInput) {
 function assign(nodes: Node[], dir: readonly string[], reserved: readonly string[]) {
   const used = new Set(reserved);
   for (const n of nodes) {
-    const base = uniqueName(sanitizeFileName(n.page.title.trim() || UNTITLED), used);
+    const base = uniqueName(sanitizeFileName(n.page.title.trim() || msg().features.untitled), used);
     if (n.page.kind === "folder") {
       n.dir = [...dir, base].join("/");
       assign(n.children, [...dir, base], []);
@@ -181,8 +181,8 @@ function convert(node: MdNode, from: string, env: Env): MdNode[] {
     const page = env.pages.get(id);
     const target = env.targets.get(id);
     const title = page
-      ? page.title.trim() || UNTITLED
-      : String(node.attrs?.label ?? "") || UNTITLED;
+      ? page.title.trim() || msg().features.untitled
+      : String(node.attrs?.label ?? "") || msg().features.untitled;
     const marks = node.marks ?? [];
     return [
       {
@@ -238,12 +238,13 @@ function renderCollection(node: Node, env: Env): string {
   const { page } = node;
   const fields = page.collection?.fields ?? [];
   const head = renderDoc(page, node.index!, env).replace(/\n+$/, "");
-  const columns = ["제목", "상태", "담당", "마감", "태그", ...fields.map((f) => f.name)];
+  const c = msg().features.export.columns;
+  const columns = [c.title, c.status, c.assignee, c.due, c.tags, ...fields.map((f) => f.name)];
   const rows = node.children
     .filter((c) => c.md)
     .map((c) => {
       const r = c.page;
-      const title = `[${linkText(r.title.trim() || UNTITLED)}](${relativeHref(node.index!, c.md!)})`;
+      const title = `[${linkText(r.title.trim() || msg().features.untitled)}](${relativeHref(node.index!, c.md!)})`;
       return [
         title,
         r.props.status ?? "",
