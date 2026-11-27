@@ -39,6 +39,11 @@ async function call<T>(
 }
 
 /** 실제 앱의 저장소 — src-tauri/src/commands.rs */
+/** 빠른 입력 창(#/quick)에서 도는 코드인가 */
+function isQuickContext(): boolean {
+  return typeof window !== "undefined" && window.location.hash.startsWith("#/quick");
+}
+
 export function createTauriStorage(): Storage {
   /** 지금 열린 워크스페이스의 토큰 (DATA-03). 워크스페이스를 열거나 확인할 때마다 갱신한다 */
   let token: number | null = null;
@@ -59,6 +64,11 @@ export function createTauriStorage(): Storage {
     args: Record<string, unknown> = {},
     options?: { headers: Record<string, string> },
   ) => {
+    // 빠른 입력 창(QN-03)은 워크스페이스를 직접 열지 않아 토큰을 모른다 → Rust에 현재 워크스페이스를 물어본다.
+    // 메인 창은 묻지 않는다: 전환 중에 토큰을 비우는 것은 옛 워크스페이스의 늦은 쓰기를 막으려는 것이다
+    if (token === null && isQuickContext()) {
+      await call<WorkspaceStatus>("workspace_current").then(rememberStatus);
+    }
     if (token === null) throw new StorageError("no_workspace", msg().storage.noWorkspace);
     return call<T>(command, { ...args, wsToken: token }, options);
   };

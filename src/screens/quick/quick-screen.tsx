@@ -262,7 +262,7 @@ export function QuickScreen() {
           ? { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] }
           : { type: "doc", content: [] },
       });
-      if (!(await storage.writePage(page))) throw new Error("page");
+      if (!(await storage.writePage(page))) throw new Error("page-write");
       target = { type: "page", id: page.id };
     } else if (text) {
       const note: QuickNote = { id: ulid(), text, createdAt: new Date().toISOString() };
@@ -272,11 +272,18 @@ export function QuickScreen() {
     }
     if (s) {
       // 글이 없으면 대상 없이 둔다. 타이머 이름이 비면 「타이머」
-      const base = { target, label: text || (s.kind === "timer" ? m.timerLabel : "") };
-      if (s.kind === "timer")
-        remindersStore.getState().add({ kind: "timer", durationSec: s.durationSec, ...base });
-      else remindersStore.getState().add({ kind: "alarm", at: s.at, repeat: s.repeat, ...base });
+      // 목록을 읽기 전에 쓰면 기존 알림이 덮어써진다 — 아직 안 읽었으면 먼저 읽는다
+      if (!remindersStore.getState().loaded) await remindersStore.getState().load();
+      const base = { target, label: text || (s.kind === "timer" ? m.timerLabel : m.alarmLabel) };
+      const rem =
+        s.kind === "timer"
+          ? remindersStore.getState().add({ kind: "timer", durationSec: s.durationSec, ...base })
+          : remindersStore.getState().add({ kind: "alarm", at: s.at, repeat: s.repeat, ...base });
+      if (!rem) throw new Error("reminder-invalid");
       await remindersStore.getState().flush();
+      // 읽기 오류가 있으면 저장이 건너뛰어진다 — 그때도 저장된 게 아니므로 실패로 본다
+      const st = remindersStore.getState();
+      if (st.saveError || st.readError) throw new Error("reminders-write");
       await emit("reminders://changed");
     }
     await emit("quick://changed");
@@ -291,8 +298,10 @@ export function QuickScreen() {
       await saveNoteOrPage(mode, spec, text);
       const when = spec ? formatReminderWhen(previewReminder(spec, new Date()), new Date()) : null;
       finish(mode === "page" ? m.savedPage : when ? m.savedWithAlarm(when) : m.savedNote);
-    } catch {
-      setConfirmation(m.needTime);
+    } catch (e) {
+      // 실제 저장 실패만 알린다. 시각이 없어서 생긴 문구가 아니다 (입력은 남겨 다시 시도하게 한다)
+      console.error("[quick] save failed", e);
+      setConfirmation(m.saveFailed);
     } finally {
       busy.current = false;
     }

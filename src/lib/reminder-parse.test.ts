@@ -9,12 +9,10 @@ const alarmAt = (input: string) => parseReminderText(input, NOW).when;
 
 describe("parseReminderText: 타이머(길이)", () => {
   it.each([
-    ["30분 뒤 커피", 1800, "커피"],
-    ["1시간 30분 후 회의", 5400, "회의"],
     ["10분 타이머", 600, ""],
     ["25분", 1500, ""],
-    ["5분 뒤 전화하기", 300, "전화하기"],
-    ["2시간 뒤", 7200, ""],
+    ["30분 뒤 타이머", 1800, ""],
+    ["2시간 뒤 타이머", 7200, ""],
     ["in 30 minutes", 1800, ""],
     ["in 1h", 3600, ""],
     ["in 1 hour 30 minutes", 5400, ""],
@@ -25,6 +23,32 @@ describe("parseReminderText: 타이머(길이)", () => {
     expect(r.when).toEqual({ kind: "timer", durationSec: sec });
     expect(r.label).toBe(label);
     expect(r.span).not.toBeNull();
+  });
+});
+
+describe("parseReminderText: 상대 시각 「N분 뒤」는 알람(시계 시각)", () => {
+  it.each([
+    ["1분뒤에 알림줘", "2026-11-27T10:01", ""],
+    ["1분 뒤에 알려줘", "2026-11-27T10:01", ""],
+    ["1분 뒤에 알려 줘", "2026-11-27T10:01", ""],
+    ["10분 후에 물 마시기", "2026-11-27T10:10", "물 마시기"],
+    ["30분 뒤에 회의 준비 알려줘", "2026-11-27T10:30", "회의 준비"],
+    ["30분 뒤 커피", "2026-11-27T10:30", "커피"],
+    ["5분 뒤 전화하기", "2026-11-27T10:05", "전화하기"],
+    ["1시간 30분 후 회의", "2026-11-27T11:30", "회의"],
+    ["2시간 뒤", "2026-11-27T12:00", ""],
+    ["내일 9시에 보고서", "2026-11-28T09:00", "보고서"],
+    ["3시에 회의", "2026-11-27T15:00", "회의"],
+    ["10분 뒤에 remind me to stretch", "2026-11-27T10:10", "stretch"],
+  ])("%s → %s, 이름 「%s」", (input, at, label) => {
+    const r = parseReminderText(input, NOW);
+    expect(r.when).toEqual({ kind: "alarm", at });
+    expect(r.label).toBe(label);
+    expect(r.span).not.toBeNull();
+  });
+
+  it("빈 이름은 빈 문자열로 돌려준다 (기본 이름 「알림」은 화면이 정한다)", () => {
+    expect(parseReminderText("1분뒤에 알림줘", NOW).label).toBe("");
   });
 });
 

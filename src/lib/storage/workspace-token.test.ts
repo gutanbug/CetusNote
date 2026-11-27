@@ -60,11 +60,11 @@ describe("워크스페이스 토큰 (DATA-03)", () => {
     expect((err as StorageError).code).toBe("stale_workspace");
   });
 
-  it("워크스페이스를 아직 모르면 쓰지 않고 no_workspace로 거절한다", async () => {
+  it("메인 창은 토큰이 없으면 묻지 않고 no_workspace로 거절한다 (전환 중 늦은 쓰기 막기)", async () => {
     const s = createTauriStorage();
     const err = await s.writePage(page).catch((e: unknown) => e);
     expect((err as StorageError).code).toBe("no_workspace");
-    expect(invoke).not.toHaveBeenCalled();
+    expect(invoke.mock.calls.map((c) => c[0])).toEqual([]);
   });
 
   it("휴지통·버전·메타 쓰기도 토큰을 싣는다", async () => {
@@ -78,5 +78,19 @@ describe("워크스페이스 토큰 (DATA-03)", () => {
     for (const cmd of ["workspace_write", "history_delete", "history_save"]) {
       expect(lastArgs(cmd)).toHaveProperty("wsToken", 7);
     }
+  });
+
+  it("토큰을 모르는 창(빠른 입력)은 쓰기 전에 현재 워크스페이스를 물어본다", async () => {
+    // 빠른 입력 창은 워크스페이스를 열지 않아 토큰이 null이다 — 이때 쓰기가 실패하면 안 된다
+    vi.stubGlobal("window", { location: { hash: "#/quick" } });
+    const s = createTauriStorage();
+    invoke.mockImplementation(async (cmd: string) =>
+      cmd === "workspace_current" ? { workspace: { name: "a", path: "/a", token: 9 } } : undefined,
+    );
+    await s.appendQuickNote({ id: "n", text: "t", createdAt: "" } as never);
+    vi.unstubAllGlobals();
+    const cmds = invoke.mock.calls.map((c) => c[0]);
+    expect(cmds).toEqual(["workspace_current", "quick_note_append"]);
+    expect(lastArgs("quick_note_append")).toHaveProperty("wsToken", 9);
   });
 });

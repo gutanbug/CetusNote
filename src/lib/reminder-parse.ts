@@ -342,6 +342,22 @@ const RULES: Rule[] = [
       return alarm(d);
     },
   },
+  // ── 상대 시각 「N분 뒤에」「N시간 M분 후」: 지금부터 N분 뒤의 알람(시계 시각으로 보인다).
+  // 「타이머」가 붙으면 아래 타이머 규칙으로 넘긴다.
+  {
+    re: /(\d{1,2})\s*시간(?:\s*(\d{1,2})\s*분)?\s*(?:뒤|후)(?:에)?(?!\s*타이머)/,
+    make: (m, now) => {
+      const total = Number(m[1]) * 60 + (m[2] ? Number(m[2]) : 0);
+      return total > 0 ? alarm(new Date(now.getTime() + total * MINUTE_S * 1000)) : null;
+    },
+  },
+  {
+    re: /(\d{1,3})\s*분\s*(?:뒤|후)(?:에)?(?!\s*타이머)/,
+    make: (m, now) => {
+      const min = Number(m[1]);
+      return min > 0 ? alarm(new Date(now.getTime() + min * MINUTE_S * 1000)) : null;
+    },
+  },
   // ── 타이머 (길이): 시간·분·초가 아닌 긴 표현을 먼저 본다
   {
     re: /(\d{1,2})\s*시간(?:\s*(\d{1,2})\s*분)?\s*(?:뒤|후|타이머)?/,
@@ -413,11 +429,30 @@ function findWhen(input: string, now: Date): Hit | null {
 
 /** 시각 표현을 뺀 글: 앞뒤 공백을 정리하고, 표현 뒤에 붙은 「에」 같은 조사를 뗀다 */
 function cleanLabel(input: string, start: number, end: number): string {
-  const rest = `${input.slice(0, start)} ${input.slice(end)}`.replace(/\s+/g, " ").trim();
-  return rest
-    .replace(/^(에|에는|까지)\s+/, "")
-    .replace(/\s+에$/, "")
-    .trim();
+  return stripFiller(`${input.slice(0, start)} ${input.slice(end)}`);
+}
+
+/**
+ * 요청 군말을 뗀다: 「알림줘」「알려 줘」「알림」「리마인드해줘」「remind me (to)」와 시각 조사(에·에는·까지).
+ * 앞뒤를 번갈아 떼어 더 안 줄 때까지 반복한다. 다 떼면 빈 문자열이다(호출하는 쪽이 기본 이름을 준다).
+ */
+export function stripFiller(text: string): string {
+  let t = text.replace(/\s+/g, " ").trim();
+  for (let i = 0; i < 6; i++) {
+    const next = t
+      .replace(/^remind me(?: to)?\s+/i, "")
+      .replace(/\s+remind me$/i, "")
+      .replace(/^(?:에는|에|까지)\s+/, "")
+      .replace(
+        /(?:^|\s+)(?:알림\s*설정해?\s*줘?|알림\s*줘|알려\s*주세요|알려\s*줘|리마인드\s*해?\s*줘?|알림|알려|타이머)$/,
+        "",
+      )
+      .replace(/\s+에$/, "")
+      .trim();
+    if (next === t) break;
+    t = next;
+  }
+  return t;
 }
 
 /**
