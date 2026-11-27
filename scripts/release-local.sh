@@ -176,6 +176,8 @@ log "자산 이름 정리"
 rm -f "$OUT/assets"/*
 for f in "$OUT"/mac/* "$OUT"/linux/* "$OUT"/windows/*; do
   [[ -f "$f" ]] || continue
+  # 빌드 캐시(target/.../bundle)에 남은 이전 버전 산출물은 빼고 이 버전 것만 올린다
+  [[ "$(basename "$f")" == *"_${TAG#v}_"* ]] || { echo "  (이전 버전이라 건너뜀) $(basename "$f")"; continue; }
   cp "$f" "$OUT/assets/$(basename "$f" | tr ' ' '.')"
 done
 ls "$OUT/assets" | sed 's/^/  /'
