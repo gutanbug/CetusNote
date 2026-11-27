@@ -29,7 +29,8 @@ import {
   type MentionTarget,
 } from "./page-mention";
 import { slashCommand, type SlashCallbacks } from "./slash-command";
-import { TaskItemShortcuts } from "./task-item-shortcuts";
+import { ListItemShortcuts } from "./list-item-shortcuts";
+import { InlineMarkShortcuts } from "./inline-marks";
 import { toggleExtensions } from "./toggle";
 import { ToggleHeading } from "./toggle-heading";
 import { columnExtensions } from "./columns";
@@ -142,7 +143,8 @@ export function createExtensions({
           `${node.textContent || "빈 할 일"} ${checked ? "완료됨" : "완료 표시"}`,
       },
     }),
-    TaskItemShortcuts,
+    ListItemShortcuts,
+    InlineMarkShortcuts,
     ...toggleExtensions,
     ToggleHeading,
     ...columnExtensions,
