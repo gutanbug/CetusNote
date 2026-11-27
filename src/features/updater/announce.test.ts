@@ -211,7 +211,8 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     await store.getState().check();
     // 설정 화면이 먼저 내려받기를 시작한다(25%에서 멈춰 있다)
     const fromSettings = store.getState().install();
-    expect(store.getState().progress).toBe(25);
+    // 설치 전에 최신 버전을 다시 확인하므로 내려받기는 조금 뒤에 시작된다
+    await vi.waitFor(() => expect(store.getState().progress).toBe(25));
     // 토스트의 「업데이트」는 진행 중인 내려받기에 합류해야 한다
     runInstallWithToast(store);
     release();
@@ -232,6 +233,7 @@ describe("내려받기 진행 토스트 (SYS-07)", () => {
     const store = createUpdaterStore({ updater, flush: async () => true });
     await store.getState().check();
     const fromSettings = store.getState().install();
+    await vi.waitFor(() => expect(store.getState().progress).toBe(25));
     runInstallWithToast(store);
     release();
     await fromSettings;

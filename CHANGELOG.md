@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Updating always installs the newest release, even when a newer one came out after the app last checked.
+
 ## [0.1.7] - 2026-11-27
 
 ### Added

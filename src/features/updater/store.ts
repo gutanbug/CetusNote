@@ -131,6 +131,19 @@ export function createUpdaterStore({ updater, flush, now = Date.now }: UpdaterDe
         errorStep: null,
         error: null,
       });
+      // 마지막 확인 뒤에 더 새 버전이 나왔을 수 있다(확인은 하루에 한 번). 내려받기 직전에 다시 확인해
+      // 지금 가장 새 버전을 받는다 — 어느 버전에서든 한 번에 최신으로 간다. 확인이 실패하면 찾아 둔 업데이트로 진행한다
+      try {
+        const current = await currentOf();
+        const latest = await updater.check();
+        if (latest && isNewerVersion(latest.version, current)) set({ update: latest });
+        else {
+          set({ status: "latest", update: null, progress: null });
+          return;
+        }
+      } catch {
+        // 다시 확인하지 못했다 — 이미 찾은 업데이트로 진행
+      }
       try {
         await updater.downloadAndInstall((progress) => set({ progress }));
       } catch {
