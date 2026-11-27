@@ -124,7 +124,14 @@ export const features = {
   export: {
     yes: "예",
     no: "아니오",
-    columns: { title: "제목", status: "상태", assignee: "담당", due: "마감", tags: "태그" },
+    columns: {
+      title: "제목",
+      status: "상태",
+      assignee: "담당",
+      start: "시작",
+      due: "마감",
+      tags: "태그",
+    },
     fallback: { collection: "컬렉션", image: "이미지", attachment: "첨부", subpage: "하위 페이지" },
   },
   import: {

@@ -5,6 +5,7 @@ import {
   Binary,
   Calendar,
   CalendarDays,
+  CalendarRange,
   CircleChevronDown,
   CircleDot,
   Clock,
@@ -33,7 +34,7 @@ export type PropertyType =
   | "phone"
   | "created"
   | "updated";
-export type BuiltinKey = "status" | "assignee" | "due" | "tags";
+export type BuiltinKey = "status" | "assignee" | "start" | "due" | "tags";
 export type PropertyOption = { name: string; color: SoftColor };
 /** 사용자 속성 정의 */
 export type CustomProperty = {
@@ -81,6 +82,7 @@ export const ADDABLE = [...PROPERTY_TYPE_KEYS];
 export const PROPERTY_ICONS: Record<BuiltinKey | PropertyType, LucideIcon> = {
   status: CircleDot,
   assignee: User,
+  start: CalendarRange,
   due: CalendarDays,
   tags: Hash,
   text: Type,

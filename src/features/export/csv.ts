@@ -62,6 +62,12 @@ const BUILTIN_COLUMNS: Record<BuiltinProperty, CsvColumn> = {
     },
     cell: (r) => r.props.assignee ?? "",
   },
+  start: {
+    get header() {
+      return msg().features.export.columns.start;
+    },
+    cell: (r) => r.props.start ?? "",
+  },
   due: {
     get header() {
       return msg().features.export.columns.due;
@@ -89,6 +95,7 @@ function csvColumns(collection: Page, scope: CsvScope): CsvColumn[] {
       TITLE_COLUMN,
       BUILTIN_COLUMNS.status,
       BUILTIN_COLUMNS.assignee,
+      BUILTIN_COLUMNS.start,
       BUILTIN_COLUMNS.due,
       BUILTIN_COLUMNS.tags,
       ...fields.map(fieldColumn),

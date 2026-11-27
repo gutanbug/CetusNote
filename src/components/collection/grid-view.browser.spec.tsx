@@ -55,6 +55,7 @@ function Harness({ items, columns }: { items: RecordItem[]; columns: GridColumn[
         onStatusChange={noop}
         statusOptions={STATUS_OPTIONS}
         onAssigneeChange={noop}
+        onStartChange={noop}
         onDueChange={noop}
         assigneeChoices={CHOICES}
         onNew={noop}

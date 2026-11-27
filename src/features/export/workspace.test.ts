@@ -184,6 +184,7 @@ describe("front matter와 본문", () => {
         tags: ["회의"],
         status: "진행 중",
         assignee: "차민석",
+        start: null,
         due: "2026-11-24",
         values: {},
       },
@@ -210,7 +211,7 @@ describe("멘션 링크", () => {
     const target = pg({ title: "다른 문서" });
     const src = pg({
       title: "출발",
-      props: { tags: [], status: null, assignee: null, due: null, values: {} },
+      props: { tags: [], status: null, assignee: null, start: null, due: null, values: {} },
       content: doc(
         mentionPara(
           txt("가는 곳: "),
@@ -315,6 +316,7 @@ describe("컬렉션 표", () => {
         tags: ["독서", "소설"],
         status: "진행 중",
         assignee: "나",
+        start: null,
         due: "2026-12-01",
         values: { f1: 320, f2: true, f3: "a|b\n줄" } as Page["props"]["values"],
       },
@@ -322,10 +324,12 @@ describe("컬렉션 표", () => {
     const text = textOf(build([coll, rec]).manifest.files, "읽을거리/index.md");
     expect(text).toContain("# 읽을거리");
     expect(text).toContain("안내 문장");
-    expect(text).toContain("| 제목 | 상태 | 담당 | 마감 | 태그 | 쪽수 | 읽었나 | 메모 \\| 줄 |");
+    expect(text).toContain(
+      "| 제목 | 상태 | 담당 | 시작 | 마감 | 태그 | 쪽수 | 읽었나 | 메모 \\| 줄 |",
+    );
     expect(text).toContain("| --- | --- | --- | --- | --- | --- | --- | --- |");
     expect(text).toContain(
-      "| [책 A](%EC%B1%85%20A.md) | 진행 중 | 나 | 2026-12-01 | 독서, 소설 | 320 | 예 | a\\|b 줄 |",
+      "| [책 A](%EC%B1%85%20A.md) | 진행 중 | 나 |  | 2026-12-01 | 독서, 소설 | 320 | 예 | a\\|b 줄 |",
     );
   });
 });
@@ -361,7 +365,14 @@ describe("가져오기와 왕복", () => {
       title: "회의: 11/21",
       icon: "📝",
       content: doc(para("본문 줄")),
-      props: { tags: ["회의", "주간"], status: null, assignee: null, due: null, values: {} },
+      props: {
+        tags: ["회의", "주간"],
+        status: null,
+        assignee: null,
+        start: null,
+        due: null,
+        values: {},
+      },
     });
     const text = textOf(build([p], {}, true).manifest.files, "회의 11 21.md");
     const back = parseMarkdownFile("회의 11 21", text);

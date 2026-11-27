@@ -29,6 +29,7 @@ describe("페이지 동작 (PAGE-05)", () => {
         tags: ["회의"],
         status: "진행 중",
         assignee: null,
+        start: null,
         due: null,
         values: { fabcd1234: "메모" },
       },
@@ -39,6 +40,7 @@ describe("페이지 동작 (PAGE-05)", () => {
       tags: ["회의"],
       status: "진행 중",
       assignee: null,
+      start: null,
       due: null,
       values: { fabcd1234: "메모" },
     });

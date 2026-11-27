@@ -20,6 +20,7 @@ const meta = {
     onStatusChange: fn(),
     onAssigneeChange: fn(),
     onDueChange: fn(),
+    onStartChange: fn(),
     assigneeChoices: SAMPLE_ASSIGNEES,
     progress: { done: 2, total: 4 },
     children: (

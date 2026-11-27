@@ -95,6 +95,7 @@ export function makePerfCollection(
         tags: tagA === tagB ? [tagA] : [tagA, tagB],
         status: DEFAULT_STATUSES[i % DEFAULT_STATUSES.length]!.name,
         assignee: i % 11 === 0 ? null : PERF_ASSIGNEES[i % PERF_ASSIGNEES.length]!,
+        start: null,
         due: i % 9 === 0 ? null : due,
         values: {
           fperftxt01: `메모 ${i} 내용 조금`,

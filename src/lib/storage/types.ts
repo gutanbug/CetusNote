@@ -26,7 +26,7 @@ export type PageKind = "page" | "folder" | "collection";
 /** 컬렉션 뷰 (COLL-02~04) */
 export type CollectionView = "grid" | "board" | "calendar";
 /** 정렬·필터에 쓰는 레코드 필드 (COLL-06) */
-export type RecordField = "title" | "status" | "assignee" | "due" | "tags";
+export type RecordField = "title" | "status" | "assignee" | "start" | "due" | "tags";
 /** 사용자 속성 id (COLL-08, 스키마 5) — "f"로 시작해 기본 속성 이름과 겹치지 않는다 */
 export type FieldId = `f${string}`;
 /** 정렬 기준 — 기본 필드 · 수정일 · 사용자 속성 id */
@@ -37,7 +37,7 @@ export type CollectionSort = { field: RecordField | "updated" | FieldId; dir: "a
  */
 export type CollectionFilter = { field: "status" | "assignee" | "tags" | FieldId; value: string };
 /** 기본 속성 4개 — 지울 수 없고 숨기기·순서만 바꾼다 */
-export type BuiltinProperty = "status" | "assignee" | "due" | "tags";
+export type BuiltinProperty = "status" | "assignee" | "start" | "due" | "tags";
 /** 사용자 속성 종류 (COLL-08). created·updated는 페이지 시각을 보여 주는 자동 값 */
 export type FieldType =
   | "text"
@@ -113,6 +113,8 @@ export type Page = {
     status: PageStatus | null;
     /** 담당 — 자유 입력 이름 (COLL-01, 스키마 3) */
     assignee: string | null;
+    /** 시작 — 지역 날짜 YYYY-MM-DD, 없으면 null (스키마 8). 마감보다 늦어도 그대로 둔다 */
+    start: string | null;
     /** 마감 — 지역 날짜 YYYY-MM-DD (스키마 3) */
     due: string | null;
     /** 사용자 속성 값 — 속성 id → 값 (COLL-08, 스키마 5). 정의는 부모 컬렉션에 있다 */

@@ -36,7 +36,7 @@ import {
   Trash2,
 } from "lucide-react";
 import * as React from "react";
-import { DueText, Owner, type OpenModifiers, type RecordItem } from "./fields";
+import { DateText, Owner, type OpenModifiers, type RecordItem } from "./fields";
 import { PageIcon } from "@/components/ui/page-icon";
 
 const ic = { strokeWidth: 1.5, "aria-hidden": true } as const;
@@ -150,7 +150,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
               <Owner name={item.assignee} />
             </span>
           ) : null}
-          {item.due ? <DueText due={item.due} compact /> : null}
+          {item.due ? <DateText value={item.due} compact /> : null}
           {extra.map((x) =>
             x.chips?.length ? (
               x.chips.map((c) => (

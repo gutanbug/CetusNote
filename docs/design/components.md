@@ -458,6 +458,7 @@ SH-SplitHeader는 SH-TopBar `variant="pane"`에 합쳤다(머리 두 줄 → 한
 - **ED-TableMenu · ED-FloatingToolbar:** 위치는 편집기 스크롤 영역(상단 바 아래) 안에서 기준 사각형에 붙이고, 자리가 없으면 뒤집고(flip) 가장자리에서 밀어낸다(shift). 계산은 공용 헬퍼 `src/components/editor/floating-bounds.ts`를 쓴다.
 - **ED-FindBar:** 찾기 줄과 바꾸기 줄이 같은 격자(shared grid)를 쓰고, 조작 칸은 28px다.
 - **CL-CalendarView:** 칩에 전체 제목을 title로 붙여 잘린 제목을 hover로 읽는다.
+- **CL-CalendarView (2026-11-27):** 시작~마감 기간은 주(7칸)마다 조각 막대로 나뉘고, 주 경계에서 잘린 쪽은 네모, 실제 끝만 둥글다. 겹치는 막대는 줄을 바꾸고(최대 3줄), 넘치면 칸에 "+N개 더". 막대 조각마다 제목을 그대로 보여 준다(줄이 바뀌어도 어느 일인지 읽히게). 레이아웃은 `features/collection/calendar-span.ts`(순수 함수)가 한다.
 - **CL-RecordDetail:** 태그 칸의 안쪽 여백을 값 열(`px-2`)과 맞췄다.
 - **PG-Properties:** 「수정한 날짜」는 절대 날짜로 보여 준다. 상대 시간은 title에 둔다.
 - **OV-IconPicker · OV-EmojiPicker:** 검색 칸 너비를 `w-56`으로 고정해 탭을 바꿔도 너비가 달라지지 않는다.

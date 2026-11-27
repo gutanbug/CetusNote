@@ -23,7 +23,7 @@ const rec = (
   extra: Partial<Page> = {},
 ): Page => ({
   ...createPage({ title, parentId: col.id }),
-  props: { tags: [], status: null, assignee: null, due: null, values: {}, ...props },
+  props: { tags: [], status: null, assignee: null, start: null, due: null, values: {}, ...props },
   ...extra,
 });
 

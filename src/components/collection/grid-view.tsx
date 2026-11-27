@@ -8,7 +8,7 @@ import { FileText, Maximize2, Plus, Type } from "lucide-react";
 import * as React from "react";
 import {
   AssigneePicker,
-  DuePicker,
+  DatePicker,
   EmptyValue,
   StatusPicker,
   type OpenModifiers,
@@ -37,6 +37,7 @@ const builtinColumns = (msgs: Messages): GridColumn[] => {
   return [
     { key: "status", name: b.status, kind: "status" },
     { key: "assignee", name: b.assignee, kind: "assignee" },
+    { key: "start", name: b.start, kind: "start" },
     { key: "due", name: b.due, kind: "due" },
     { key: "tags", name: b.tags, kind: "tags" },
   ];
@@ -59,6 +60,7 @@ type GridRowCtx = Pick<
   | "onStatusChange"
   | "statusOptions"
   | "onAssigneeChange"
+  | "onStartChange"
   | "onDueChange"
   | "assigneeChoices"
   | "tagEditor"
@@ -75,6 +77,7 @@ type GridViewProps = {
   /** 고를 수 있는 상태 — 컬렉션 상태 목록 */
   statusOptions?: StatusOption[];
   onAssigneeChange: (id: string, name: string | undefined) => void;
+  onStartChange: (id: string, date: string | undefined) => void;
   onDueChange: (id: string, date: string | undefined) => void;
   assigneeChoices: string[];
   /** 태그 편집 팝오버 안 (없으면 태그 칸은 읽기 전용) */
@@ -115,6 +118,7 @@ function GridView({
   onStatusChange,
   statusOptions,
   onAssigneeChange,
+  onStartChange,
   onDueChange,
   assigneeChoices,
   tagEditor,
@@ -152,10 +156,18 @@ function GridView({
     onOpenPage,
     onStatusChange,
     onAssigneeChange,
+    onStartChange,
     onDueChange,
   });
   React.useLayoutEffect(() => {
-    latest.current = { onOpen, onOpenPage, onStatusChange, onAssigneeChange, onDueChange };
+    latest.current = {
+      onOpen,
+      onOpenPage,
+      onStatusChange,
+      onAssigneeChange,
+      onStartChange,
+      onDueChange,
+    };
   });
   const ctx = React.useMemo<GridRowCtx>(
     () => ({
@@ -163,6 +175,7 @@ function GridView({
       onOpenPage: (id) => latest.current.onOpenPage(id),
       onStatusChange: (id, st) => latest.current.onStatusChange(id, st),
       onAssigneeChange: (id, n) => latest.current.onAssigneeChange(id, n),
+      onStartChange: (id, d) => latest.current.onStartChange(id, d),
       onDueChange: (id, d) => latest.current.onDueChange(id, d),
       statusOptions,
       assigneeChoices,
@@ -493,8 +506,15 @@ const GridRow = React.memo(function GridRow({
         choices={ctx.assigneeChoices}
         onChange={(n) => ctx.onAssigneeChange(r.id, n)}
       />
+    ) : key === "start" ? (
+      <DatePicker
+        kind="start"
+        label={m.collection.grid.startOf(name)}
+        value={r.start}
+        onChange={(d) => ctx.onStartChange(r.id, d)}
+      />
     ) : key === "due" ? (
-      <DuePicker
+      <DatePicker
         label={m.collection.grid.dueOf(name)}
         value={r.due}
         onChange={(d) => ctx.onDueChange(r.id, d)}

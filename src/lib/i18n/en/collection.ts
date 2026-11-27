@@ -5,7 +5,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export const collection: Messages["collection"] = {
   model: {
-    builtin: { status: "Status", assignee: "Assignee", due: "Due", tags: "Tags" },
+    builtin: { status: "Status", assignee: "Assignee", start: "Start", due: "Due", tags: "Tags" },
     fieldType: {
       text: "Text",
       number: "Number",
@@ -23,6 +23,7 @@ export const collection: Messages["collection"] = {
       title: "Title",
       status: "Status",
       assignee: "Assignee",
+      start: "Start",
       due: "Due",
       tags: "Tags",
       updated: "Last edited",
@@ -144,6 +145,7 @@ export const collection: Messages["collection"] = {
     recordOf: (name) => `Record: ${name}`,
   },
   calendar: {
+    spanLabel: (t, a, b) => `“${t}” ${a} – ${b}`,
     dow: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     monthDay: (month, day) => `${MONTHS[month - 1]} ${day}`,
     today: "Today",
@@ -160,6 +162,7 @@ export const collection: Messages["collection"] = {
     newRecord: "New record",
     statusOf: (name) => `${name} status`,
     assigneeOf: (name) => `${name} assignee`,
+    startOf: (name) => `${name} start`,
     dueOf: (name) => `${name} due`,
     openPage: (title) => `Open “${title}” as a page`,
     tagsOf: (name) => `Edit ${name} tags`,
@@ -174,5 +177,7 @@ export const collection: Messages["collection"] = {
     clearAssignee: "Clear assignee",
     dueDate: "Due date",
     clearDue: "Clear due date",
+    startDate: "Start date",
+    clearStart: "Clear start date",
   },
 };

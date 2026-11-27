@@ -25,7 +25,7 @@ import type {
 } from "./types";
 import { isValidId, ulid } from "./ulid";
 
-export const PAGE_SCHEMA_VERSION = 7;
+export const PAGE_SCHEMA_VERSION = 8;
 export const WORKSPACE_SCHEMA_VERSION = 1;
 
 /** 기본 상태 4단계 — 일반 문서와 새 컬렉션이 쓴다 */
@@ -58,6 +58,7 @@ const SORT_FIELDS: readonly CollectionSort["field"][] = [
   "title",
   "status",
   "assignee",
+  "start",
   "due",
   "tags",
   "updated",
@@ -68,7 +69,13 @@ const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /* ---------- 사용자 속성 (COLL-08, 스키마 5) ---------- */
 
 /** 기본 속성 — 순서는 처음 보이는 순서 */
-export const BUILTIN_PROPERTIES: readonly BuiltinProperty[] = ["status", "assignee", "due", "tags"];
+export const BUILTIN_PROPERTIES: readonly BuiltinProperty[] = [
+  "status",
+  "assignee",
+  "start",
+  "due",
+  "tags",
+];
 export const FIELD_TYPES: readonly FieldType[] = [
   "text",
   "number",
@@ -255,6 +262,8 @@ const PAGE_MIGRATIONS: Record<number, (raw: Raw) => Raw> = {
     const { fullWidth, ...rest } = layout;
     return { ...raw, layout: fullWidth === true ? { ...rest, width: "wide" } : rest };
   },
+  // 8: 시작일(COLL-03). 기존 파일은 그대로 읽고 start는 null로 채운다
+  7: (raw) => raw,
 };
 
 const TEMPLATE_TEXT_MAX = 120;
@@ -314,6 +323,7 @@ export function normalizePage(input: unknown): Page {
           ? props.status.trim().slice(0, STATUS_MAX)
           : null,
       assignee: assignee ? assignee.slice(0, 80) : null,
+      start: typeof props.start === "string" && DATE.test(props.start) ? props.start : null,
       due: typeof props.due === "string" && DATE.test(props.due) ? props.due : null,
       values: normalizeValues(props.values),
     },

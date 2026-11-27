@@ -22,10 +22,10 @@ const rec = (title: string, values: Page["props"]["values"] = {}, extra: Partial
 };
 
 describe("저장 형식 (스키마 5, COLL-07·08)", () => {
-  it("옛 컬렉션은 속성 없음 + 기본 4개 순서 + 열기 방식은 기본값 따르기", () => {
+  it("옛 컬렉션은 속성 없음 + 기본 5개 순서 + 열기 방식은 기본값 따르기", () => {
     const s = normalizeCollection({ view: "grid" });
     expect(s.fields).toEqual([]);
-    expect(s.properties.map((p) => p.key)).toEqual(["status", "assignee", "due", "tags"]);
+    expect(s.properties.map((p) => p.key)).toEqual(["status", "assignee", "start", "due", "tags"]);
     expect(s.openMode).toBeNull();
   });
 
@@ -55,6 +55,7 @@ describe("저장 형식 (스키마 5, COLL-07·08)", () => {
       "due",
       "status",
       "assignee",
+      "start",
       "tags",
       "fabcd1234",
       "fwhat0001",
@@ -136,10 +137,11 @@ describe("사용자 속성 (COLL-08)", () => {
 
   it("순서 옮기기는 숨긴 속성을 건너뛴다", () => {
     const s = { ...base, ...setPropertySlot(base, "assignee", { hidden: true }) };
-    expect(moveProperty(s, "due", -1)!.properties.map((p) => p.key)).toEqual([
-      "due",
+    expect(moveProperty(s, "start", -1)!.properties.map((p) => p.key)).toEqual([
+      "start",
       "assignee",
       "status",
+      "due",
       "tags",
     ]);
     expect(moveProperty(s, "status", -1)).toBeNull();
@@ -149,6 +151,7 @@ describe("사용자 속성 (COLL-08)", () => {
     const keys = (s: { properties: { key: string }[] } | null) => s?.properties.map((p) => p.key);
     expect(keys(placeProperty(base, "status", "tags"))).toEqual([
       "assignee",
+      "start",
       "due",
       "status",
       "tags",
@@ -157,10 +160,12 @@ describe("사용자 속성 (COLL-08)", () => {
       "status",
       "tags",
       "assignee",
+      "start",
       "due",
     ]);
     expect(keys(placeProperty(base, "assignee", null))).toEqual([
       "status",
+      "start",
       "due",
       "tags",
       "assignee",

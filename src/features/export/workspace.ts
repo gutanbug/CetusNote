@@ -239,7 +239,15 @@ function renderCollection(node: Node, env: Env): string {
   const fields = page.collection?.fields ?? [];
   const head = renderDoc(page, node.index!, env).replace(/\n+$/, "");
   const c = msg().features.export.columns;
-  const columns = [c.title, c.status, c.assignee, c.due, c.tags, ...fields.map((f) => f.name)];
+  const columns = [
+    c.title,
+    c.status,
+    c.assignee,
+    c.start,
+    c.due,
+    c.tags,
+    ...fields.map((f) => f.name),
+  ];
   const rows = node.children
     .filter((c) => c.md)
     .map((c) => {
@@ -249,6 +257,7 @@ function renderCollection(node: Node, env: Env): string {
         title,
         r.props.status ?? "",
         r.props.assignee ?? "",
+        r.props.start ?? "",
         r.props.due ?? "",
         r.props.tags.join(", "),
         ...fields.map((f) => fieldText(f, r)),

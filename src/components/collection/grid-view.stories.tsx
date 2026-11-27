@@ -32,6 +32,11 @@ function Live(args: GridViewProps) {
         patch(id, { status });
       }}
       onAssigneeChange={(id, assignee) => patch(id, { assignee })}
+      onStartChange={(id, date) =>
+        patch(id, {
+          start: date ? { date, text: date.slice(5).replace("-", "/"), late: false } : undefined,
+        })
+      }
       onDueChange={(id, date) =>
         patch(id, {
           due: date ? { date, text: date.slice(5).replace("-", "/"), late: false } : undefined,
@@ -53,6 +58,7 @@ const meta = {
     onStatusChange: fn(),
     onAssigneeChange: fn(),
     onDueChange: fn(),
+    onStartChange: fn(),
     assigneeChoices: SAMPLE_ASSIGNEES,
     onNew: fn(),
   },
@@ -216,7 +222,8 @@ export const ArrowKeys: Story = {
     await expect(focused?.closest("tr")?.getAttribute("aria-rowindex")).toBe(
       String(SAMPLE_RECORDS.length + 1),
     );
-    await expect(focused?.getAttribute("aria-colindex")).toBe("5");
+    // 고정 열 6개(제목·상태·담당·시작·마감·태그)의 마지막 열
+    await expect(focused?.getAttribute("aria-colindex")).toBe("6");
   },
 };
 

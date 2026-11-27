@@ -13,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 페이지 스키마 번호. 앱의 `PAGE_SCHEMA_VERSION`(src/lib/storage/schema.ts)과 맞춘다.
 /// 앱이 더 높은 번호를 쓰면 앱이 읽을 때 마이그레이션한다 (낮은 번호로 써도 안전하다).
-pub const PAGE_SCHEMA_VERSION: u64 = 7;
+pub const PAGE_SCHEMA_VERSION: u64 = 8;
 
 /// 한 번에 가져올 수 있는 목록 항목 상한
 pub const LIST_MAX: usize = 200;
@@ -99,6 +99,7 @@ pub struct Entry {
     pub parent_id: Option<String>,
     pub tags: Vec<String>,
     pub status: Option<String>,
+    pub start: Option<String>,
     pub due: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -148,6 +149,10 @@ pub(super) fn entry_of(page: Value) -> Option<Entry> {
         tags,
         status: props
             .get("status")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        start: props
+            .get("start")
             .and_then(Value::as_str)
             .map(str::to_string),
         due: props.get("due").and_then(Value::as_str).map(str::to_string),
@@ -355,6 +360,7 @@ pub struct PageSummary {
     pub depth: u32,
     pub tags: Vec<String>,
     pub status: Option<String>,
+    pub start: Option<String>,
     pub due: Option<String>,
     pub updated_at: String,
     pub trashed: bool,
@@ -427,6 +433,7 @@ pub struct ReadOut {
     pub parent_id: Option<String>,
     pub tags: Vec<String>,
     pub status: Option<String>,
+    pub start: Option<String>,
     pub due: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -666,6 +673,7 @@ pub fn list(ws: &Workspace, args: ListArgs) -> Res<ListOut> {
             depth,
             tags: e.tags.clone(),
             status: e.status.clone(),
+            start: e.start.clone(),
             due: e.due.clone(),
             updated_at: e.updated_at.clone(),
             trashed: e.trashed,
@@ -815,6 +823,7 @@ pub fn read(ws: &Workspace, args: ReadArgs) -> Res<ReadOut> {
         parent_id: e.parent_id,
         tags: e.tags,
         status: e.status,
+        start: e.start,
         due: e.due,
         created_at: e.created_at,
         updated_at: e.updated_at,
@@ -843,7 +852,7 @@ pub fn new_page_value(
         "icon": null,
         "cover": null,
         "parentId": parent_id,
-        "props": { "tags": [], "status": null, "assignee": null, "due": null, "values": {} },
+        "props": { "tags": [], "status": null, "assignee": null, "start": null, "due": null, "values": {} },
         "collection": null,
         "content": content,
         "createdAt": now,
@@ -1035,6 +1044,7 @@ pub fn tree_resource_text(ws: &Workspace) -> Res<String> {
             depth,
             tags: e.tags.clone(),
             status: e.status.clone(),
+            start: e.start.clone(),
             due: e.due.clone(),
             updated_at: e.updated_at.clone(),
             trashed: e.trashed,
@@ -1121,10 +1131,10 @@ mod tests {
     }
 
     #[test]
-    fn new_page_uses_v7_shape_without_legacy_full_width() {
-        // v7: layout.fullWidth는 없어졌다. 새 페이지는 layout을 넣지 않고(앱이 채운다) width도 없다(상위를 따른다)
+    fn new_page_uses_v8_shape_without_legacy_full_width() {
+        // v7: layout.fullWidth는 없어졌다(v8은 props.start만 더함). 새 페이지는 layout을 넣지 않고(앱이 채운다) width도 없다(상위를 따른다)
         let v = new_page_value("abc", "page", "제목", None, json!({ "type": "doc" }), "now");
-        assert_eq!(v["schemaVersion"], 7);
+        assert_eq!(v["schemaVersion"], 8);
         assert!(v.get("layout").is_none());
         assert!(!v.to_string().contains("fullWidth"));
         assert!(!v.to_string().contains("\"width\""));

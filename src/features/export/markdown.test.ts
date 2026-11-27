@@ -351,7 +351,14 @@ describe("왕복: 내보내기 → 가져오기", () => {
     const page = {
       ...createPage({ title: "회의록", icon: "📝" }),
       id: "01PAGE",
-      props: { tags: ["회의", "기획"], status: null, assignee: null, due: null, values: {} },
+      props: {
+        tags: ["회의", "기획"],
+        status: null,
+        assignee: null,
+        start: null,
+        due: null,
+        values: {},
+      },
       content: { type: "doc" as const, content: [p(t("안건 1"))] },
       createdAt: "2026-11-19T09:00:00.000Z",
       updatedAt: "2026-11-19T09:12:00.000Z",
@@ -377,6 +384,7 @@ describe("페이지", () => {
         tags: ["회의", "기획"],
         status: "진행 중" as const,
         assignee: null,
+        start: null,
         due: null,
         values: {},
       },

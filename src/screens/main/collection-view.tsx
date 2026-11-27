@@ -5,6 +5,7 @@ import {
   type BoardColumn,
 } from "@/components/collection/board-view";
 import { CalendarView } from "@/components/collection/calendar-view";
+import { layoutCalendar } from "@/features/collection/calendar-span";
 import { GridView } from "@/components/collection/grid-view";
 import { RecordDetail } from "@/components/collection/record-detail";
 import { Toolbar, type FilterGroup, type ToolbarFilter } from "@/components/collection/toolbar";
@@ -237,6 +238,7 @@ export function CollectionView({ page }: { page: Page }) {
         ...rec.props,
         status: pick("status") ?? statuses[0]?.name ?? null,
         assignee: pick("assignee") ?? null,
+        start: null,
         due: null,
         tags: tag ? [tag] : [],
         values,
@@ -477,17 +479,31 @@ export function CollectionView({ page }: { page: Page }) {
     return rec ? <RecordTagEditor page={rec} /> : null;
   }, []);
 
-  // 달력 칸은 달력 보기일 때만 채운다 (날짜마다 항목을 거르므로)
+  // 달력 칸과 막대는 달력 보기일 때만 계산한다 (시작~마감 막대를 주 단위로 나눈다, 줄 3개)
   const days = React.useMemo(
     () =>
       settings.view === "calendar"
-        ? monthGrid(month.year, month.month).map((d) => ({
-            ...d,
-            today: d.date === today,
-            items: items.filter((r) => r.due?.date === d.date),
-          }))
+        ? monthGrid(month.year, month.month).map((d) => ({ ...d, today: d.date === today }))
         : [],
-    [settings.view, month.year, month.month, today, items],
+    [settings.view, month.year, month.month, today],
+  );
+  const calendar = React.useMemo(
+    () =>
+      layoutCalendar(
+        days.map((d) => d.date),
+        settings.view === "calendar"
+          ? items.map((r) => ({
+              id: r.id,
+              title: r.title,
+              status: r.status,
+              statusColor: r.statusColor,
+              start: r.start?.date ?? null,
+              due: r.due?.date ?? null,
+            }))
+          : [],
+        3,
+      ),
+    [days, items, settings.view],
   );
   const shiftMonth = (by: number) =>
     setMonth((m) => {
@@ -527,6 +543,7 @@ export function CollectionView({ page }: { page: Page }) {
       onStatusChange={(status) => setRecordProps(rec.id, { status: status ?? null })}
       onAssigneeChange={(name) => setRecordProps(rec.id, { assignee: name ?? null })}
       onDueChange={(due) => setRecordProps(rec.id, { due: due ?? null })}
+      onStartChange={(start) => setRecordProps(rec.id, { start: start ?? null })}
       assigneeChoices={names}
       tagEditor={<RecordTagEditor page={rec} />}
       onRemoveTag={(name) => removeTag(rec.id, name)}
@@ -623,6 +640,7 @@ export function CollectionView({ page }: { page: Page }) {
                 statusOptions={statusOptions}
                 onAssigneeChange={(id, name) => setRecordProps(id, { assignee: name ?? null })}
                 onDueChange={(id, due) => setRecordProps(id, { due: due ?? null })}
+                onStartChange={(id, start) => setRecordProps(id, { start: start ?? null })}
                 assigneeChoices={names}
                 tagEditor={tagEditorFor}
                 onNew={() => createRecord()}
@@ -668,6 +686,8 @@ export function CollectionView({ page }: { page: Page }) {
                   month: "long",
                 }).format(new Date(month.year, month.month, 1))}
                 days={days}
+                weeks={calendar.weeks}
+                dayItems={calendar.dayItems}
                 onPrev={() => shiftMonth(-1)}
                 onNext={() => shiftMonth(1)}
                 onToday={() => {

@@ -1,4 +1,4 @@
-import { AssigneePicker, DuePicker, type RecordItem } from "@/components/collection/fields";
+import { AssigneePicker, DatePicker, type RecordItem } from "@/components/collection/fields";
 import { PROPERTY_ICONS } from "@/components/collection/property-types";
 import { fieldOf, formatDue, isoDate, nextColor, statusesOf } from "@/features/collection/model";
 import { pagesStore } from "@/features/pages";
@@ -14,7 +14,7 @@ export function toRecordItem(
   today = isoDate(new Date()),
   statuses?: StatusOption[],
 ): RecordItem {
-  const { status, assignee, due, tags } = page.props;
+  const { status, assignee, start, due, tags } = page.props;
   return {
     id: page.id,
     title: page.title,
@@ -23,6 +23,7 @@ export function toRecordItem(
       ? { status, statusColor: tagColor(statuses?.find((o) => o.name === status)?.color) }
       : {}),
     ...(assignee ? { assignee } : {}),
+    ...(start ? { start: { date: start, text: formatDue(start, today).text, late: false } } : {}),
     ...(due ? { due: { date: due, ...formatDue(due, today) } } : {}),
     tags: tags.map((name) => ({ name, color: tagColor(tagColors?.[name]) })),
   };
@@ -103,8 +104,17 @@ export function recordFields(page: Page, all: Record<string, Page>) {
         className="min-h-7.5 px-2"
       />
     ),
+    start: hidden("start") ? undefined : (
+      <DatePicker
+        kind="start"
+        label={msg().screens.collectionProps.start}
+        value={item.start}
+        onChange={(date) => setRecordProps(page.id, { start: date ?? null })}
+        className="min-h-7.5 px-2"
+      />
+    ),
     due: hidden("due") ? undefined : (
-      <DuePicker
+      <DatePicker
         label={msg().screens.collectionProps.due}
         value={item.due}
         onChange={(date) => setRecordProps(page.id, { due: date ?? null })}

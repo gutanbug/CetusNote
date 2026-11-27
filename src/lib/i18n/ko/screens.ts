@@ -289,6 +289,7 @@ export const screens = {
     renameClash: "같은 이름의 속성이 있어요. 다른 이름을 써 주세요.",
     addProperty: "속성 추가",
     assignee: "담당",
+    start: "시작",
     due: "마감",
   },
   dialogs: {

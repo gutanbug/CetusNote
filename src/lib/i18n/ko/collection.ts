@@ -1,7 +1,7 @@
 /** 한국어 문구 — collection 영역 (SYS-14). 영어는 ../en/collection.ts에 같은 키로 둔다 */
 export const collection = {
   model: {
-    builtin: { status: "상태", assignee: "담당", due: "마감", tags: "태그" },
+    builtin: { status: "상태", assignee: "담당", start: "시작", due: "마감", tags: "태그" },
     fieldType: {
       text: "텍스트",
       number: "숫자",
@@ -19,6 +19,7 @@ export const collection = {
       title: "제목",
       status: "상태",
       assignee: "담당",
+      start: "시작",
       due: "마감",
       tags: "태그",
       updated: "수정일",
@@ -145,6 +146,7 @@ export const collection = {
     recordOf: (name: string) => `레코드: ${name}`,
   },
   calendar: {
+    spanLabel: (t: string, a: string, b: string) => `“${t}” ${a} – ${b}`,
     dow: ["일", "월", "화", "수", "목", "금", "토"],
     monthDay: (month: number, day: number) => `${month}월 ${day}일`,
     today: "오늘",
@@ -161,6 +163,7 @@ export const collection = {
     newRecord: "새 레코드",
     statusOf: (name: string) => `${name} 상태`,
     assigneeOf: (name: string) => `${name} 담당`,
+    startOf: (name: string) => `${name} 시작`,
     dueOf: (name: string) => `${name} 마감`,
     openPage: (title: string) => `“${title}” 페이지로 열기`,
     tagsOf: (name: string) => `${name} 태그 편집`,
@@ -175,5 +178,7 @@ export const collection = {
     clearAssignee: "담당 비우기",
     dueDate: "마감 날짜",
     clearDue: "마감 비우기",
+    startDate: "시작 날짜",
+    clearStart: "시작 비우기",
   },
 };

@@ -58,7 +58,7 @@ function lazyNames<K extends string>(
   return out;
 }
 
-const BUILTIN_KEYS: readonly BuiltinProperty[] = ["status", "assignee", "due", "tags"];
+const BUILTIN_KEYS: readonly BuiltinProperty[] = ["status", "assignee", "start", "due", "tags"];
 const FIELD_TYPE_KEYS: readonly FieldType[] = [
   "text",
   "number",
@@ -76,6 +76,7 @@ const SORT_KEYS: readonly Exclude<CollectionSort["field"], FieldId>[] = [
   "title",
   "status",
   "assignee",
+  "start",
   "due",
   "tags",
   "updated",
@@ -352,6 +353,8 @@ function key(
       return statusRank?.get(p.props.status) ?? 1000;
     case "assignee":
       return p.props.assignee;
+    case "start":
+      return p.props.start;
     case "due":
       return p.props.due;
     case "tags":

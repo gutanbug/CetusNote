@@ -99,7 +99,7 @@ src-tauri/
   "updatedAt": "2026-11-19T09:12:00Z",
   "trashedAt": null,
   "template": null, // 템플릿 문서(PAGE-14)면 { category, description, pageTitle, builtin }, 아니면 null (ADR-012)
-  "schemaVersion": 7, // 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
+  "schemaVersion": 8, // 7 → 8: props.start(시작일)를 더한다. 없거나 잘못되면 null(identity migration). 6 → 7: layout.fullWidth → layout.width("wide", false는 없음). 1 → 2: kind 추가(그전 파일은 모두 page로 읽는다). 2 → 3: 담당·마감·컬렉션(값만 채움). 3 → 4: 컬렉션 상태 목록·보드 설정, 상태 자유 이름(기본 4단계로 채움). 4 → 5: 사용자 속성·열기 방식(값만 채움). 5 → 6: 템플릿 필드(값만 채움, null)
 }
 ```
 
@@ -360,7 +360,7 @@ Tiptap JSON을 직접 바꾸는 순수 함수다(외부 변환 라이브러리 �
 
 - **결정:** 별도 실행 파일을 만들지 않는다. 앱 실행 파일을 `--mcp`로 실행하면 `lib.rs`의 `run()` 맨 앞에서 창·웹뷰를 만들기 전에 stdio MCP 서버로 들어간다. 공식 Rust SDK `rmcp` 3.9.0(정확히 고정)을 쓴다. 전송은 stdio만 쓴다. 네트워크 리스너는 없다.
 - **워크스페이스:** `--workspace <폴더>`가 있으면 그 폴더(pages/ 또는 workspace.json이 있어야 한다. 새로 만들지 않는다). 없으면 앱 설정 폴더의 `app-state.json`에 적힌 마지막 워크스페이스를 쓴다.
-- **저장:** `storage::Workspace::attach`로 붙는다(`open`과 달리 임시 파일을 지우지 않는다: 실행 중인 앱의 쓰기를 건드리지 않으려고). 쓰기는 기존 `write_page`(원자적 쓰기, id 검사)와 `save_version`(DATA-09)을 쓴다. 내용이 같으면 쓰지 않는다. 페이지 파일 형식과 `schemaVersion`(6)은 그대로다. 새 페이지는 앱 기본 생성 규칙과 같은 최소 필드만 쓰고 `layout` 등은 앱이 읽을 때 채운다.
+- **저장:** `storage::Workspace::attach`로 붙는다(`open`과 달리 임시 파일을 지우지 않는다: 실행 중인 앱의 쓰기를 건드리지 않으려고). 쓰기는 기존 `write_page`(원자적 쓰기, id 검사)와 `save_version`(DATA-09)을 쓴다. 내용이 같으면 쓰지 않는다. 페이지 파일 형식과 `schemaVersion`(8)은 그대로다. 새 페이지는 앱 기본 생성 규칙과 같은 최소 필드만 쓰고 `layout` 등은 앱이 읽을 때 채운다.
 - **동시성:** 도구 호출은 서버 안에서 한 번에 하나씩 처리한다(같은 페이지의 읽기·쓰기가 겹치지 않게). 앱과의 충돌은 DATA-07 규칙을 따른다: 앱에 저장하지 않은 편집이 있으면 앱 쪽이 이긴다.
 - **보안:** 페이지 id는 ULID 형식으로만 받는다(`../` 같은 경로 조각은 도구 오류로 거절). 경로 입력은 없다. 영구 삭제 도구는 만들지 않는다(휴지통까지). 권한·CSP·`capabilities/default.json`은 바꾸지 않는다. 설정 행을 위해 `app_executable_path` 커맨드 하나만 `storage` 권한 묶음에 더했다.
 - **Markdown ↔ Tiptap:** TS 변환(`markdown.ts`, 붙여넣기)과 같은 노드 이름을 쓰는 Rust 간이 변환(`mcp/markdown.rs`). 표·그림·접기·열·수식·멘션은 글로 옮기면 손실된다(문서 `mcp.md`에 적었다).

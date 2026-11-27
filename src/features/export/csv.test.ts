@@ -45,7 +45,7 @@ describe("collectionToCsv", () => {
   it("UTF-8 BOM으로 시작하고, 머리글은 고정 열 다음에 속성 이름", () => {
     const csv = collectionToCsv(collection, []);
     expect(csv.startsWith(BOM)).toBe(true);
-    expect(csv.slice(1)).toBe("제목,상태,담당,마감,태그,우선순위,완료,태그들\r\n");
+    expect(csv.slice(1)).toBe("제목,상태,담당,시작,마감,태그,우선순위,완료,태그들\r\n");
   });
 
   it("레코드 한 줄씩, 속성 값은 타입에 맞게 쓴다", () => {
@@ -63,8 +63,8 @@ describe("collectionToCsv", () => {
       record({ title: "", props: { tags: [], values: { f2: false } } as unknown as Page["props"] }),
     ];
     const lines = collectionToCsv(collection, rows).slice(1).split("\r\n");
-    expect(lines[1]).toBe('"보고서, 최종",진행,현민,2026-12-01,"업무, 긴급",높음,예,"a, b"');
-    expect(lines[2]).toBe("제목 없음,,,,,,아니오,");
+    expect(lines[1]).toBe('"보고서, 최종",진행,현민,,2026-12-01,"업무, 긴급",높음,예,"a, b"');
+    expect(lines[2]).toBe("제목 없음,,,,,,,아니오,");
     expect(lines).toHaveLength(4); // 머리글 + 레코드 2 + 끝의 빈 줄
   });
 });
@@ -150,6 +150,8 @@ describe("지금 보기 CSV (DATA-13 · scope view)", () => {
 
   it("범위 all은 숨긴 열과 상관없이 고정 열 전부를 쓴다", () => {
     const csv = collectionToCsv(viewCollection, [rec("a", "가", true)], "all");
-    expect(csv.slice(1).split("\r\n")[0]).toBe("제목,상태,담당,마감,태그,우선순위,완료,태그들");
+    expect(csv.slice(1).split("\r\n")[0]).toBe(
+      "제목,상태,담당,시작,마감,태그,우선순위,완료,태그들",
+    );
   });
 });

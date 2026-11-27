@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Collection start date: a built-in 시작/Start property next to Due. The calendar draws each record from its start to its due date as connected bars across weeks, with overlapping bars in separate rows and a "+N" overflow; a record with only one date shows as a single-day bar. Existing pages open unchanged. (COLL-01, COLL-04)
 - English interface: Settings › General › Language (System, 한국어, English). Menus, dialogs, toasts, dates and native file dialogs follow the language; slash commands, the command palette and icon search match both Korean and English keywords. (SYS-14)
 - Calculation lines: end a line with `=` to see its result, then press Tab to insert it. Name values (`rent = 650,000원`) and use them below; works with won/dollar amounts, percentages, durations, dates, and running totals.
 - Calculation lines handle rates: `시급 10,000원 × 8시간`, `10,000원/시간 × 90분`, `월급 3,000,000원 × 6개월`. An option in Settings › Editor lines results up on the right like a receipt.

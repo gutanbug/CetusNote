@@ -291,6 +291,7 @@ export const screens: Messages["screens"] = {
     renameClash: "A property with that name already exists. Choose another name.",
     addProperty: "Add property",
     assignee: "Assignee",
+    start: "Start",
     due: "Due",
   },
   dialogs: {

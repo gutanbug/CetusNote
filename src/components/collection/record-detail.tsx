@@ -9,7 +9,7 @@ import { focusRing } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import * as React from "react";
-import { AssigneePicker, DuePicker, EmptyValue, StatusPicker, type RecordItem } from "./fields";
+import { AssigneePicker, DatePicker, EmptyValue, StatusPicker, type RecordItem } from "./fields";
 import { PropertyIcon } from "./property";
 import type { BuiltinKey, PropertyEntry } from "./property-types";
 
@@ -28,6 +28,7 @@ const builtinRows = (): DetailRow[] => {
   return [
     { key: "status", name: b.status, kind: "status" },
     { key: "assignee", name: b.assignee, kind: "assignee" },
+    { key: "start", name: b.start, kind: "start" },
     { key: "due", name: b.due, kind: "due" },
     { key: "tags", name: b.tags, kind: "tags" },
   ];
@@ -51,6 +52,7 @@ type RecordDetailProps = {
   /** 고를 수 있는 상태 — 컬렉션 상태 목록 */
   statusOptions?: StatusOption[];
   onAssigneeChange: (name: string | undefined) => void;
+  onStartChange: (date: string | undefined) => void;
   onDueChange: (date: string | undefined) => void;
   assigneeChoices: string[];
   /** 태그 편집 팝오버 안 */
@@ -202,6 +204,7 @@ function RecordDetail({
   onStatusChange,
   statusOptions,
   onAssigneeChange,
+  onStartChange,
   onDueChange,
   assigneeChoices,
   tagEditor,
@@ -268,8 +271,16 @@ function RecordDetail({
         onChange={onAssigneeChange}
         className="px-2"
       />
+    ) : key === "start" ? (
+      <DatePicker
+        kind="start"
+        label={m.collection.model.builtin.start}
+        value={item.start}
+        onChange={onStartChange}
+        className="px-2"
+      />
     ) : key === "due" ? (
-      <DuePicker
+      <DatePicker
         label={m.collection.model.builtin.due}
         value={item.due}
         onChange={onDueChange}

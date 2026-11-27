@@ -44,7 +44,7 @@ describe("normalizePage", () => {
       icon: null,
       cover: null,
       parentId: null,
-      props: { tags: [], status: null, assignee: null, due: null, values: {} },
+      props: { tags: [], status: null, assignee: null, start: null, due: null, values: {} },
       collection: null,
       layout: { font: "default" },
       content: { type: "doc", content: [] },
@@ -69,11 +69,27 @@ describe("normalizePage", () => {
       tags: ["회의"],
       status: null,
       assignee: null,
+      start: null,
       due: null,
       values: {},
     });
     expect(page.layout).toEqual({ font: "default" });
     expect(page.content).toEqual({ type: "doc", content: [] });
+  });
+
+  it("v7 이하 파일은 시작일이 없어 null이고, 잘못된 시작일은 버리며, 맞는 시작일은 그대로 둔다", () => {
+    const base = { id: ID, title: "회의록", createdAt: "2026-11-19T09:00:00Z" };
+    const missing = normalizePage({
+      ...base,
+      schemaVersion: 7,
+      props: { tags: [], due: "2026-11-24" },
+    });
+    expect(missing.props.start).toBeNull();
+    expect(missing.props.due).toBe("2026-11-24");
+    const invalid = normalizePage({ ...base, props: { tags: [], start: "11/20" } });
+    expect(invalid.props.start).toBeNull();
+    const valid = normalizePage({ ...base, props: { tags: [], start: "2026-11-20" } });
+    expect(valid.props.start).toBe("2026-11-20");
   });
 
   it("v6 전체 폭(fullWidth)을 본문 폭으로 옮긴다: true → wide, false → 상속", () => {
@@ -90,7 +106,7 @@ describe("normalizePage", () => {
       layout: { fullWidth: false, font: "default" },
     });
     expect(plain.layout).toEqual({ font: "default" });
-    expect(plain.schemaVersion).toBe(7);
+    expect(plain.schemaVersion).toBe(8);
   });
 
   it("올바른 값은 그대로 둔다", () => {

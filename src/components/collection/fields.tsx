@@ -25,6 +25,9 @@ import * as React from "react";
 /** 여는 클릭의 보조 키 — ⌘(⌃)면 뒤 탭에 연다 */
 export type OpenModifiers = { metaKey: boolean; ctrlKey: boolean };
 
+/** 날짜 값 — 날짜(YYYY-MM-DD), 표시 문구, 지났는지(마감만) */
+export type DateValue = { date: string; text: string; late: boolean };
+
 /** 레코드 한 줄 — 표·보드·캘린더·상세가 함께 쓴다 (COLL-01) */
 export type RecordItem = {
   id: string;
@@ -34,8 +37,10 @@ export type RecordItem = {
   /** 상태 색 — 컬렉션 상태 목록의 색 */
   statusColor?: SoftColor;
   assignee?: string;
+  /** 시작 (COLL-03) — 마감과 같은 모양, 지남 표시는 없다 */
+  start?: DateValue;
   /** 마감 — 날짜(YYYY-MM-DD)와 표시 문구 */
-  due?: { date: string; text: string; late: boolean };
+  due?: DateValue;
   tags: { name: string; color: SoftColor }[];
   /** 보드 카드에 작게 보일 사용자 속성 (COLL-08) — 값이 있는 것만, 글로 */
   extra?: {
@@ -58,14 +63,17 @@ export function EmptyValue() {
 }
 
 /**
- * 마감 표시. 지났으면 아이콘을 위험 색으로 바꾸고 "지남"을 붙인다
- * (글자는 보조 색 그대로 — hover 바탕에서도 대비 4.5:1을 지키게).
+ * 날짜 표시 (마감·시작). 마감이 지났으면 아이콘을 위험 색으로 바꾸고 "지남"을 붙인다.
+ * 시작은 지남 표시 없이 평범한 달력 아이콘만 쓴다.
+ * 글자는 보조 색 그대로 — hover 바탕에서도 대비 4.5:1을 지키게.
  */
-export function DueText({
-  due,
+export function DateText({
+  value,
+  kind = "due",
   compact = false,
 }: {
-  due: NonNullable<RecordItem["due"]>;
+  value: DateValue;
+  kind?: "due" | "start";
   /**
    * 좁은 줄(보드 카드)용. 날짜가 줄어들지 않고, 지남은 글자 대신 위험 색 아이콘으로만 보인다.
    * 글자는 스크린 리더용으로 남긴다.
@@ -73,24 +81,26 @@ export function DueText({
   compact?: boolean;
 }) {
   const m = useMessages();
-  const Icon = due.late ? CalendarX : CalendarDays;
-  const late = due.late ? m.collection.fields.late : null;
+  const late = kind === "due" && value.late;
+  const Icon = late ? CalendarX : CalendarDays;
+  const lateText = late ? m.collection.fields.late : null;
   return (
     <span
-      data-late={due.late || undefined}
-      title={compact && late ? `${due.text} · ${late}` : undefined}
+      data-late={late || undefined}
+      data-kind={kind}
+      title={compact && lateText ? `${value.text} · ${lateText}` : undefined}
       className={cn(
         "inline-flex items-center gap-1 text-label whitespace-nowrap text-secondary",
         compact && "shrink-0",
       )}
     >
-      <Icon strokeWidth={1.5} aria-hidden className={cn("size-3.5", due.late && "text-danger")} />
-      {due.text}
-      {late ? (
+      <Icon strokeWidth={1.5} aria-hidden className={cn("size-3.5", late && "text-danger")} />
+      {value.text}
+      {lateText ? (
         compact ? (
-          <span className="sr-only"> · {late}</span>
+          <span className="sr-only"> · {lateText}</span>
         ) : (
-          <span className="font-medium"> · {late}</span>
+          <span className="font-medium"> · {lateText}</span>
         )
       ) : null}
     </span>
@@ -251,30 +261,36 @@ export function AssigneePicker({
 }
 
 /** 마감 고르기 — 시스템 날짜 입력 */
-export function DuePicker({
+/** 마감·시작 날짜 고르기. 같은 피커를 쓰고 kind로 문구만 고른다 */
+export function DatePicker({
+  kind = "due",
   value,
   onChange,
   label,
   className,
 }: {
-  value?: RecordItem["due"];
+  kind?: "due" | "start";
+  value?: DateValue;
   onChange: (date: string | undefined) => void;
   label: string;
   className?: string;
 }) {
   const m = useMessages();
   const [open, setOpen] = React.useState(false);
+  const dateLabel = kind === "start" ? m.collection.fields.startDate : m.collection.fields.dueDate;
+  const clearLabel =
+    kind === "start" ? m.collection.fields.clearStart : m.collection.fields.clearDue;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className={cn(valueButton, className)}>
         <span className="sr-only">{label}: </span>
-        {value ? <DueText due={value} /> : <EmptyValue />}
+        {value ? <DateText value={value} kind={kind} /> : <EmptyValue />}
       </PopoverTrigger>
       <PopoverContent className="w-60 p-2">
         <input
           type="date"
           autoFocus
-          aria-label={m.collection.fields.dueDate}
+          aria-label={dateLabel}
           defaultValue={value?.date}
           onKeyDown={(e) => {
             if (e.key === "Enter") setOpen(false);
@@ -292,7 +308,7 @@ export function DuePicker({
             className={cn(menuItem, focusRing, "mt-1 text-secondary")}
           >
             <X strokeWidth={1.5} aria-hidden />
-            {m.collection.fields.clearDue}
+            {clearLabel}
           </button>
         ) : null}
       </PopoverContent>

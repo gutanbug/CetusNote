@@ -135,7 +135,14 @@ export const features: Messages["features"] = {
   export: {
     yes: "Yes",
     no: "No",
-    columns: { title: "Title", status: "Status", assignee: "Assignee", due: "Due", tags: "Tags" },
+    columns: {
+      title: "Title",
+      status: "Status",
+      assignee: "Assignee",
+      start: "Start",
+      due: "Due",
+      tags: "Tags",
+    },
     fallback: {
       collection: "Collection",
       image: "Image",
