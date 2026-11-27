@@ -1,6 +1,5 @@
 import type { Editor, JSONContent, Range } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
-import "katex/dist/katex.min.css";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { BlockHandle } from "./block-handle";
@@ -51,6 +50,8 @@ export type NoteEditorProps = {
   dimChecked?: boolean;
   /** 계산 줄(EDIT-38): 줄 끝 `=`에 결과를 보여 준다 */
   calc?: boolean;
+  /** 계산 결과를 본문 오른쪽 끝에 맞춘다 (끄면 `=` 바로 뒤) */
+  calcRight?: boolean;
   /** 여러 블록을 복사할 때 다른 앱용 글자(마크다운)로 바꾸는 함수 (EDIT-26). 없으면 블록 글자만 */
   copyAsText?: (doc: JSONContent) => string;
   /** 하위 페이지 블록(EDIT-29) — 제목·열기. 없으면 블록은 「삭제된 페이지」로 보인다 */
@@ -64,7 +65,13 @@ export type NoteEditorProps = {
   className?: string;
 };
 
-function proseAttributes(label: string, spellCheck: boolean, dimChecked: boolean, calc: boolean) {
+function proseAttributes(
+  label: string,
+  spellCheck: boolean,
+  dimChecked: boolean,
+  calc: boolean,
+  calcRight: boolean,
+) {
   return {
     class: "sn-prose",
     role: "textbox",
@@ -73,6 +80,7 @@ function proseAttributes(label: string, spellCheck: boolean, dimChecked: boolean
     spellcheck: spellCheck ? "true" : "false",
     "data-dim-checked": dimChecked ? "true" : "false",
     "data-calc": calc ? "true" : "false",
+    "data-calc-align": calcRight ? "right" : "inline",
   };
 }
 
@@ -94,6 +102,7 @@ export function NoteEditor({
   spellCheck = true,
   dimChecked = true,
   calc = true,
+  calcRight = false,
   onEditor,
   copyAsText,
   subpages,
@@ -216,7 +225,7 @@ export function NoteEditor({
     content,
     editable,
     autofocus: autoFocus ? "end" : false,
-    editorProps: { attributes: proseAttributes(label, spellCheck, dimChecked, calc) },
+    editorProps: { attributes: proseAttributes(label, spellCheck, dimChecked, calc, calcRight) },
     onUpdate: ({ editor: e }) => onChangeRef.current?.(e.getJSON()),
   });
   React.useLayoutEffect(() => {
@@ -236,10 +245,10 @@ export function NoteEditor({
     editor.setOptions({
       editorProps: {
         ...editor.options.editorProps,
-        attributes: proseAttributes(label, spellCheck, dimChecked, calc),
+        attributes: proseAttributes(label, spellCheck, dimChecked, calc, calcRight),
       },
     });
-  }, [editor, label, spellCheck, dimChecked, calc]);
+  }, [editor, label, spellCheck, dimChecked, calc, calcRight]);
   const mentionListId = React.useId().replace(/:/g, "") + "-mention";
 
   React.useEffect(() => {

@@ -12,7 +12,13 @@ type CalcState = {
   deco: DecorationSet;
   /** 문서에 `=`가 든 블록이 있는가 — 없으면 바뀐 곳만 본다 */
   anyEq: boolean;
+  /** 합계·평균 줄이 있는가 — 있으면 `=` 없는 줄을 고쳐도 다시 계산한다(위 줄 값을 센다) */
+  hasAgg: boolean;
+  /** 조합 입력 중이라 다시 계산하지 않고 미뤘다 — 조합이 끝나면 계산한다 */
+  stale: boolean;
 };
+
+const AGG_RE = /합계|총합|소계|평균|\b(?:sum|total|avg|average)\b/i;
 
 export const calcLineKey = new PluginKey<CalcState>("calcLine");
 
@@ -31,40 +37,55 @@ function blockText(node: PMNode): string {
   return text;
 }
 
-/** 이번 변경으로 바뀐 블록에 `=`가 생겼는가 (지우기만으로는 생기지 않는다) */
-function touchedEq(tr: Transaction): boolean {
+function rangeHasEq(doc: PMNode, from: number, to: number): boolean {
   let found = false;
-  tr.mapping.maps.forEach((map, i) => {
-    if (found) return;
-    const rest = tr.mapping.slice(i + 1);
-    map.forEach((_a, _b, from, to) => {
-      if (found) return;
-      const start = rest.map(from, -1);
-      const end = Math.min(rest.map(to, 1), tr.doc.content.size);
-      tr.doc.nodesBetween(start, end, (node) => {
-        if (found || node.type.spec.code) return false;
-        if (!node.isTextblock) return true;
-        if (blockText(node).includes("=")) found = true;
-        return false;
-      });
-    });
+  const end = Math.min(to, doc.content.size);
+  if (from > end) return false;
+  doc.nodesBetween(from, end, (node) => {
+    if (found || node.type.spec.code) return false;
+    if (!node.isTextblock) return true;
+    if (blockText(node).includes("=")) found = true;
+    return false;
   });
   return found;
 }
 
+/** 이번 변경이 `=`가 든 블록을 건드렸는가 — 바뀌기 전과 뒤 모두 본다(지운 `=` 줄도 결과를 바꾼다) */
+function touchedEq(tr: Transaction): boolean {
+  return tr.mapping.maps.some((map, i) => {
+    const rest = tr.mapping.slice(i + 1);
+    let found = false;
+    map.forEach((oldFrom, oldTo, from, to) => {
+      if (found) return;
+      found =
+        rangeHasEq(tr.docs[i]!, oldFrom, oldTo) ||
+        rangeHasEq(tr.doc, rest.map(from, -1), rest.map(to, 1));
+    });
+    return found;
+  });
+}
+
 /** 문서의 글 블록을 위에서 아래로 계산한다. 코드 블록은 줄로 보지 않는다 */
-function computeEntries(doc: PMNode, now: Date): { entries: CalcEntry[]; anyEq: boolean } {
+function computeEntries(
+  doc: PMNode,
+  now: Date,
+): { entries: CalcEntry[]; anyEq: boolean; hasAgg: boolean } {
   const blocks: { pos: number; node: PMNode }[] = [];
   let any = false;
+  let hasAgg = false;
   doc.descendants((node, pos) => {
     if (node.type.spec.code) return false;
     if (!node.isTextblock) return true;
     blocks.push({ pos, node });
-    if (!any && blockText(node).includes("=")) any = true;
+    const text = blockText(node);
+    if (text.includes("=")) {
+      any = true;
+      if (!hasAgg && AGG_RE.test(text)) hasAgg = true;
+    }
     return false;
   });
   // 결과는 `=`가 있는 줄에만 생긴다 — 없으면 계산하지 않는다(긴 문서의 입력 지연)
-  if (!any) return { entries: [], anyEq: false };
+  if (!any) return { entries: [], anyEq: false, hasAgg: false };
   const results = evaluateLines(
     blocks.map((b) => blockText(b.node)),
     now,
@@ -75,7 +96,7 @@ function computeEntries(doc: PMNode, now: Date): { entries: CalcEntry[]; anyEq: 
     const b = blocks[i]!;
     entries.push({ end: b.pos + 1 + b.node.content.size, text: r.text });
   });
-  return { entries, anyEq: true };
+  return { entries, anyEq: true, hasAgg };
 }
 
 /** 캐럿이 결과 줄 끝에 있으면 그 위치 */
@@ -125,9 +146,31 @@ function buildDeco(doc: PMNode, entries: CalcEntry[], active: number | null): De
 }
 
 function build(state: EditorState): CalcState {
-  const { entries, anyEq } = computeEntries(state.doc, new Date());
+  const { entries, anyEq, hasAgg } = computeEntries(state.doc, new Date());
   const active = activeOf(state, entries);
-  return { entries, active, anyEq, deco: buildDeco(state.doc, entries, active) };
+  return {
+    entries,
+    active,
+    anyEq,
+    hasAgg,
+    stale: false,
+    deco: buildDeco(state.doc, entries, active),
+  };
+}
+
+/** 결과를 다시 계산하지 않고 자리만 옮긴다 */
+function mapState(prev: CalcState, tr: Transaction, state: EditorState, stale: boolean): CalcState {
+  if (!prev.entries.length) return stale === prev.stale ? prev : { ...prev, stale };
+  const entries = prev.entries.map((e) => ({ ...e, end: tr.mapping.map(e.end, -1) }));
+  const active = activeOf(state, entries);
+  return {
+    ...prev,
+    entries,
+    active,
+    stale: prev.stale || stale,
+    // 조합 중에는 장식 DOM을 그대로 둔다(옮기기만) — 조합 중인 글 옆 DOM이 바뀌면 WebKit 입력기가 끊긴다
+    deco: stale ? prev.deco.map(tr.mapping, tr.doc) : buildDeco(state.doc, entries, active),
+  };
 }
 
 /** 설정(SET-04 「계산 줄」)에서 끄면 에디터 DOM에 data-calc="false" — 결과를 숨기고 Tab도 넘긴다 */
@@ -167,10 +210,15 @@ export const CalcLine = Extension.create({
           init: (_, state) => build(state),
           apply: (tr, prev, _old, state) => {
             if (tr.docChanged) {
-              // `=`가 없는 문서에서 `=` 없는 글을 쓰는 동안은 문서 전체를 다시 읽지 않는다(긴 문서의 입력 지연)
-              if (!prev.anyEq && !touchedEq(tr)) return prev;
+              // 한글 등 조합 중에는 다시 계산하지 않는다. 조합이 끝나면(compositionend) 계산한다
+              if (tr.getMeta("composition") !== undefined) return mapState(prev, tr, state, true);
+              // `=` 줄을 건드리지 않았으면 결과는 그대로다 — 자리만 옮긴다(긴 문서의 입력 지연).
+              // 합계·평균은 `=` 없는 위 줄 값도 세므로 그때는 다시 계산한다
+              if (!prev.stale && !touchedEq(tr) && !(prev.anyEq && prev.hasAgg))
+                return mapState(prev, tr, state, false);
               return build(state);
             }
+            if (tr.getMeta(calcLineKey) === "refresh" && prev.stale) return build(state);
             const active = activeOf(state, prev.entries);
             if (active === prev.active) return prev;
             return { ...prev, active, deco: buildDeco(state.doc, prev.entries, active) };
@@ -178,6 +226,16 @@ export const CalcLine = Extension.create({
         },
         props: {
           decorations: (state) => calcLineKey.getState(state)?.deco,
+          handleDOMEvents: {
+            compositionend: (view) => {
+              // 조합 중에 미룬 계산을 한다. 조합을 끝내는 트랜잭션이 먼저 적용되도록 한 틱 뒤에
+              setTimeout(() => {
+                if (!view.isDestroyed && calcLineKey.getState(view.state)?.stale)
+                  view.dispatch(view.state.tr.setMeta(calcLineKey, "refresh"));
+              });
+              return false;
+            },
+          },
         },
       }),
     ];

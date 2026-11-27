@@ -79,3 +79,30 @@ export const Off: Story = {
 export const ReadOnly: Story = {
   args: { content: "<p>2시간 30분 × 4 =</p>", editable: false },
 };
+
+/** 오른쪽 맞춤 (설정 「계산 결과 오른쪽에 맞추기」) — 결과를 줄 오른쪽 끝에 모은다 */
+export const RightAligned: Story = {
+  args: {
+    calcRight: true,
+    content: [
+      "<p>시급 = 10,000원</p>",
+      "<p>월요일 시급 × 6시간 =</p>",
+      "<p>화요일 시급 × 4시간 30분 =</p>",
+      "<p>합계 =</p>",
+    ].join(""),
+  },
+  play: async ({ canvasElement }) => {
+    getEditor(canvasElement);
+    await waitFor(() =>
+      expect(
+        [...canvasElement.querySelectorAll(".sn-calc-result")].map(
+          (e) => e.childNodes[1]?.textContent,
+        ),
+      ).toEqual(["60,000원", "45,000원", "105,000원"]),
+    );
+    const r = canvasElement.querySelector(".sn-calc-result")!.getBoundingClientRect();
+    const p = canvasElement.querySelector(".ProseMirror p:nth-child(2)")!.getBoundingClientRect();
+    // 줄 오른쪽 끝에 붙는다
+    await expect(Math.abs(p.right - r.right)).toBeLessThan(4);
+  },
+};

@@ -104,6 +104,13 @@
   & .sn-calc-kbd {
     @apply ml-2 inline-grid h-5 min-w-5 place-items-center rounded-xs border border-line bg-hover px-1 align-middle font-sans text-micro leading-none font-medium text-secondary;
   }
+  /* 오른쪽 맞춤: 줄 오른쪽 끝으로 띄운다. 긴 줄이면 다음 줄 오른쪽으로 내려간다 */
+  &[data-calc-align="right"] .sn-calc-result {
+    @apply float-right;
+  }
+  &[data-calc-align="right"] :is(p, h1, h2, h3):has(> .sn-calc-result) {
+    @apply flow-root;
+  }
   &[data-calc="false"] .sn-calc-result {
     @apply hidden;
   }
@@ -390,6 +397,10 @@
   & .inline-math-error,
   & .block-math-error {
     @apply font-mono text-code text-danger;
+  }
+  /* KaTeX를 불러오는 동안 원문 LaTeX를 흐리게 보인다 */
+  & .math-pending {
+    @apply font-mono text-code text-tertiary;
   }
   & .ProseMirror-selectednode.tiptap-mathematics-render {
     @apply bg-accent-soft;

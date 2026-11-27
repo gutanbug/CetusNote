@@ -20,7 +20,12 @@ export type CalcValue =
   /** 길이. 초 + 개월(달력 단위라 초로 바꾸지 않는다) */
   | { kind: "dur"; secs: number; months: number }
   /** 날짜. 1970-01-01부터 날 수(달력 날짜만, 시각 없음) */
-  | { kind: "date"; day: number };
+  | { kind: "date"; day: number }
+  /** 단가. `per` 동안 n (예: 10,000원/시간) — 길이를 곱하면 금액이 된다 */
+  | { kind: "rate"; n: number; unit: Unit; per: Period };
+
+/** 단가의 기준 길이 */
+export type Period = { secs: number; months: number };
 
 export type CalcContext = {
   /** 오늘(날 수) */
@@ -47,6 +52,10 @@ type Word =
   | { t: "cur"; unit: CurrencyUnit }
   | { t: "dur"; secs: number; months: number; name: string }
   | { t: "month" }
+  /** `시간당`의 `당` */
+  | { t: "per" }
+  /** 시급·주급·월급·연봉 — 뒤 금액을 그 기간의 단가로 */
+  | { t: "rateword"; per: Period }
   | { t: "post"; v: "after" | "before" | "until" | "of" }
   | { t: "rel"; offset: number }
   | { t: "agg"; v: "sum" | "avg" };
@@ -70,6 +79,12 @@ const LEXICON = new Map<string, Word>([
   ["까지", { t: "post", v: "until" }],
   ["의", { t: "post", v: "of" }],
   ["of", { t: "post", v: "of" }],
+  ["당", { t: "per" }],
+  ["시급", { t: "rateword", per: { secs: 3600, months: 0 } }],
+  ["일급", { t: "rateword", per: { secs: DAY, months: 0 } }],
+  ["주급", { t: "rateword", per: { secs: 7 * DAY, months: 0 } }],
+  ["월급", { t: "rateword", per: { secs: 0, months: 1 } }],
+  ["연봉", { t: "rateword", per: { secs: 0, months: 12 } }],
   ["오늘", { t: "rel", offset: 0 }],
   ["today", { t: "rel", offset: 0 }],
   ["내일", { t: "rel", offset: 1 }],
@@ -315,7 +330,33 @@ function mergeUnit(a: Unit, b: Unit): Unit {
   return fail();
 }
 
+/** 금액을 단가로 */
+function toRate(v: CalcValue, per: Period): CalcValue {
+  if (v.kind !== "num" || v.unit === "%") return fail();
+  return { kind: "rate", n: v.n, unit: v.unit, per };
+}
+
+/** 길이가 단가 기준의 몇 배인가. 달력 단위(개월)와 초 단위는 섞지 않는다 */
+function ratio(d: Period, per: Period): number {
+  if (per.months) {
+    if (d.secs) fail();
+    return d.months / per.months;
+  }
+  if (d.months) fail();
+  return d.secs / per.secs;
+}
+
+const samePeriod = (a: Period, b: Period) => a.secs === b.secs && a.months === b.months;
+
+/** 단가 이름(시급·월급 …)이면 그 기준 길이 */
+export function ratePeriodOf(name: string): Period | null {
+  const w = LEXICON.get(name.trim());
+  return w?.t === "rateword" ? w.per : null;
+}
+
 function add(a: CalcValue, b: CalcValue, sign: 1 | -1): CalcValue {
+  if (a.kind === "rate" && b.kind === "rate" && samePeriod(a.per, b.per))
+    return { ...a, n: a.n + sign * b.n, unit: mergeUnit(a.unit, b.unit) };
   if (a.kind === "num" && b.kind === "num") {
     // 50,000 + 10% → 10% 더하기
     if (b.unit === "%" && a.unit !== "%") return num(a.n * (1 + (sign * b.n) / 100), a.unit);
@@ -339,6 +380,11 @@ function scaleDur(d: { secs: number; months: number }, k: number): CalcValue {
 }
 
 function mul(a: CalcValue, b: CalcValue): CalcValue {
+  // 단가 × 길이 = 금액, 단가 × 수 = 단가
+  if (a.kind === "rate" && b.kind === "dur") return num(a.n * ratio(b, a.per), a.unit);
+  if (a.kind === "dur" && b.kind === "rate") return num(b.n * ratio(a, b.per), b.unit);
+  if (a.kind === "rate" && b.kind === "num" && !b.unit) return { ...a, n: a.n * b.n };
+  if (a.kind === "num" && !a.unit && b.kind === "rate") return { ...b, n: b.n * a.n };
   if (a.kind === "num" && b.kind === "num") {
     if (a.unit === "%" && b.unit === "%") fail();
     if (a.unit === "%") return num((b.n * a.n) / 100, b.unit);
@@ -352,6 +398,10 @@ function mul(a: CalcValue, b: CalcValue): CalcValue {
 }
 
 function div(a: CalcValue, b: CalcValue): CalcValue {
+  if (a.kind === "rate" && b.kind === "num" && !b.unit) {
+    if (b.n === 0) fail();
+    return { ...a, n: a.n / b.n };
+  }
   if (a.kind === "num" && b.kind === "num") {
     if (b.n === 0) fail();
     if (b.unit === "%") return a.unit === "%" ? num(a.n / b.n) : num(a.n / (b.n / 100), a.unit);
@@ -421,6 +471,13 @@ class Parser {
       const times = this.isOp("*");
       this.i++;
       this.computed = true;
+      // `10,000원/시간` — 숫자 없는 단위로 나누면 단가
+      const unit = this.peek();
+      if (!times && unit?.t === "dur") {
+        this.i++;
+        v = toRate(v, { secs: unit.secs, months: unit.months });
+        continue;
+      }
       const r = this.unary();
       v = times ? mul(v, r) : div(v, r);
     }
@@ -456,7 +513,8 @@ class Parser {
     const t = this.peek();
     if (!t) return false;
     if (t.t === "op") return t.v === "(";
-    return ["num", "isodate", "var", "rel", "agg", "curp"].includes(t.t);
+    if (t.t === "dur") return this.peek(1)?.t === "per";
+    return ["num", "isodate", "var", "rel", "agg", "curp", "rateword"].includes(t.t);
   }
 
   /** 값 하나 + 뒤 꾸밈(`%`, `후`, `까지`, `의 20%`). 이어 쓴 값이 있으면 앞의 「오늘」 같은 말은 이름표로 본다 */
@@ -520,6 +578,22 @@ class Parser {
       case "var":
         a = { v: t.value, soft: false, computed: true };
         break;
+      case "rateword":
+        // `시급 10,000원` — 뒤 금액을 단가로
+        a = { v: toRate(this.atom().v, t.per), soft: false, computed: true };
+        break;
+      case "dur": {
+        // `시간당 10,000원`
+        // 숫자 없이 홀로 쓴 단위 낱말(`주 5일이면`의 `주`)은 이름표로 본다
+        if (this.peek()?.t !== "per") return this.atom();
+        this.i++;
+        a = {
+          v: toRate(this.atom().v, { secs: t.secs, months: t.months }),
+          soft: false,
+          computed: true,
+        };
+        break;
+      }
       case "agg": {
         const v = this.ctx.aggregate?.(t.v);
         if (!v) fail();
@@ -664,6 +738,20 @@ function fmtDur(secs: number, months: number): string {
   return (neg ? "-" : "") + parts.join(" ");
 }
 
+const PERIOD_NAMES: [Period, string][] = [
+  [{ secs: 1, months: 0 }, "초"],
+  [{ secs: 60, months: 0 }, "분"],
+  [{ secs: 3600, months: 0 }, "시간"],
+  [{ secs: DAY, months: 0 }, "일"],
+  [{ secs: 7 * DAY, months: 0 }, "주"],
+  [{ secs: 0, months: 1 }, "월"],
+  [{ secs: 0, months: 12 }, "년"],
+];
+
+function periodName(p: Period): string {
+  return PERIOD_NAMES.find(([q]) => samePeriod(p, q))?.[1] ?? fmtDur(p.secs, p.months);
+}
+
 /** 결과를 글로. 통화는 원 = 정수, $·€ = 소수 둘째 자리, 그 밖은 넷째 자리까지 */
 export function formatValue(v: CalcValue, today: number): string {
   if (v.kind === "date") {
@@ -673,6 +761,8 @@ export function formatValue(v: CalcValue, today: number): string {
     return `${year}${m}월 ${d}일 (${wd})`;
   }
   if (v.kind === "dur") return fmtDur(v.secs, v.months);
+  if (v.kind === "rate")
+    return `${formatValue({ kind: "num", n: v.n, unit: v.unit }, today)}/${periodName(v.per)}`;
   switch (v.unit) {
     case "원":
       return `${fmtNumber(Math.round(v.n), 0)}원`;

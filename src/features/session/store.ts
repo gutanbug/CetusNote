@@ -47,6 +47,8 @@ export type EditorPrefs = {
   dimChecked: boolean;
   /** 계산 줄(EDIT-38): 줄 끝 `=`에 계산 결과를 보여 준다 */
   calc: boolean;
+  /** 계산 결과를 본문 오른쪽 끝에 맞춘다 */
+  calcRight: boolean;
 };
 
 export const DEFAULT_EDITOR: EditorPrefs = {
@@ -54,6 +56,7 @@ export const DEFAULT_EDITOR: EditorPrefs = {
   spellcheck: true,
   dimChecked: true,
   calc: true,
+  calcRight: false,
 };
 
 function readEditor(raw: unknown): EditorPrefs {
@@ -63,6 +66,7 @@ function readEditor(raw: unknown): EditorPrefs {
     spellcheck: e.spellcheck !== false,
     dimChecked: e.dimChecked !== false,
     calc: e.calc !== false,
+    calcRight: e.calcRight === true,
   };
 }
 

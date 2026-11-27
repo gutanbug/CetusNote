@@ -31,6 +31,25 @@ const cpuProfileStop = async (_ctx: unknown, out: string) => {
   cdp = null;
 };
 
+/** 입력기 조합 흉내 (EDIT-38 계산 줄 한글 입력 확인) — 실제 브라우저의 조합 경로(compositionstart/update/end)를 탄다 */
+type PageCtx = { page: { context(): { newCDPSession(p: unknown): Promise<CdpSession> } } };
+const imeSession = async (ctx: unknown) => {
+  const page = (ctx as PageCtx).page;
+  return page.context().newCDPSession(page);
+};
+const imeCompose = async (ctx: unknown, text: string) => {
+  const s = await imeSession(ctx);
+  await s.send("Input.imeSetComposition", {
+    text,
+    selectionStart: text.length,
+    selectionEnd: text.length,
+  });
+};
+const imeCommit = async (ctx: unknown, text: string) => {
+  const s = await imeSession(ctx);
+  await s.send("Input.insertText", { text });
+};
+
 const EMOJIBASE_FILES = ["ko/data.json", "ko/messages.json"];
 function emojibaseLocal(): Plugin {
   const require = createRequire(import.meta.url);
@@ -134,7 +153,7 @@ export default defineConfig(() => ({
             headless: true,
             provider: playwright({}),
             // 성능 측정(SYS-11, typing-perf.browser.spec.tsx)용 CPU 프로파일 — 테스트가 부를 때만 켠다
-            commands: { cpuProfileStart, cpuProfileStop },
+            commands: { cpuProfileStart, cpuProfileStop, imeCompose, imeCommit },
             instances: [
               {
                 browser: "chromium",

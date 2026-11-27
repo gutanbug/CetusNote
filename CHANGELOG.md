@@ -10,11 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Calculation lines: end a line with `=` to see its result, then press Tab to insert it. Name values (`rent = 650,000원`) and use them below; works with won/dollar amounts, percentages, durations, dates, and running totals.
+- Calculation lines handle rates: `시급 10,000원 × 8시간`, `10,000원/시간 × 90분`, `월급 3,000,000원 × 6개월`. An option in Settings › Editor lines results up on the right like a receipt.
 - Settings has a new Agent / MCP tab with a connection badge that shows whether an AI tool is connected to this workspace.
+
+### Changed
+
+- MCP Markdown now matches the app export for toggles, toggle headings, columns, callouts, tables, math, date chips and page links, both when reading pages and when writing them.
+- The math renderer (KaTeX) loads only when a page with equations is shown, so the app starts with less code. Equations show their LaTeX source in a muted style for a moment until it loads.
 
 ### Fixed
 
+- Long pages open faster: code blocks with abbreviated languages (`ts`, `py`) are saved with the list name when the page loads, so opening no longer runs a fix-up pass over every block.
+- Slash commands such as Callout now work inside lists, quotes, toggles and other blocks.
 - Updating always installs the newest release, even when a newer one came out after the app last checked.
+- Markdown shortcuts: inside list items, task items, and other places where the first line can't change in place, block shortcuts (`#`, `-`, `1.`, `[ ]`, `>`, `>>`, `:::`, code fences, `$$$`) now turn the item into the block instead of leaving literal text or a broken structure.
+- Typing Korean on a calculation line no longer risks interrupting the input method: results stay put while a syllable is being composed and update when it is done.
+- Picking a block command such as Callout on an empty list item turns the item into that block instead of leaving an empty bullet. `---` inside a list item makes a divider below the list.
+- Inline math typed as `$$x$$` works again.
+- Inline marks (`**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `==highlight==`) now apply when they directly follow Korean text, such as `가**나**다`.
 
 ## [0.1.7] - 2026-11-27
 

@@ -739,6 +739,7 @@ function RecordBody({ page }: { page: Page }) {
         spellCheck={prefs.spellcheck}
         dimChecked={prefs.dimChecked}
         calc={prefs.calc}
+        calcRight={prefs.calcRight}
       />
     </div>
   );

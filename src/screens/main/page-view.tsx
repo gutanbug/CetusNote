@@ -30,6 +30,7 @@ import { OutlineItems } from "@/components/ui/outline";
 import { docToMarkdown, type MdNode } from "@/features/export";
 import { toast } from "@/components/ui/toast";
 import type { JSONContent } from "@tiptap/core";
+import { normalizeDocCodeLanguages } from "@/lib/code-language";
 import * as React from "react";
 import {
   ancestors,
@@ -134,7 +135,9 @@ export function PageView({ page }: { page: Page }) {
   // 본문 에디터 (SYS-11): 에디터는 처음 받은 본문으로 만들어지고 그 뒤로는 스스로 문서를 갖는다.
   // 그래서 처음 본문과 고정된 콜백만 넘겨, 글자를 칠 때(페이지 객체가 바뀔 때) 에디터 쪽은 다시 그리지 않는다.
   // 바깥 변경·기록 복원은 부르는 쪽이 key로 이 화면을 새로 만든다
-  const [initialContent] = React.useState(() => page.content as JSONContent);
+  const [initialContent] = React.useState(() =>
+    normalizeDocCodeLanguages(page.content as JSONContent),
+  );
   const onBodyChange = React.useCallback(
     (content: JSONContent) => update(pageId, { content: content as Page["content"] }),
     [update, pageId],
@@ -342,6 +345,7 @@ export function PageView({ page }: { page: Page }) {
                 spellCheck={editorPrefs.spellcheck}
                 dimChecked={editorPrefs.dimChecked}
                 calc={editorPrefs.calc}
+                calcRight={editorPrefs.calcRight}
                 onEditor={setFindEditor}
                 copyAsText={copyAsMarkdown}
               />

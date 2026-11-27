@@ -70,6 +70,7 @@ describe("createSessionStore (SHELL-01, SHELL-05)", () => {
       spellcheck: false,
       dimChecked: true,
       calc: true,
+      calcRight: false,
     });
     const c = createSessionStore(storage, { delay: 10 });
     await c.getState().load("/other");

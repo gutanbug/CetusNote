@@ -3,6 +3,7 @@ import {
   evaluate,
   formatValue,
   isReservedWord,
+  ratePeriodOf,
   todayOf,
   type CalcValue,
 } from "./eval";
@@ -14,7 +15,12 @@ const NAME_RE = /^[\p{L}_][\p{L}\p{N}_]*(?: [\p{L}\p{N}_]+)*$/u;
 
 /** `이름 = 식`의 이름이 될 수 있는가 — 낱말(띄어쓰기 허용)만, 단위·날짜 말은 안 된다 */
 export function isCalcName(text: string): boolean {
-  return text.length <= 40 && NAME_RE.test(text) && !isReservedWord(text);
+  // 시급·월급 같은 단가 이름은 쓸 수 있다(정한 값이 단가가 된다)
+  return (
+    text.length <= 40 &&
+    NAME_RE.test(text) &&
+    (!isReservedWord(text) || ratePeriodOf(text) !== null)
+  );
 }
 
 type Parsed = { kind: "query" | "define"; name: string | null; expr: string } | { kind: "plain" };
@@ -59,6 +65,8 @@ export function evaluateLines(
   /** 줄의 값(합계용). undefined = 아직 모름 */
   const values: (CalcValue | null | undefined)[] = new Array(lines.length);
   const aggLine: boolean[] = new Array<boolean>(lines.length).fill(false);
+  /** `이름 = 값`만 있는 줄 — 값을 정하는 줄이라 합계에 넣지 않고 거기서 끊는다 */
+  const defineLine: boolean[] = new Array<boolean>(lines.length).fill(false);
 
   const loose = (j: number): CalcValue | null => {
     if (values[j] !== undefined) return values[j]!;
@@ -72,11 +80,11 @@ export function evaluateLines(
     return values[j]!;
   };
 
-  /** 바로 위 줄들 — 빈 줄, 값이 없는 줄, 다른 합계 줄에서 멈춘다 */
+  /** 바로 위 줄들 — 빈 줄, 값이 없는 줄, 다른 합계 줄, 이름을 정하는 줄에서 멈춘다 */
   const aggregate = (i: number, kind: "sum" | "avg"): CalcValue | null => {
     const items: CalcValue[] = [];
     for (let j = i - 1; j >= 0; j--) {
-      if (!lines[j]!.trim() || aggLine[j]) break;
+      if (!lines[j]!.trim() || aggLine[j] || defineLine[j]) break;
       const v = loose(j);
       if (!v) break;
       items.unshift(v);
@@ -87,11 +95,21 @@ export function evaluateLines(
   for (let i = 0; i < lines.length; i++) {
     const p = parseLine(lines[i]!);
     if (p.kind === "plain") continue;
+    if (p.kind === "define") defineLine[i] = true;
     const r = evaluate(p.expr, { today, vars, aggregate: (kind) => aggregate(i, kind) });
-    values[i] = r?.value ?? null;
-    if (!r) continue;
+    if (!r) {
+      values[i] = null;
+      continue;
+    }
     aggLine[i] = r.usesAggregate;
-    if (p.name) vars.set(p.name, r.value);
+    if (p.name) {
+      // `시급 = 10,000원` → 단가(10,000원/시간)로 기억한다
+      const per = ratePeriodOf(p.name);
+      if (per && r.value.kind === "num" && r.value.unit !== "%")
+        r.value = { kind: "rate", n: r.value.n, unit: r.value.unit, per };
+      vars.set(p.name, r.value);
+    }
+    values[i] = r.value;
     if (p.kind === "query" && (r.computed || p.name))
       out[i] = { value: r.value, text: formatValue(r.value, today) };
   }

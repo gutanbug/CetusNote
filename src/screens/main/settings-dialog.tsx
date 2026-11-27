@@ -197,6 +197,19 @@ function Editor() {
           onCheckedChange={(calc) => set({ calc })}
         />
       </SettingsRow>
+      <SettingsRow
+        name="계산 결과 오른쪽에 맞추기"
+        description="결과를 줄 오른쪽 끝에 모아 계산서처럼 보여 줘요. 끄면 = 바로 뒤에 보여요."
+        controlId="calc-right"
+      >
+        <Switch
+          id="calc-right"
+          aria-describedby="calc-right-desc"
+          checked={e.calcRight}
+          disabled={!e.calc}
+          onCheckedChange={(calcRight) => set({ calcRight })}
+        />
+      </SettingsRow>
       <RecordOpenRow />
       <SettingsRow
         name="마크다운 단축 입력"
