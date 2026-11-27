@@ -81,6 +81,7 @@ export function createTauriStorage(): Storage {
       return normalizeWorkspace(raw, status.workspace?.name);
     },
     writeWorkspace: (value) => writeCall("workspace_write", { value }),
+    appendQuickNote: (note) => writeCall("quick_note_append", { note }),
     loadPages: async () => normalizeLoaded(await call("pages_load_all")),
     loadPageMeta: async () => normalizeLoaded(await call("pages_load_meta")),
     readPages: async (ids) => normalizeLoaded(await call("pages_read", { ids })),

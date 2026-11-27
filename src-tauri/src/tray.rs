@@ -156,6 +156,13 @@ pub fn show_main<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// 메인 창을 연다 (QN-03·SYS-16). 빠른 입력 창이 페이지를 열 때, 알림 「열기」를 누를 때 부른다.
+/// 메뉴 막대에 숨어 있어도 창을 보이게 하고 앞으로 가져온다
+#[tauri::command]
+pub fn main_window_show(app: AppHandle) {
+    show_main(&app);
+}
+
 /// 트레이 핸들 (테스트·확장용)
 #[allow(dead_code)]
 pub fn icon<R: Runtime>(app: &AppHandle<R>) -> Option<TrayIcon<R>> {

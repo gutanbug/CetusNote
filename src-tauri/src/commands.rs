@@ -541,6 +541,13 @@ pub fn workspace_write(
     })
 }
 
+/// 빠른 메모 추가 (QN-03). 빠른 입력 창이 쓴다. 읽기와 쓰기를 같은 잠금 안에서 해서
+/// 메인 창의 메타 쓰기와 겹쳐도 다른 쪽 메모가 지워지지 않는다
+#[tauri::command]
+pub fn quick_note_append(state: State<AppState>, note: Value, ws_token: u64) -> Result<()> {
+    with_workspace_token(&state, ws_token, |ws| ws.append_quick_note(&note))
+}
+
 /// 알림 목록 (SYS-16): 워크스페이스의 `reminders.json`. 없으면 `None`
 #[tauri::command]
 pub fn reminders_read(state: State<AppState>) -> Result<Option<Value>> {

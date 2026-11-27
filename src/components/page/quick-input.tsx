@@ -103,7 +103,9 @@ export function QuickInput(props: QuickInputProps) {
     if (e.key === "Enter") {
       e.preventDefault();
       const selected = showResults && activeIndex >= 0 ? results[activeIndex] : undefined;
-      if (selected && !(e.metaKey || e.ctrlKey)) props.onOpenResult(selected.id);
+      // ⌥Enter: 선택한 페이지에 칩의 알림을 붙인다 (벨 버튼을 키보드로 쓰는 길)
+      if (selected && e.altKey) props.onAttachResult(selected.id);
+      else if (selected && !(e.metaKey || e.ctrlKey)) props.onOpenResult(selected.id);
       else props.onSubmit(e.metaKey || e.ctrlKey ? "page" : "note");
     }
   };
@@ -113,12 +115,26 @@ export function QuickInput(props: QuickInputProps) {
       e.preventDefault();
       e.stopPropagation();
       closeMenu();
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+      const i = items.indexOf(document.activeElement as HTMLElement);
+      const n = items.length;
+      const next =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? n - 1
+            : (i + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+      items[next]?.focus();
     }
   };
 
   return (
     <div className="flex w-full flex-col overflow-hidden rounded-xl bg-elevated shadow-modal">
-      <div className="flex h-18 items-center gap-3 px-4">
+      <div className="flex h-18 items-center gap-3 rounded-xl px-4 has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-accent-soft has-[input:focus-visible]:ring-inset">
         <span aria-hidden className="size-5 shrink-0 rounded-full bg-accent" />
         <input
           type="text"
@@ -216,7 +232,7 @@ export function QuickInput(props: QuickInputProps) {
             ))}
           </ul>
           {chip ? (
-            <div className="flex shrink-0 flex-col pl-1" aria-hidden={false}>
+            <div className="flex shrink-0 flex-col pl-1">
               {results.map((r) => (
                 <IconButton
                   key={r.id}

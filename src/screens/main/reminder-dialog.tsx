@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { REMINDER_COPY, remindersStore, type StoreDue } from "@/features/reminders";
 import { openPageLink } from "./actions";
+import { useMainUi } from "./ui-store";
+import { showMainWindow } from "@/lib/storage/window";
 import {
   dismissDue,
   setDueOpen,
@@ -80,7 +82,15 @@ function DueRemindersDialog() {
     dismissDue(id);
   };
   const openTarget = (item: StoreDue) => {
-    if (item.rem.target.type === "page") openPageLink(item.rem.target.id);
+    // 메뉴 막대에 숨어 있어도 메인 창을 먼저 보인다 (SYS-16)
+    void showMainWindow();
+    const target = item.rem.target;
+    if (target.type === "page") openPageLink(target.id);
+    // 빠른 메모 대상은 메모 팝오버를 열고 그 메모를 보여 주며 강조한다 (SYS-16)
+    else if (target.type === "quickNote") {
+      useMainUi.getState().setQuickNoteFocusId(target.id);
+      useMainUi.getState().setQuickNoteOpen(true);
+    }
     dismissDue(item.rem.id);
   };
   return (
@@ -97,7 +107,7 @@ function DueRemindersDialog() {
                 <span className="min-w-0 truncate text-primary">{item.title}</span>
                 <span className="shrink-0 text-caption text-tertiary">{item.when}</span>
               </div>
-              <div className="flex flex-wrap gap-1">
+              <div role="group" aria-label={item.title} className="flex flex-wrap gap-1">
                 <Button
                   type="button"
                   variant="ghost"

@@ -35,6 +35,9 @@ export type StoreSchedulerDeps = {
   fired: FiredStore;
   /** OS 알림을 보내지 못했을 때 앱 안에서 알린다 */
   onFallback?(items: StoreDue[]): void;
+  /** 메인 창이 떠 있어 사용자가 보고 있을 때 울린 알림. 있으면 OS 알림 대신 이것을 부른다 */
+  isFocused?(): boolean;
+  onFocused?(items: StoreDue[]): void;
   /** 앱이 꺼져 있던 동안 지난 알림 (한 번씩) */
   onMissed?(items: StoreDue[]): void;
 };
@@ -125,6 +128,11 @@ export class StoreReminderScheduler {
   }
 
   private async deliver(item: StoreDue): Promise<void> {
+    // 보고 있는 창에는 OS 알림 대신 앱 안 대화상자(미루기·완료·열기)를 올린다
+    if (this.deps.isFocused?.() && this.deps.onFocused) {
+      this.deps.onFocused([item]);
+      return;
+    }
     const perm = await this.deps.permission();
     if (perm === "granted") {
       const result = await this.deps

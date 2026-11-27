@@ -3,7 +3,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Kbd } from "@/components/ui/kbd";
 import { fieldFocus } from "@/components/ui/styles";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Trash2, X } from "lucide-react";
+import { ArrowRight, Bell, Trash2, X } from "lucide-react";
 import * as React from "react";
 import { useMessages } from "@/lib/i18n";
 
@@ -12,6 +12,8 @@ export type QuickNoteItem = {
   text: string;
   /** 보여 줄 시각 — 예: "3분 전" */
   when: string;
+  /** 이 메모에 걸린 다음 알림 시각 — 예: "오늘 15:00". 없으면 줄을 두지 않는다 (SYS-16) */
+  remindWhen?: string;
 };
 
 type QuickNoteProps = {
@@ -22,6 +24,10 @@ type QuickNoteProps = {
   /** 페이지로 올리기 (QN-02) */
   onPromote: (id: string) => void;
   onDelete: (id: string) => void;
+  /** 메모의 알림 고르기 (SYS-16). 없으면 종 버튼을 그리지 않는다 */
+  onRemind?: (id: string) => void;
+  /** 강조할 메모 id (알림 대화상자 「열기」로 들어왔을 때) */
+  highlightId?: string | null;
   onClose?: () => void;
   className?: string;
 };
@@ -30,7 +36,16 @@ type QuickNoteProps = {
  * PG-QuickNote — 빠른 메모 패널 (프로토타입 `.qnote`, 320px).
  * 머리 · 입력(⌘↵ 저장) · 메모 목록(페이지로 · 삭제). 감싸는 팝오버는 부르는 쪽이 둔다.
  */
-function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: QuickNoteProps) {
+function QuickNote({
+  notes,
+  onSave,
+  onPromote,
+  onDelete,
+  onRemind,
+  highlightId,
+  onClose,
+  className,
+}: QuickNoteProps) {
   const m = useMessages();
   const [draft, setDraft] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -66,7 +81,7 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
           {m.page.quickNote.title}
         </h2>
         {onClose ? (
-          <IconButton label={m.page.quickNote.close} noTooltip onClick={onClose}>
+          <IconButton label={m.page.quickNote.close} onClick={onClose}>
             <X strokeWidth={1.5} />
           </IconButton>
         ) : null}
@@ -106,14 +121,30 @@ function QuickNote({ notes, onSave, onPromote, onDelete, onClose, className }: Q
             {notes.map((n) => (
               <li
                 key={n.id}
-                className="group/qn grid gap-1 rounded-lg p-2 transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover"
+                data-note-id={n.id}
+                data-focused={highlightId === n.id ? "" : undefined}
+                className={cn(
+                  "group/qn grid gap-1 rounded-lg p-2 transition-colors duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
+                  highlightId === n.id && "bg-hover",
+                )}
               >
                 <p className="text-ui leading-relaxed wrap-anywhere whitespace-pre-wrap text-primary">
                   {n.text}
                 </p>
+                {n.remindWhen ? (
+                  <span className="inline-flex items-center gap-1 text-label text-secondary">
+                    <Bell className="size-3.5" strokeWidth={1.5} aria-hidden />
+                    {n.remindWhen}
+                  </span>
+                ) : null}
                 <div className="flex items-center gap-1">
                   <span className="flex-1 text-label text-tertiary">{n.when}</span>
                   <div className="flex items-center gap-1 opacity-0 transition-opacity duration-(--dur-fast) group-focus-within/qn:opacity-100 group-hover/qn:opacity-100 force-hover:opacity-100">
+                    {onRemind ? (
+                      <IconButton label={m.page.quickNote.remind} onClick={() => onRemind(n.id)}>
+                        <Bell strokeWidth={1.5} />
+                      </IconButton>
+                    ) : null}
                     <Button variant="ghost" size="sm" onClick={() => onPromote(n.id)}>
                       <ArrowRight strokeWidth={1.5} aria-hidden />
                       {m.page.quickNote.promote}

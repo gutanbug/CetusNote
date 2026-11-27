@@ -13,6 +13,7 @@ import { useSession } from "@/features/session";
 import { docStats, formatDocStats } from "@/features/pages/stats";
 import type { Page, PageFont } from "@/lib/storage";
 import {
+  Bell,
   Copy,
   Download,
   Printer,
@@ -100,6 +101,15 @@ export function PageMenu({
       </DropdownMenuItem>
       <DropdownMenuItem icon={<Link {...ic} />} onSelect={() => void copyPageLink(page.id)}>
         {m.screens.pageMenu.copyLink}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        icon={<Bell {...ic} />}
+        onSelect={() => {
+          // 메뉴가 닫히며 포커스를 되돌린 뒤에 패널을 연다(같은 프레임에 열면 포커스가 다시 빠진다)
+          window.setTimeout(() => useMainUi.getState().setPageReminderOpen(true), 0);
+        }}
+      >
+        {m.screens.pageMenu.reminder}
       </DropdownMenuItem>
       {doc ? (
         <DropdownMenuItem

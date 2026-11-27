@@ -119,7 +119,9 @@ pub fn run() {
             commands::reminders_write,
             prefs::app_prefs_apply,
             tray::tray_set_status,
+            tray::main_window_show,
             prefs::main_window_close,
+            commands::quick_note_append,
         ]);
 
     // 앱 업데이트 확인·설치 (SYS-07). 데스크톱 전용, 서명은 tauri.conf.json의 pubkey로 검증한다

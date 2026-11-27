@@ -10,4 +10,6 @@ permissions = [
   "allow-page-write",
   "allow-reminders-read",
   "allow-reminders-write",
+  "allow-quick-note-append",
+  "allow-main-window-show",
 ]

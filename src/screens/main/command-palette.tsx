@@ -14,6 +14,7 @@ import { useMeta } from "@/features/meta";
 import { markJump, sessionStore, useSession, type ThemePref } from "@/features/session";
 import {
   ArrowDownUp,
+  Bell,
   Copy,
   History,
   CornerDownLeft,
@@ -145,6 +146,13 @@ function useCommands(): Command[] {
         keywords: ["home", "dashboard", "대시보드", "할 일"], // i18n-ignore
         icon: House,
         run: () => ui.setView({ kind: "home" }),
+      },
+      {
+        id: "reminders",
+        title: m.screens.remindersView.paletteTitle,
+        keywords: ["reminder", "alarm", "timer", "알림", "타이머"], // i18n-ignore
+        icon: Bell,
+        run: () => ui.setView({ kind: "reminders" }),
       },
       {
         id: "new-tab",

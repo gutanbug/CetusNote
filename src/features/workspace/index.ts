@@ -4,6 +4,7 @@ import { createWorkspaceStore, type WorkspaceState } from "./store";
 import { metaStore } from "@/features/meta";
 import { pagesStore } from "@/features/pages";
 import { sessionStore } from "@/features/session";
+import { remindersStore } from "@/features/reminders";
 import { createWorkspaceWriteGuard } from "@/features/app/write-guard";
 
 export {
@@ -26,6 +27,12 @@ export const workspaceStore = createWorkspaceStore(getStorage(), {
     session: sessionStore,
     meta: metaStore,
   }),
+  // 알림 쓰기를 옛 워크스페이스에 마친 뒤 비운다 (SYS-16). 실패해도 전환은 계속한다
+  beforeSwitch: () =>
+    remindersStore
+      .getState()
+      .reset()
+      .catch(() => undefined),
 });
 
 export function useWorkspace<T>(select: (s: WorkspaceState) => T): T {

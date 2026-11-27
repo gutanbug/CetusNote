@@ -12,6 +12,7 @@ import { CommandPalette } from "./command-palette";
 import { HomeView } from "./home-view";
 import { PageView } from "./page-view";
 import { TagView } from "./tag-view";
+import { RemindersView } from "./reminders-view";
 import { SettingsDialog } from "./settings-dialog";
 import { useMainUi } from "./ui-store";
 import { visibleIds } from "./palette-model";
@@ -231,6 +232,8 @@ export function MainScreen() {
               <HomeView />
             ) : view.kind === "tag" ? (
               <TagView tag={view.tag} />
+            ) : view.kind === "reminders" ? (
+              <RemindersView />
             ) : page && !bodyReady ? null : page && page.kind === "page" ? (
               <ActivePage key={`${page.id}:${contentEpoch}:${externalRev}`} id={page.id} />
             ) : page && page.kind === "collection" ? (

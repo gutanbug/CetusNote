@@ -22,6 +22,11 @@ export async function destroyCurrentWindow(): Promise<void> {
 }
 
 /** 빠른 입력 창을 숨긴다 (Esc·저장 뒤). 권한: core:window:allow-hide */
+/** 메인 창을 보이게 하고 앞으로 가져온다 (QN-03·SYS-16). 메뉴 막대에 숨어 있어도 연다 */
+export async function showMainWindow(): Promise<void> {
+  await invoke("main_window_show");
+}
+
 export async function hideCurrentWindow(): Promise<void> {
   await getCurrentWindow().hide();
 }

@@ -66,6 +66,8 @@ const COMMANDS: &[&str] = &[
     "app_prefs_apply",
     "main_window_close",
     "tray_set_status",
+    "main_window_show",
+    "quick_note_append",
 ];
 
 fn main() {

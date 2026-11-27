@@ -237,6 +237,7 @@ export const screens = {
     },
   },
   pageMenu: {
+    reminder: "알림…",
     favoriteAdd: "즐겨찾기에 추가",
     favoriteRemove: "즐겨찾기에서 빼기",
     openInNewTab: "새 탭에서 열기",
@@ -350,10 +351,17 @@ export const screens = {
     view: "보기",
     missedDesc: "앱이 꺼져 있던 동안 지난 날짜 알림이에요.",
   },
+  remindersView: {
+    sidebarLabel: "알림",
+    paletteTitle: "알림 보기",
+    title: "알림",
+    subtitle: "페이지와 빠른 메모에 건 알림과 타이머예요.",
+    quickNote: "빠른 메모",
+  },
   quickInput: {
     label: "빠른 입력",
     placeholder: "메모를 입력하고 Enter를 누르세요",
-    hint: "Enter 저장 · ⌘Enter 새 페이지 · Esc 닫기",
+    hint: "Enter 저장 · ⌘Enter 새 페이지 · ⌥Enter 선택한 페이지에 알림 · Esc 닫기",
     alarmButton: "알림 설정",
     menuLabel: "알림 시각 고르기",
     chipIgnore: "알림 시각 무시",

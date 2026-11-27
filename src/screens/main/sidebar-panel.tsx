@@ -1,4 +1,5 @@
 import { PageIcon } from "@/components/ui/page-icon";
+import { RemindersSidebarItem } from "./reminders-view";
 import { TrashPopover, type TrashItem } from "@/components/page/trash-popover";
 import { PageTree, type PageNode } from "@/components/shell/page-tree";
 import type { DropPosition } from "@/components/shell/drop-indicator";
@@ -403,6 +404,7 @@ function SidebarPanelImpl({ hidden = false }: { hidden?: boolean }) {
             aria-current={view.kind === "home" ? "page" : undefined}
             onClick={() => useMainUi.getState().setView({ kind: "home" })}
           />
+          <RemindersSidebarItem active={view.kind === "reminders"} />
           <SidebarItem
             icon={Search}
             label={m.screens.sidebar.search}

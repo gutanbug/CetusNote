@@ -101,7 +101,7 @@ export function ReminderPicker({
           autoFocus
         />
         {trimmed ? (
-          <p className="text-caption text-secondary" aria-live="polite">
+          <p className="text-caption text-secondary">
             {preview ? `${copy.previewPrefix} ${preview.when}` : copy.noTime}
           </p>
         ) : null}

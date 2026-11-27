@@ -68,4 +68,6 @@ permissions = [
   "allow-app-prefs-apply",
   "allow-main-window-close",
   "allow-tray-set-status",
+  "allow-main-window-show",
+  "allow-quick-note-append",
 ]

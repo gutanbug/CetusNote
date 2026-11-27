@@ -2,7 +2,8 @@ import type { SettingsTab } from "@/components/page/options";
 import { create } from "zustand";
 
 /** 오른쪽에 무엇을 보이나 — 열린 문서(page) · 홈(SHELL-13) · 태그별 문서(tag) */
-export type MainView = { kind: "page" } | { kind: "home" } | { kind: "tag"; tag: string };
+export type MainView =
+  { kind: "page" } | { kind: "home" } | { kind: "tag"; tag: string } | { kind: "reminders" };
 
 /** 메인 화면의 잠깐 열리는 것들(저장하지 않는다) */
 export const useMainUi = create<{
@@ -33,6 +34,12 @@ export const useMainUi = create<{
   /** 빠른 메모 팝오버 (QN-01) */
   quickNoteOpen: boolean;
   setQuickNoteOpen(open: boolean): void;
+  /** 알림 대화상자 「열기」로 빠른 메모를 열 때 강조할 메모 id (SYS-16) */
+  quickNoteFocusId: string | null;
+  setQuickNoteFocusId(id: string | null): void;
+  /** 상단 바 알림 버튼 패널 — 페이지 메뉴 「알림…」도 같은 패널을 연다 (SYS-16) */
+  pageReminderOpen: boolean;
+  setPageReminderOpen(open: boolean): void;
   /** 컬렉션 화면이 열리면 바로 상세로 띄울 레코드 (최근 항목에서 보드 카드를 눌렀을 때) */
   recordToOpen: string | null;
   setRecordToOpen(id: string | null): void;
@@ -65,6 +72,10 @@ export const useMainUi = create<{
   setFocusMode: (focusMode) => set({ focusMode }),
   quickNoteOpen: false,
   setQuickNoteOpen: (quickNoteOpen) => set({ quickNoteOpen }),
+  quickNoteFocusId: null,
+  setQuickNoteFocusId: (quickNoteFocusId) => set({ quickNoteFocusId }),
+  pageReminderOpen: false,
+  setPageReminderOpen: (pageReminderOpen) => set({ pageReminderOpen }),
   recordToOpen: null,
   setRecordToOpen: (recordToOpen) => set({ recordToOpen }),
   printId: null,

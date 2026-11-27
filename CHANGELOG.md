@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reminders view: a 「Reminders」 sidebar item (badge = today's and overdue reminders) opens a list grouped into running timers, overdue, today, tomorrow, this week, later, repeating and recently done. Each row opens its page or quick note and can be snoozed (10 min, 1 hour, tomorrow 9:00), completed, stopped (timers) or deleted. Arrow keys move between rows. The command palette has 「Show reminders」. (SYS-16)
+- Quick-note reminders: each quick note has a bell to set a reminder, and its next reminder time shows under the note. The page menu has a 「Reminder…」 item that opens the same picker as the top-bar bell. A reminder that fires while the window is in use opens the due dialog (snooze, done, open) instead of an OS notification. Opening a quick-note reminder from the dialog reveals and highlights that note. (SYS-16, QN-03)
+- Fixed: saving the main window no longer overwrites quick notes added by the quick-input window, and notes deleted in the main window stay deleted. (QN-03)
 - Page reminders: a bell button in the page top bar opens a picker to set an alarm (natural language, quick times, 25/50-minute timers, date and time with daily, weekday, weekly or monthly repeat) and lists and removes the page's reminders. A dot marks pages with active reminders. (SYS-16)
 - Reminder foundation: alarms and timers are stored per workspace in `reminders.json`, with repeat rules (daily, weekdays, weekly, monthly), snooze, and a parser that reads time phrases in Korean and English from a quick-input sentence. The scheduler and the reminder UI are not connected yet. (SYS-16)
 - Reminders are now scheduled: due reminders send an OS notification (or an in-app dialog when notifications are off), reminders missed while the app was closed are listed on the next start, and the due dialog offers 10 min, 1 hour, tomorrow 9:00, done, and open. Reminders are included in workspace backups. (SYS-16)
@@ -17,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Launch at login (off by default) in Settings. (SYS-15)
 - Settings › General › 빠른 입력 · 메뉴 막대 gathers the menu bar, launch-at-login, a quick input shortcut recorder (⌘Space and ⌥Space are refused), and an optional double-tap of ⌃, ⇧ or ⌘ (macOS, needs Accessibility permission). (SYS-15, QN-03)
 - A running timer's remaining time shows next to the menu bar icon and in the menu's top line (mm:ss, or h:mm:ss past an hour). (SYS-16)
+- Quick input: ⌥Enter attaches the chip's reminder to the selected page from the keyboard, the same as the bell button. (QN-03)
+- Opening a page from the quick input or a due reminder brings the hidden main window forward first. (QN-03, SYS-16)
 - Calendar: drag a record bar to move its dates (Esc cancels), drag its left or right edge to change only the start or due date, drag across empty days to create a record for that range, Alt+←/→ and Alt+Shift+←/→ on a focused bar, and a Week view next to Month. (COLL-04)
 - Collection start date: a built-in 시작/Start property next to Due. The calendar draws each record from its start to its due date as connected bars across weeks, with overlapping bars in separate rows and a "+N" overflow; a record with only one date shows as a single-day bar. Existing pages open unchanged. (COLL-01, COLL-04)
 - English interface: Settings › General › Language (System, 한국어, English). Menus, dialogs, toasts, dates and native file dialogs follow the language; slash commands, the command palette and icon search match both Korean and English keywords. (SYS-14)
@@ -37,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Quick notes written from the quick input window are appended by the backend in one step, so they are no longer lost when the main window saves workspace settings at the same time. (QN-03)
+- Switching workspaces saves pending reminders to the old workspace before the switch. (SYS-16)
 - Board cards keep their properties (date, tags, owner) on one line. Long tags shrink and cut off, and an overdue date no longer adds a word that makes one card's row wrap differently from the next. Overdue dates keep their red icon, and the "overdue" word stays for screen readers. (COLL-03)
 - Table view keeps the title column at a fixed width, so long titles no longer push the other columns. Long titles are cut with an ellipsis, and the full title shows on hover. (COLL-02)
 - Long pages open faster: code blocks with abbreviated languages (`ts`, `py`) are saved with the list name when the page loads, so opening no longer runs a fix-up pass over every block.

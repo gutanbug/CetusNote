@@ -339,6 +339,12 @@ export const registry = {
     status: "implemented",
     priority: "P1",
   },
+  "PG-ReminderList": {
+    layer: "L5",
+    name: "알림 보기 목록",
+    status: "implemented",
+    priority: "P1",
+  },
   // L6 컬렉션 (COLL-01~06)
   "CL-Toolbar": {
     layer: "L6",

@@ -270,6 +270,11 @@ export interface Storage {
   createWorkspace(name: string): Promise<WorkspaceInfo | null>;
   readWorkspace(): Promise<WorkspaceMeta>;
   writeWorkspace(meta: WorkspaceMeta): Promise<void>;
+  /**
+   * 빠른 메모 한 개를 `quickNotes` 끝에 붙인다 (QN-03). 읽기·쓰기를 백엔드가 한 번에 해서
+   * 메인 창의 메타 쓰기와 겹쳐도 메모가 지워지지 않는다. 바깥에서 쓰는 빠른 입력 창이 쓴다
+   */
+  appendQuickNote(note: QuickNote): Promise<void>;
   loadPages(): Promise<LoadResult>;
   /**
    * 페이지 구조만 (SYS-10, ADR-022). 본문(content)은 읽지 않는다 — 돌려받은 content는 빈 문서이고,

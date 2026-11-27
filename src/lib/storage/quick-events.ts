@@ -1,4 +1,5 @@
 import { emit, listen } from "@tauri-apps/api/event";
+import { isTauri } from "./default";
 
 /**
  * 빠른 입력 창(QN-03)과 메인 창 사이의 알림 이름. 보내는 쪽과 듣는 쪽이 같은 이름을 쓴다.
@@ -9,6 +10,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 export type AppEventName = "quick://open-page" | "quick://changed" | "reminders://changed";
 
 export function emitAppEvent(name: AppEventName, payload?: unknown): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
   return emit(name, payload);
 }
 
@@ -16,5 +18,7 @@ export function listenAppEvent<T = unknown>(
   name: AppEventName,
   handler: (payload: T) => void,
 ): Promise<() => void> {
+  // 웹 미리보기·테스트에는 Tauri 이벤트가 없다
+  if (!isTauri()) return Promise.resolve(() => {});
   return listen<T>(name, (e) => handler(e.payload));
 }

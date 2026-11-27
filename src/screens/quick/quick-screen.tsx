@@ -16,7 +16,7 @@ import { parseReminderText } from "@/lib/reminder-parse";
 import { useMessages } from "@/lib/i18n";
 import { createPage, ulid, type Page, type QuickNote } from "@/lib/storage";
 import { getStorage } from "@/lib/storage/default";
-import { hideCurrentWindow, resizeCurrentWindow } from "@/lib/storage/window";
+import { hideCurrentWindow, resizeCurrentWindow, showMainWindow } from "@/lib/storage/window";
 import { matchHangul } from "@/lib/hangul";
 
 /**
@@ -262,8 +262,8 @@ export function QuickScreen() {
       target = { type: "page", id: page.id };
     } else if (text) {
       const note: QuickNote = { id: ulid(), text, createdAt: new Date().toISOString() };
-      const ws = await storage.readWorkspace();
-      await storage.writeWorkspace({ ...ws, quickNotes: [...ws.quickNotes, note] });
+      // 읽기·쓰기를 백엔드가 한 번에 한다 (메인 창의 메타 쓰기와 겹쳐도 메모가 지워지지 않는다)
+      await storage.appendQuickNote(note);
       target = { type: "quickNote", id: note.id };
     }
     if (s) {
@@ -295,6 +295,8 @@ export function QuickScreen() {
   }
 
   async function onOpenResult(id: string) {
+    // 메인 창이 숨어 있어도 열리도록 먼저 보인 뒤 페이지를 열어 달라고 한다
+    await showMainWindow();
     await emit("quick://open-page", { id });
     setValue("");
     await hideCurrentWindow();

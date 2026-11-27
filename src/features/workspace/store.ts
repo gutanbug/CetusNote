@@ -19,6 +19,11 @@ export class UnsavedChangesError extends Error {
 export type WorkspaceStoreOptions = {
   /** 워크스페이스를 바꾸기 전에 호출한다. false면 바꾸지 않고 UnsavedChangesError로 알린다 (DATA-03) */
   beforeChange?: () => Promise<boolean>;
+  /**
+   * 저장을 모두 끝낸 뒤, 워크스페이스 백엔드를 바꾸기 전에 한 번 부른다 (SYS-16).
+   * 알림 스토어를 비우면서 남은 쓰기를 옛 워크스페이스에 마친다
+   */
+  beforeSwitch?: () => Promise<void>;
 };
 
 /**
@@ -105,7 +110,7 @@ export function switchErrorMessage(name: string, e: unknown): string {
 
 export function createWorkspaceStore(
   storage: Storage,
-  { beforeChange }: WorkspaceStoreOptions = {},
+  { beforeChange, beforeSwitch }: WorkspaceStoreOptions = {},
 ) {
   return createStore<WorkspaceState>()((set, get) => {
     /** `change`가 저장을 끝내지 못해 바꾸지 않았을 때 돌려주는 값 */
@@ -127,6 +132,7 @@ export function createWorkspaceStore(
           set({ busy: null, unsaved: unsavedChoices(busy, run) });
           return UNSAVED;
         }
+        await beforeSwitch?.();
         const workspace = await run();
         // 대화상자를 취소하면 그대로 머문다
         if (workspace) advanceWorkspaceGeneration();

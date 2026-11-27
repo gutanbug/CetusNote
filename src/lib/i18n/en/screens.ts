@@ -237,6 +237,7 @@ export const screens: Messages["screens"] = {
     },
   },
   pageMenu: {
+    reminder: "Reminder…",
     favoriteAdd: "Add to favorites",
     favoriteRemove: "Remove from favorites",
     openInNewTab: "Open in new tab",
@@ -352,10 +353,17 @@ export const screens: Messages["screens"] = {
     view: "View",
     missedDesc: "Date reminders from while the app was closed.",
   },
+  remindersView: {
+    sidebarLabel: "Reminders",
+    paletteTitle: "Show reminders",
+    title: "Reminders",
+    subtitle: "Reminders and timers set on pages and quick notes.",
+    quickNote: "Quick note",
+  },
   quickInput: {
     label: "Quick input",
     placeholder: "Type a note and press Enter",
-    hint: "Enter save · ⌘Enter new page · Esc close",
+    hint: "Enter save · ⌘Enter new page · ⌥Enter attach reminder to selected page · Esc close",
     alarmButton: "Set alarm",
     menuLabel: "Pick an alarm time",
     chipIgnore: "Ignore alarm time",

@@ -446,6 +446,41 @@ impl Workspace {
         Ok(())
     }
 
+    /// 빠른 메모 한 개를 `workspace.json`의 `quickNotes` 끝에 붙인다 (QN-03).
+    /// 읽기·쓰기 사이에 다른 메타 쓰기가 끼지 않도록 호출하는 쪽이 워크스페이스 잠금을 잡은 채 부른다.
+    pub fn append_quick_note(&self, note: &Value) -> Result<()> {
+        let id = note.get("id").and_then(Value::as_str).unwrap_or("");
+        let text = note
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
+        if !note.is_object() || id.is_empty() || text.is_empty() {
+            return Err(StorageError::new(
+                "invalid_note",
+                "빠른 메모에는 id와 글이 필요해요",
+            ));
+        }
+        let mut meta = self.read_meta()?.unwrap_or_else(|| serde_json::json!({}));
+        let Some(obj) = meta.as_object_mut() else {
+            return Err(StorageError::new(
+                "invalid_workspace",
+                "workspace.json은 객체여야 해요",
+            ));
+        };
+        let notes = obj
+            .entry("quickNotes")
+            .or_insert_with(|| serde_json::json!([]));
+        let Some(list) = notes.as_array_mut() else {
+            return Err(StorageError::new(
+                "invalid_workspace",
+                "quickNotes는 배열이어야 해요",
+            ));
+        };
+        list.push(note.clone());
+        self.write_meta(&meta)
+    }
+
     /// `pages/*.json`을 모두 읽는다. 깨진 파일은 건너뛰고 `errors`에 모은다.
     pub fn load_all(&self) -> Result<LoadedPages> {
         let mut pages = Vec::new();
@@ -693,6 +728,51 @@ pub fn validate_page(page: &Value) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn quick_note_append_keeps_other_meta_and_earlier_notes() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join(PAGES_DIR)).unwrap();
+        fs::write(
+            root.join(WORKSPACE_FILE),
+            r#"{"name":"w","quickNotes":[{"id":"a","text":"first","createdAt":"2026-01-01T00:00:00Z"}],"pinned":["x"]}"#,
+        )
+        .unwrap();
+        let ws = Workspace::open(root.to_path_buf()).unwrap();
+        ws.append_quick_note(
+            &serde_json::json!({"id":"b","text":"second","createdAt":"2026-01-02T00:00:00Z"}),
+        )
+        .unwrap();
+        let meta = ws.read_meta().unwrap().unwrap();
+        let ids: Vec<&str> = meta["quickNotes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["a", "b"]);
+        assert_eq!(meta["pinned"][0], "x");
+        assert_eq!(meta["name"], "w");
+        // 빈 글이나 id 없는 메모는 거절하고 파일은 그대로 둔다
+        assert_eq!(
+            ws.append_quick_note(&serde_json::json!({"id":"c","text":"  "}))
+                .unwrap_err()
+                .code,
+            "invalid_note"
+        );
+        assert!(
+            ws.append_quick_note(&serde_json::json!({"text":"no id"}))
+                .is_err()
+        );
+        assert_eq!(
+            ws.read_meta().unwrap().unwrap()["quickNotes"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
     #[test]
     fn app_lock_refuses_a_live_owner_and_takes_over_a_dead_one() {
         let dir = tempfile::tempdir().unwrap();

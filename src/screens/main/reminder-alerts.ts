@@ -122,6 +122,8 @@ export function startReminderAlerts(): () => void {
   const ss = createStoreReminderScheduler({
     onFallback: showDue,
     onMissed: showDue,
+    isFocused: () => typeof document !== "undefined" && document.hasFocus(),
+    onFocused: showDue,
   });
   const unsubStore = remindersStore.subscribe((state) => ss.setList(state.list));
   ss.setList(remindersStore.getState().list);

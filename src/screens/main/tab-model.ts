@@ -16,6 +16,7 @@ export const sameTab = (a: Tab, b: Tab) =>
 export function tabOfView(view: MainView, activeId: string | null): Tab | null {
   if (view.kind === "home") return { kind: "home" };
   if (view.kind === "tag") return { kind: "tag", tag: view.tag };
+  if (view.kind === "reminders") return null;
   return activeId ? { kind: "page", id: activeId } : null;
 }
 

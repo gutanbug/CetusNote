@@ -214,6 +214,11 @@ export function createMemoryStorage(options: MemoryOptions = {}): Storage & {
       need();
       workspace = clone(meta);
     },
+    async appendQuickNote(note) {
+      need();
+      const base = normalizeWorkspace(workspace, info!.name);
+      workspace = { ...base, quickNotes: [...base.quickNotes, clone(note)] };
+    },
     async loadPageMeta() {
       need();
       return {

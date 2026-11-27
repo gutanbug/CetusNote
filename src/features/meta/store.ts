@@ -36,6 +36,25 @@ export type MetaState = {
 
 export type RemovedNote = { note: QuickNote; at: number };
 
+/**
+ * 빠른 메모 합치기. 빠른 입력 창이 디스크에 붙인 메모(`disk`)를 살리고, 이 창이 들고 있는 메모(`local`)를 더한다.
+ * `deleted`에 든 id는 이 창에서 지운 것이므로 디스크에 남아 있어도 뺀다.
+ */
+export function mergeQuickNotes(
+  disk: QuickNote[],
+  local: QuickNote[],
+  deleted: ReadonlySet<string>,
+): QuickNote[] {
+  const seen = new Set<string>();
+  const out: QuickNote[] = [];
+  for (const n of [...disk, ...local]) {
+    if (seen.has(n.id) || deleted.has(n.id)) continue;
+    seen.add(n.id);
+    out.push(n);
+  }
+  return out;
+}
+
 type MetaOptions = {
   delay?: number;
   now?: () => string;
@@ -59,6 +78,8 @@ export function createMetaStore(
    * 그 쓰기가 실패해도 워크스페이스 전환을 막지 않는다(DATA-03). 전환할 때는 이 값이 true일 때만 쓴다.
    */
   let dirty = false;
+  /** 이 창에서 지운 빠른 메모 id. 디스크에 남은 같은 메모를 저장할 때 다시 살리지 않는다 */
+  const deletedNotes = new Set<string>();
   return createStore<MetaState>()((set, get) => {
     const write = async () => {
       clearTimeout(timer);
@@ -69,7 +90,18 @@ export function createMetaStore(
       const wasDirty = dirty;
       dirty = false;
       try {
-        await storage.writeWorkspace(meta);
+        // 빠른 입력 창(별도 창)이 쓴 메모가 디스크에 있을 수 있다. 덮어쓰지 않도록 다시 읽어 합친다
+        let quickNotes = meta.quickNotes;
+        try {
+          const disk = await storage.readWorkspace();
+          quickNotes = mergeQuickNotes(disk.quickNotes ?? [], meta.quickNotes, deletedNotes);
+        } catch {
+          // 읽지 못하면 이 창이 든 목록만 쓴다(이전 동작과 같다)
+        }
+        const next = { ...meta, quickNotes };
+        await storage.writeWorkspace(next);
+        // 합쳐진 목록을 이 창에도 반영한다(그 사이 메모를 다시 읽는 일을 줄인다)
+        if (get().meta === meta) set({ meta: next });
         return true;
       } catch {
         // 태그 색·순서는 다음 변경 때 다시 쓴다. 노트 내용은 페이지 파일에 따로 있다
@@ -101,6 +133,7 @@ export function createMetaStore(
       async load() {
         clearTimeout(timer);
         dirty = false;
+        deletedNotes.clear();
         const gen = generation();
         let next: WorkspaceMeta | null;
         try {
@@ -170,12 +203,14 @@ export function createMetaStore(
         const { meta } = get();
         const at = meta?.quickNotes.findIndex((n) => n.id === id) ?? -1;
         if (!meta || at < 0) return undefined;
+        deletedNotes.add(id);
         change({ ...meta, quickNotes: meta.quickNotes.filter((n) => n.id !== id) });
         return { note: meta.quickNotes[at]!, at };
       },
       restoreQuickNote({ note, at }) {
         const { meta } = get();
         if (!meta || meta.quickNotes.some((n) => n.id === note.id)) return;
+        deletedNotes.delete(note.id);
         const quickNotes = [...meta.quickNotes];
         quickNotes.splice(Math.min(at, quickNotes.length), 0, note);
         change({ ...meta, quickNotes });
