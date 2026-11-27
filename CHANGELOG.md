@@ -21,9 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP Markdown now also handles images, attachments, subpages, table of contents and emoji like the app. Workspace images and attachments come back as image and attachment blocks, and page links become subpages or mentions when the page exists.
 - MCP Markdown now matches the app export for toggles, toggle headings, columns, callouts, tables, math, date chips and page links, both when reading pages and when writing them.
 - The math renderer (KaTeX) loads only when a page with equations is shown, so the app starts with less code. Equations show their LaTeX source in a muted style for a moment until it loads.
+- Property list: reorder properties by dragging the grip handle, or focus it and press Alt+Up or Alt+Down; the ▲/▼ buttons are gone.
 
 ### Fixed
 
+- Board cards keep their properties (date, tags, owner) on one line. Long tags shrink and cut off, and an overdue date no longer adds a word that makes one card's row wrap differently from the next. Overdue dates keep their red icon, and the "overdue" word stays for screen readers. (COLL-03)
+- Table view keeps the title column at a fixed width, so long titles no longer push the other columns. Long titles are cut with an ellipsis, and the full title shows on hover. (COLL-02)
 - Long pages open faster: code blocks with abbreviated languages (`ts`, `py`) are saved with the list name when the page loads, so opening no longer runs a fix-up pass over every block.
 - Slash commands such as Callout now work inside lists, quotes, toggles and other blocks.
 - Updating always installs the newest release, even when a newer one came out after the app last checked.

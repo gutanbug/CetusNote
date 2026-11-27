@@ -68,6 +68,8 @@ const COLUMN_TINT: Record<SoftColor, string> = {
 
 /** 다크에서 칩 바탕이 카드·칸과 거의 같아 가장자리가 죽는다. 글자색 테두리를 얇게 둘러 칩 윤곽을 살린다 (라이트 무변화) */
 const BOARD_CHIP = "dark:ring-1 dark:ring-inset dark:ring-current/35";
+/** 카드 속성 줄의 칩 — 줄이 모자라면 줄어든다(잘림은 칩 안 글자에서) */
+const BOARD_META_CHIP = `${BOARD_CHIP} min-w-0 shrink`;
 
 /** 칸 머리 계산 */
 export type BoardCalcKind = "count" | "due" | "late" | "none";
@@ -109,7 +111,7 @@ function Card({ item, dragging, className, ...props }: CardProps) {
       data-dragging={dragging || undefined}
       className={cn(
         // 라이트는 프로토타입(bg-app)과 같은 흰색. 다크는 칸보다 밝은 면이라 카드가 떠 보인다
-        "grid w-full cursor-grab gap-2 rounded-lg border border-line bg-board-card p-3 text-left",
+        "grid w-full min-w-0 cursor-grab grid-cols-1 gap-2 rounded-lg border border-line bg-board-card p-3 text-left",
         "transition-[background-color,opacity] duration-(--dur-fast) hover:bg-hover force-hover:bg-hover",
         "data-dragging:opacity-45",
         focusRing,
@@ -135,18 +137,24 @@ function Card({ item, dragging, className, ...props }: CardProps) {
         </span>
       </span>
       {meta ? (
-        <span className="flex flex-wrap items-center gap-1">
+        // 속성 줄은 한 줄을 넘기지 않는다. 날짜는 줄어들지 않고, 칩·담당·값은 줄어들며 잘린다.
+        // 그래도 넘치면 줄 끝에서 가린다(카드 폭이 같으면 줄 길이와 무관하게 높이가 같다).
+        <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
           {item.tags.map((t) => (
-            <TagChip key={t.name} color={t.color} className={BOARD_CHIP}>
+            <TagChip key={t.name} color={t.color} className={BOARD_META_CHIP}>
               {t.name}
             </TagChip>
           ))}
-          {item.assignee ? <Owner name={item.assignee} /> : null}
-          {item.due ? <DueText due={item.due} /> : null}
+          {item.assignee ? (
+            <span className="flex min-w-0 shrink">
+              <Owner name={item.assignee} />
+            </span>
+          ) : null}
+          {item.due ? <DueText due={item.due} compact /> : null}
           {extra.map((x) =>
             x.chips?.length ? (
               x.chips.map((c) => (
-                <TagChip key={`${x.key}:${c.name}`} color={c.color} className={BOARD_CHIP}>
+                <TagChip key={`${x.key}:${c.name}`} color={c.color} className={BOARD_META_CHIP}>
                   <span className="sr-only">{x.name}: </span>
                   {c.name}
                 </TagChip>
@@ -155,10 +163,10 @@ function Card({ item, dragging, className, ...props }: CardProps) {
               <span
                 key={x.key}
                 title={x.name}
-                className="inline-flex max-w-full items-center gap-1 text-label text-secondary"
+                className="inline-flex min-w-0 shrink items-center gap-1 text-label text-secondary"
               >
                 <span className="sr-only">{x.name}: </span>
-                <span className="truncate">{x.text}</span>
+                <span className="min-w-0 truncate">{x.text}</span>
               </span>
             ),
           )}

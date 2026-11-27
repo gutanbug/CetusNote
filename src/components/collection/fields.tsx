@@ -61,17 +61,38 @@ export function EmptyValue() {
  * 마감 표시. 지났으면 아이콘을 위험 색으로 바꾸고 "지남"을 붙인다
  * (글자는 보조 색 그대로 — hover 바탕에서도 대비 4.5:1을 지키게).
  */
-export function DueText({ due }: { due: NonNullable<RecordItem["due"]> }) {
+export function DueText({
+  due,
+  compact = false,
+}: {
+  due: NonNullable<RecordItem["due"]>;
+  /**
+   * 좁은 줄(보드 카드)용. 날짜가 줄어들지 않고, 지남은 글자 대신 위험 색 아이콘으로만 보인다.
+   * 글자는 스크린 리더용으로 남긴다.
+   */
+  compact?: boolean;
+}) {
   const m = useMessages();
   const Icon = due.late ? CalendarX : CalendarDays;
+  const late = due.late ? m.collection.fields.late : null;
   return (
     <span
       data-late={due.late || undefined}
-      className="inline-flex items-center gap-1 text-label whitespace-nowrap text-secondary"
+      title={compact && late ? `${due.text} · ${late}` : undefined}
+      className={cn(
+        "inline-flex items-center gap-1 text-label whitespace-nowrap text-secondary",
+        compact && "shrink-0",
+      )}
     >
       <Icon strokeWidth={1.5} aria-hidden className={cn("size-3.5", due.late && "text-danger")} />
       {due.text}
-      {due.late ? <span className="font-medium"> · {m.collection.fields.late}</span> : null}
+      {late ? (
+        compact ? (
+          <span className="sr-only"> · {late}</span>
+        ) : (
+          <span className="font-medium"> · {late}</span>
+        )
+      ) : null}
     </span>
   );
 }
@@ -81,7 +102,7 @@ export function Owner({ name }: { name: string }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1 text-label whitespace-nowrap text-secondary">
       <Avatar name={name} aria-hidden aria-label={undefined} role={undefined} />
-      <span className="truncate">{name}</span>
+      <span className="min-w-0 truncate">{name}</span>
     </span>
   );
 }

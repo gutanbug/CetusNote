@@ -5,12 +5,13 @@ import { expect, fireEvent, fn, userEvent, within } from "storybook/test";
 import {
   BOARD_PAGE,
   BoardView,
+  Card,
   type BoardColumn,
   type BoardPlace,
   type BoardViewProps,
 } from "./board-view";
 import type { RecordItem } from "./fields";
-import { SAMPLE_RECORDS } from "./sample";
+import { SAMPLE_ASSIGNEES, SAMPLE_RECORDS } from "./sample";
 
 /** 상태별 칸 — "상태 없음"은 레코드가 있을 때만 맨 앞에 */
 const columnsOf = (items: RecordItem[], statuses: StatusOption[]): BoardColumn[] => {
@@ -263,6 +264,71 @@ export const CardProperties: Story = {
       ),
       DEFAULT_STATUS_OPTIONS,
     ),
+  },
+};
+
+/** 같은 칩 수의 카드 — 하나는 지남(긴 글자), 하나는 아니다. 속성 줄은 모두 한 줄이어야 한다 */
+const META_CARD_LATE: RecordItem = {
+  id: "meta-late",
+  title: "온보딩 문서 개편",
+  status: "할 일",
+  statusColor: "gray",
+  tags: [
+    { name: "INNOGRID", color: "blue" },
+    { name: "이슈", color: "red" },
+  ],
+  due: { date: "2026-10-02", text: "10월 2일", late: true },
+};
+const META_CARD_ON_TIME: RecordItem = {
+  id: "meta-ok",
+  title: "주간 회의 정리",
+  status: "할 일",
+  statusColor: "gray",
+  tags: [
+    { name: "INNOGRID", color: "blue" },
+    { name: "작업", color: "green" },
+  ],
+  due: { date: "2026-11-27", text: "11월 27일", late: false },
+};
+const META_CARD_LONG: RecordItem = {
+  id: "meta-long",
+  title: "긴 태그와 담당이 함께 있는 카드",
+  status: "할 일",
+  statusColor: "gray",
+  assignee: SAMPLE_ASSIGNEES[0],
+  tags: [
+    { name: "아주 긴 태그 이름의 칩입니다", color: "green" },
+    { name: "INNOGRID", color: "blue" },
+    { name: "이슈", color: "red" },
+  ],
+  due: { date: "2026-10-02", text: "10월 2일", late: true },
+};
+export const CardMetaOneLine: Story = {
+  args: { columns: [] },
+  render: () => (
+    <div className="grid w-72 gap-3 bg-app p-6">
+      <Card item={META_CARD_LATE} />
+      <Card item={META_CARD_ON_TIME} />
+      <Card item={META_CARD_LONG} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const cards = canvasElement.querySelectorAll<HTMLElement>('[data-slot="collection-card"]');
+    await expect(cards).toHaveLength(3);
+    const meta = [...cards].map((c) => c.querySelector<HTMLElement>(":scope > span.flex-nowrap"));
+    const [late, onTime, long] = meta.map((el) => {
+      if (!el) throw new Error("meta row not found");
+      return el;
+    });
+    const h = (el: HTMLElement) => el.getBoundingClientRect().height;
+    // 한 줄 높이(칩 22px)보다 작아야 한다 — 두 줄이면 약 48px
+    await expect(h(late!)).toBeLessThan(30);
+    await expect(h(onTime!)).toBeLessThan(30);
+    await expect(h(long!)).toBeLessThan(30);
+    // 지남이 있어도 같은 높이 (글자는 시각에서만 빠지고 스크린 리더에는 남는다)
+    await expect(h(late!)).toBe(h(onTime!));
+    await expect(cards[0]).toHaveTextContent("지남");
+    await expect(cards[1]).not.toHaveTextContent("지남");
   },
 };
 

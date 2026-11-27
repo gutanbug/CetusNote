@@ -55,7 +55,7 @@ function TagChip({ color, onRemove, removeLabel, className, children, ...props }
       className={cn(chipBase, softColor({ color }), onRemove && "group/chip", className)}
       {...props}
     >
-      <span className="truncate">{children}</span>
+      <span className="min-w-0 truncate">{children}</span>
       {onRemove ? (
         <button
           type="button"

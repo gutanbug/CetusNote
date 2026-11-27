@@ -353,7 +353,7 @@ function GridView({
           aria-colcount={span}
           onKeyDownCapture={onKeyDownCapture}
           onFocus={onFocus}
-          className="w-full min-w-190 border-collapse text-ui"
+          className="w-full min-w-190 table-fixed border-collapse text-ui"
         >
           <thead role="rowgroup">
             <tr role="row" aria-rowindex={1}>
@@ -361,7 +361,7 @@ function GridView({
                 scope="col"
                 role="columnheader"
                 aria-colindex={1}
-                className={cn(th, "w-2/5", titleTh, scrolled && titleEdge)}
+                className={cn(th, "w-80", titleTh, scrolled && titleEdge)}
               >
                 <Type {...ic} />
                 {m.collection.grid.title}
@@ -535,7 +535,9 @@ const GridRow = React.memo(function GridRow({
             ) : (
               <FileText {...ic} className="size-4 shrink-0 text-tertiary" />
             )}
-            <span className="truncate">{name}</span>
+            <span className="min-w-0 truncate" title={name}>
+              {name}
+            </span>
           </button>
           <IconButton
             label={m.collection.grid.openPage(name)}

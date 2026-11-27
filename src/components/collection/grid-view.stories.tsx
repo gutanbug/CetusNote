@@ -91,6 +91,51 @@ function manyItems(n: number): RecordItem[] {
 
 const tenThousand = manyItems(10_000);
 
+const titled = (title: (i: number) => string): RecordItem[] =>
+  Array.from({ length: 4 }, (_, i) => ({
+    id: `tw${i}`,
+    title: title(i),
+    status: "할 일",
+    statusColor: "gray" as const,
+    assignee: SAMPLE_ASSIGNEES[0],
+    due: { date: "2026-11-27", text: "11월 27일", late: false },
+    tags: [{ name: "회의", color: "blue" as const }],
+  }));
+const SHORT_TITLES = titled((i) => `짧은 ${i + 1}`);
+const LONG_TITLES = titled(
+  (i) => `아주 긴 제목 ${i + 1} `.repeat(12) + "끝 — 열 너비는 제목 길이와 상관없다",
+);
+
+/**
+ * 제목 열 너비는 긴 제목에도 짧은 제목에도 같다 (표 고정 너비). 긴 제목은 말줄임되고 전체는 title 속성에 있다.
+ */
+export const TitleColumnWidth: Story = {
+  args: { items: [] },
+  render: (args) => (
+    <div className="grid w-220 gap-6">
+      <GridView {...args} items={SHORT_TITLES} />
+      <GridView {...args} items={LONG_TITLES} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const tables = canvasElement.querySelectorAll<HTMLTableElement>('table[role="grid"]');
+    await expect(tables).toHaveLength(2);
+    const [short, long] = [...tables].map((t) =>
+      [...t.querySelectorAll<HTMLElement>("thead th")].map(
+        (th) => th.getBoundingClientRect().width,
+      ),
+    );
+    await expect(short[0]).toBeGreaterThan(200);
+    // 모든 열의 너비가 두 표에서 같다 (제목 열뿐 아니라 뒤 열도 밀리지 않는다)
+    await expect(short).toHaveLength(long.length);
+    short.forEach((w, i) => expect(Math.abs(w - long[i]!)).toBeLessThan(1));
+    const longTitle = tables[1]!.querySelector<HTMLElement>('td[data-col="0"] span[title]');
+    await expect(longTitle).not.toBeNull();
+    await expect(longTitle!.scrollWidth).toBeGreaterThan(longTitle!.clientWidth);
+    await expect(longTitle).toHaveAttribute("title", expect.stringContaining("끝"));
+  },
+};
+
 /**
  * 1만 행: 화면에 보이는 행과 여유 행만 DOM에 그린다. aria-rowcount는 전체 수, 키보드로 멀리 내려가면 따라간다 (SYS-11)
  */
